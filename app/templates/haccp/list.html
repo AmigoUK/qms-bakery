@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title_suffix %} · HACCP / CCP{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>HACCP — Critical Control Points</h1>
+</header>
+
+{% if ccps %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('haccp.code') }}</th>
+      <th>{{ _('haccp.name') }}</th>
+      <th>{{ _('haccp.parameter') }}</th>
+      <th>{{ _('haccp.limits') }}</th>
+      <th>{{ _('haccp.line') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in ccps %}
+    <tr>
+      <td><a href="{{ url_for('haccp.detail', ccp_id=c.id) }}">{{ c.code }}</a></td>
+      <td>{{ c.name | i18n }}</td>
+      <td>{{ c.parameter }}</td>
+      <td>
+        {% if c.critical_limit_min is not none %}{{ c.critical_limit_min }}{% else %}—{% endif %}
+        …
+        {% if c.critical_limit_max is not none %}{{ c.critical_limit_max }}{% else %}—{% endif %}
+        {{ c.unit }}
+      </td>
+      <td>{{ c.line.code if c.line else '—' }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">{{ _('haccp.empty') }}</p>
+{% endif %}
+{% endblock %}

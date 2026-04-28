@@ -1,5 +1,6 @@
 from app.models.audit import AuditLog
 from app.models.auth import Permission, Role, User, UserRoleEnum, role_permissions
+from app.models.haccp import CCPDefinition, CCPMeasurement
 from app.models.production import Pipeline, PipelineStage, ProductionLine
 from app.models.tickets import (
     Ticket,
@@ -12,6 +13,8 @@ from app.models.tickets import (
 
 __all__ = [
     "AuditLog",
+    "CCPDefinition",
+    "CCPMeasurement",
     "Permission",
     "Pipeline",
     "PipelineStage",

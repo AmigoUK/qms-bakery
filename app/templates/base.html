@@ -17,6 +17,9 @@
       {% if current_user.is_authenticated %}
         <a href="{{ url_for('dashboard.index') }}">{{ _('nav.dashboard') }}</a>
         <a href="{{ url_for('tickets.index') }}">{{ _('nav.tickets') }}</a>
+        {% if current_user.has_permission('ccp.measure') %}
+          <a href="{{ url_for('haccp.index') }}">{{ _('nav.haccp') }}</a>
+        {% endif %}
       {% endif %}
     </nav>
     <div class="topright">

@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.auth import hash_password
 from app.extensions import db
 from app.models.auth import Permission, Role, User, UserRoleEnum
+from app.models.haccp import CCPDefinition
 from app.models.production import Pipeline, PipelineStage, ProductionLine
 
 
@@ -103,7 +104,49 @@ def seed_initial(admin_email: str = "admin@local", admin_password: str = "Change
     _seed_roles()
     _seed_admin(admin_email, admin_password)
     _seed_demo_line()
+    _seed_demo_ccps()
     db.session.commit()
+
+
+def _seed_demo_ccps() -> None:
+    line = ProductionLine.query.filter_by(code="LINE_A").first()
+    if line is None:
+        return
+    if CCPDefinition.query.filter_by(line_id=line.id).first():
+        return
+    db.session.add_all(
+        [
+            CCPDefinition(
+                line_id=line.id,
+                code="CCP-OVEN-1",
+                name={"pl": "Temperatura pieca 1", "en": "Oven 1 temperature"},
+                parameter="temperature",
+                unit="°C",
+                critical_limit_min=180.0,
+                critical_limit_max=220.0,
+                monitoring_frequency_minutes=15,
+                corrective_action={
+                    "pl": "Wstrzymaj produkcję, sprawdź czujnik, skalibruj.",
+                    "en": "Halt production, inspect probe, recalibrate.",
+                },
+            ),
+            CCPDefinition(
+                line_id=line.id,
+                code="CCP-CORE-TEMP",
+                name={"pl": "Temperatura wewnętrzna pieczywa", "en": "Bread core temperature"},
+                parameter="temperature",
+                unit="°C",
+                critical_limit_min=92.0,
+                critical_limit_max=None,
+                monitoring_frequency_minutes=60,
+                corrective_action={
+                    "pl": "Wstrzymaj partię, wydłuż czas pieczenia.",
+                    "en": "Hold batch, extend bake time.",
+                },
+            ),
+        ]
+    )
+    db.session.flush()
 
 
 def _seed_permissions() -> None:

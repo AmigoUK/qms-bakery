@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ ccp.code }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>{{ ccp.code }} — {{ ccp.name | i18n }}</h1>
+    <p class="subtitle">
+      {{ ccp.parameter }} ·
+      {% if ccp.critical_limit_min is not none %}{{ ccp.critical_limit_min }}{% else %}—{% endif %} …
+      {% if ccp.critical_limit_max is not none %}{{ ccp.critical_limit_max }}{% else %}—{% endif %}
+      {{ ccp.unit }}
+    </p>
+  </div>
+</header>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>{{ _('haccp.record_measurement') }}</h2>
+    <form method="post" novalidate>
+      {{ form.csrf_token }}
+      <label>
+        <span>{{ _('haccp.value') }} ({{ ccp.unit }})</span>
+        {{ form.value(step="any", required=True, type="number") }}
+      </label>
+      <label>
+        <span>{{ _('haccp.device_id') }}</span>
+        {{ form.device_id() }}
+      </label>
+      <label>
+        <span>{{ _('haccp.notes') }}</span>
+        {{ form.notes() }}
+      </label>
+      <button class="btn btn-primary" type="submit">{{ _('haccp.submit') }}</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>{{ _('haccp.recent') }}</h2>
+    {% if measurements %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>{{ _('haccp.measured_at') }}</th>
+          <th>{{ _('haccp.value') }}</th>
+          <th>{{ _('haccp.field.status') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in measurements %}
+        <tr>
+          <td>{{ m.measured_at.strftime('%Y-%m-%d %H:%M') }}</td>
+          <td>{{ m.measured_value }} {{ ccp.unit }}</td>
+          <td>
+            {% if m.is_within_limits %}
+              <span class="status status-closed">OK</span>
+            {% else %}
+              <span class="status status-escalated">!</span>
+              {% if m.linked_ticket %}
+                <a href="{{ url_for('tickets.detail', ticket_id=m.linked_ticket.id) }}">{{ m.linked_ticket.ticket_number }}</a>
+              {% endif %}
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="empty">{{ _('haccp.no_measurements') }}</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}
