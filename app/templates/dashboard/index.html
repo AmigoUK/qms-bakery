@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('dashboard.title') }}{% endblock %}
+{% block content %}
+<h1>{{ _('dashboard.title') }}</h1>
+
+<section class="kpi-grid">
+  <div class="kpi">
+    <div class="kpi-value">{{ stats.open_tickets }}</div>
+    <div class="kpi-label">{{ _('dashboard.open_tickets') }}</div>
+  </div>
+  <div class="kpi kpi-warn">
+    <div class="kpi-value">{{ stats.high_severity }}</div>
+    <div class="kpi-label">{{ _('dashboard.high_severity') }}</div>
+  </div>
+  <div class="kpi kpi-ok">
+    <div class="kpi-value">{{ stats.closed_today }}</div>
+    <div class="kpi-label">{{ _('dashboard.closed_today') }}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">{{ stats.production_lines }}</div>
+    <div class="kpi-label">{{ _('dashboard.production_lines') }}</div>
+  </div>
+</section>
+
+<section class="card">
+  <header class="card-head">
+    <h2>{{ _('tickets.list.title') }}</h2>
+    <a class="btn btn-primary" href="{{ url_for('tickets.create') }}">+ {{ _('tickets.create.title') }}</a>
+  </header>
+  {% if recent_tickets %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>{{ _('tickets.field.title') }}</th>
+          <th>{{ _('tickets.field.severity') }}</th>
+          <th>{{ _('tickets.field.status') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for t in recent_tickets %}
+        <tr>
+          <td><a href="{{ url_for('tickets.detail', ticket_id=t.id) }}">{{ t.ticket_number }}</a></td>
+          <td>{{ t.title }}</td>
+          <td><span class="sev sev-{{ t.severity }}">{{ _('tickets.severity.' + t.severity) }}</span></td>
+          <td><span class="status status-{{ t.status }}">{{ _('tickets.status.' + t.status) }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">{{ _('tickets.list.empty') }}</p>
+  {% endif %}
+</section>
+{% endblock %}

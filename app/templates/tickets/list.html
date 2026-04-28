@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('tickets.list.title') }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ _('tickets.list.title') }}</h1>
+  {% if current_user.has_permission('tickets.create') %}
+    <a class="btn btn-primary" href="{{ url_for('tickets.create') }}">+ {{ _('tickets.create.title') }}</a>
+  {% endif %}
+</header>
+
+<form class="filters" method="get">
+  <label>
+    <input type="checkbox" name="open" value="1" {% if open_only %}checked{% endif %}
+           onchange="this.form.submit()">
+    {{ _('tickets.status.new') }} / {{ _('tickets.status.in_progress') }}
+  </label>
+</form>
+
+{% if tickets %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>{{ _('tickets.field.title') }}</th>
+      <th>{{ _('tickets.field.line') }}</th>
+      <th>{{ _('tickets.field.category') }}</th>
+      <th>{{ _('tickets.field.severity') }}</th>
+      <th>{{ _('tickets.field.status') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in tickets %}
+    <tr>
+      <td><a href="{{ url_for('tickets.detail', ticket_id=t.id) }}">{{ t.ticket_number }}</a></td>
+      <td>{{ t.title }}</td>
+      <td>{{ t.line.code if t.line else '—' }}</td>
+      <td>{{ t.category }}</td>
+      <td><span class="sev sev-{{ t.severity }}">{{ _('tickets.severity.' + t.severity) }}</span></td>
+      <td><span class="status status-{{ t.status }}">{{ _('tickets.status.' + t.status) }}</span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">{{ _('tickets.list.empty') }}</p>
+{% endif %}
+{% endblock %}

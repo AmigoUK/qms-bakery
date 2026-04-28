@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('auth.login.title') }}{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>{{ _('auth.login.title') }}</h1>
+  {% if error %}<div class="flash flash-danger">{{ error }}</div>{% endif %}
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('auth.login.email') }}</span>
+      {{ form.email(autocomplete="username", required=True, type="email") }}
+    </label>
+    <label>
+      <span>{{ _('auth.login.password') }}</span>
+      {{ form.password(autocomplete="current-password", required=True) }}
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _('auth.login.submit') }}</button>
+  </form>
+</div>
+{% endblock %}

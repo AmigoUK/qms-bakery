@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+.mypy_cache/
+
+# Virtual envs
+.venv/
+venv/
+.uv/
+
+# Environment
+.env
+.env.local
+*.local
+
+# Flask
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Babel build artifacts
+*.mo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Compiled translations
+app/translations/**/LC_MESSAGES/*.mo
+
+# Uploads / data
+uploads/
+data/

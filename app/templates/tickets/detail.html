@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ ticket.ticket_number }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>{{ ticket.ticket_number }}</h1>
+    <h2 class="subtitle">{{ ticket.title }}</h2>
+  </div>
+  <div class="badges">
+    <span class="sev sev-{{ ticket.severity }}">{{ _('tickets.severity.' + ticket.severity) }}</span>
+    <span class="status status-{{ ticket.status }}">{{ _('tickets.status.' + ticket.status) }}</span>
+  </div>
+</header>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>{{ _('tickets.field.description') }}</h2>
+    {% if ticket.description %}
+      <p class="prose">{{ ticket.description }}</p>
+    {% else %}
+      <p class="empty">—</p>
+    {% endif %}
+
+    <dl class="meta">
+      <dt>{{ _('tickets.field.line') }}</dt><dd>{{ ticket.line.code if ticket.line else '—' }}</dd>
+      <dt>{{ _('tickets.field.category') }}</dt><dd>{{ ticket.category }}</dd>
+      <dt>{{ _('tickets.field.assignee') }}</dt>
+      <dd>{{ ticket.assignee.full_name if ticket.assignee else '—' }}</dd>
+    </dl>
+  </section>
+
+  <section class="card">
+    <h2>Timeline</h2>
+    <ol class="timeline">
+      {% for ev in ticket.events %}
+      <li class="timeline-item">
+        <time>{{ ev.occurred_at.strftime('%Y-%m-%d %H:%M') }}</time>
+        <strong>{{ ev.event_type }}</strong>
+        {% if ev.from_status and ev.to_status %}
+          <span>{{ ev.from_status }} → {{ ev.to_status }}</span>
+        {% endif %}
+        {% if ev.user %}<em>by {{ ev.user.full_name }}</em>{% endif %}
+        {% if ev.comment %}<p>{{ ev.comment }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+</div>
+
+{% if current_user.has_permission('tickets.classify') %}
+<section class="card">
+  <h2>{{ _('tickets.action.add_comment') }}</h2>
+  <form method="post">
+    {{ comment_form.csrf_token }}
+    {{ comment_form.comment(rows=3, required=True) }}
+    <button class="btn btn-primary" type="submit">{{ _('tickets.action.add_comment') }}</button>
+  </form>
+</section>
+
+<section class="card">
+  <h2>{{ _('tickets.action.advance') }}</h2>
+  <form action="{{ url_for('tickets.transition', ticket_id=ticket.id) }}" method="post" class="inline-actions">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    {% if ticket.status == 'new' %}
+      <button class="btn btn-secondary" type="submit" name="status" value="assigned">→ {{ _('tickets.status.assigned') }}</button>
+    {% elif ticket.status == 'assigned' %}
+      <button class="btn btn-secondary" type="submit" name="status" value="in_progress">→ {{ _('tickets.status.in_progress') }}</button>
+    {% elif ticket.status == 'in_progress' %}
+      <button class="btn btn-secondary" type="submit" name="status" value="awaiting_verification">→ {{ _('tickets.status.awaiting_verification') }}</button>
+    {% elif ticket.status == 'awaiting_verification' and current_user.has_permission('tickets.close') %}
+      <button class="btn btn-primary" type="submit" name="status" value="closed">{{ _('tickets.action.close') }}</button>
+    {% endif %}
+  </form>
+</section>
+{% endif %}
+{% endblock %}

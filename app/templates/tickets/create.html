@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('tickets.create.title') }}{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>{{ _('tickets.create.title') }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('tickets.field.line') }}</span>
+      {{ form.line_id() }}
+    </label>
+    <label>
+      <span>{{ _('tickets.field.title') }}</span>
+      {{ form.title(required=True, maxlength=200) }}
+    </label>
+    <label>
+      <span>{{ _('tickets.field.description') }}</span>
+      {{ form.description(rows=5) }}
+    </label>
+    <div class="row">
+      <label>
+        <span>{{ _('tickets.field.severity') }}</span>
+        {{ form.severity() }}
+      </label>
+      <label>
+        <span>{{ _('tickets.field.category') }}</span>
+        {{ form.category() }}
+      </label>
+    </div>
+    <div class="actions">
+      <a class="btn btn-ghost" href="{{ url_for('tickets.index') }}">{{ _('common.cancel') }}</a>
+      <button class="btn btn-primary" type="submit">{{ _('tickets.create.submit') }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

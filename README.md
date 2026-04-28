@@ -50,12 +50,102 @@ graph LR
 
 Szczegóły — patrz dokumenty `01-` i `02-`.
 
-## Następne kroki
+## Status implementacji (Faza 1 — MVP)
 
-1. Przegląd dokumentacji przez Compliance Officera oraz architekta.
-2. Setup repozytorium: `pyproject.toml` (UV), `Dockerfile`, `docker-compose.yml`.
-3. Inicjalna migracja Alembic z tabelami z sekcji 4 dokumentu `01-`.
-4. Implementacja Fazy 1 (MVP) zgodnie z planem wdrożenia.
+✅ **Co już działa** (uruchamialne):
+
+- Flask app factory + konfiguracja (UV, `pyproject.toml`)
+- Modele SQLAlchemy 2.0: User, Role, Permission, ProductionLine, Pipeline, PipelineStage, Ticket, TicketEvent, AuditLog
+- Auth + RBAC (bcrypt, lockout, dekorator `@require_permission`)
+- Tickets: CRUD, state machine (NEW → ASSIGNED → IN_PROGRESS → AWAITING_VERIFICATION → CLOSED), komentarze
+- Audit trail z chain-hashing SHA-256 + weryfikacja łańcucha
+- i18n PL/EN przez JSON message catalogs
+- Frontend HTML/CSS/JS (Jinja2) — login, dashboard, lista i szczegół ticketu
+- Seed data: 6 ról, 17 uprawnień, demo linia z 6-etapowym pipeline'em
+- 26 testów (pytest), wszystkie zielone
+- Docker Compose (Postgres 16 + Redis + Mosquitto + app)
+
+⏳ **W planie kolejnych faz** (patrz `01-plan-...` sekcja 8):
+
+- Pipeline configurator (drag-drop UI)
+- HACCP/CCP moduł (definicje + pomiary)
+- SALSA checklisty
+- MQTT Bridge (IoT)
+- Trigger engine + respondery (RQ worker)
+- Raporty PDF (HACCP miesięczny, FSA traceability)
+- Alembic migrations (zamiast `db.create_all()`)
+- 2FA (TOTP)
+
+## Szybki start (lokalnie, bez Dockera)
+
+```bash
+# 1. Wirtualne środowisko + zależności
+uv venv --python 3.12
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+
+# 2. Konfiguracja
+cp .env.example .env
+# Wygeneruj SECRET_KEY: python -c "import secrets; print(secrets.token_hex(32))"
+
+# 3. Inicjalizacja bazy + seed
+export FLASK_APP=app:create_app
+flask init-db
+
+# 4. Uruchomienie
+flask run
+# → http://localhost:5000
+# Domyślne konto: admin@local / ChangeMe123!
+```
+
+## Szybki start (Docker Compose)
+
+```bash
+echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" > .env
+docker compose up -d postgres redis
+docker compose run --rm app flask init-db
+docker compose up app
+```
+
+## Testy
+
+```bash
+PYTHONPATH=. python3 -m pytest -v
+# 26 passed in ~1.5s
+```
+
+Testy używają SQLite in-memory dla szybkości; produkcja — PostgreSQL 16 (patrz `docker-compose.yml`).
+
+## Struktura projektu
+
+```
+app/
+├── __init__.py            # Flask app factory
+├── extensions.py          # db, login_manager, csrf
+├── i18n.py                # PL/EN message catalogs
+├── auth.py                # password hashing, RBAC decorator
+├── seeds.py               # idempotent seed data
+├── models/
+│   ├── _base.py           # UUIDPKMixin, TimestampMixin
+│   ├── auth.py            # User, Role, Permission
+│   ├── production.py      # ProductionLine, Pipeline, PipelineStage
+│   ├── tickets.py         # Ticket, TicketEvent + state machine
+│   └── audit.py           # AuditLog (chain-hashed)
+├── services/
+│   ├── audit.py           # record(), verify_chain()
+│   └── tickets.py         # create_ticket, transition, list_tickets
+├── blueprints/
+│   ├── auth.py            # /auth/login, /auth/logout, /auth/lang/<code>
+│   ├── dashboard.py       # /
+│   └── tickets.py         # /tickets/*
+├── templates/             # Jinja2 templates
+├── static/css/app.css     # Hand-written CSS, mobile-first
+└── translations/
+    ├── pl.json
+    └── en.json
+
+tests/                     # pytest (26 tests, SQLite in-memory)
+```
 
 ## Zespół
 

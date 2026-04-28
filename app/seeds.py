@@ -1,0 +1,178 @@
+"""Idempotent seed data - roles, permissions, default admin, demo line."""
+
+from __future__ import annotations
+
+from app.auth import hash_password
+from app.extensions import db
+from app.models.auth import Permission, Role, User, UserRoleEnum
+from app.models.production import Pipeline, PipelineStage, ProductionLine
+
+
+PERMISSIONS: list[tuple[str, str]] = [
+    ("tickets.create", "Create tickets"),
+    ("tickets.classify", "Classify tickets"),
+    ("tickets.corrective_action", "Apply corrective action"),
+    ("tickets.close", "Close tickets"),
+    ("tickets.view", "View tickets"),
+    ("ccp.measure", "Record CCP measurements"),
+    ("ccp.define", "Define CCP parameters"),
+    ("salsa.respond", "Respond to SALSA checklists"),
+    ("salsa.define", "Define SALSA checklists"),
+    ("pipeline.configure", "Configure pipelines"),
+    ("triggers.define", "Define triggers and responders"),
+    ("users.manage", "Manage users"),
+    ("audit.export", "Export audit trail"),
+    ("audit.view", "View audit trail"),
+    ("reports.generate", "Generate reports"),
+    ("dashboard.view", "View dashboards"),
+    ("system.configure", "Configure system"),
+]
+
+
+ROLE_PERMISSIONS: dict[str, list[str]] = {
+    UserRoleEnum.OPERATOR.value: [
+        "tickets.create",
+        "tickets.view",
+        "ccp.measure",
+        "salsa.respond",
+        "dashboard.view",
+    ],
+    UserRoleEnum.QA.value: [
+        "tickets.create",
+        "tickets.view",
+        "tickets.classify",
+        "tickets.corrective_action",
+        "ccp.measure",
+        "salsa.respond",
+        "dashboard.view",
+        "reports.generate",
+        "audit.view",
+    ],
+    UserRoleEnum.LINE_MANAGER.value: [
+        "tickets.create",
+        "tickets.view",
+        "tickets.classify",
+        "tickets.corrective_action",
+        "tickets.close",
+        "ccp.measure",
+        "salsa.respond",
+        "dashboard.view",
+        "reports.generate",
+        "audit.view",
+    ],
+    UserRoleEnum.COMPLIANCE.value: [
+        "tickets.create",
+        "tickets.view",
+        "tickets.classify",
+        "tickets.corrective_action",
+        "tickets.close",
+        "ccp.measure",
+        "ccp.define",
+        "salsa.respond",
+        "salsa.define",
+        "pipeline.configure",
+        "triggers.define",
+        "audit.view",
+        "audit.export",
+        "reports.generate",
+        "dashboard.view",
+    ],
+    UserRoleEnum.PLANT_MANAGER.value: [
+        "tickets.view",
+        "dashboard.view",
+        "reports.generate",
+        "audit.view",
+    ],
+    UserRoleEnum.ADMIN.value: [code for code, _ in PERMISSIONS],
+}
+
+
+ROLE_LABELS: dict[str, tuple[str, str]] = {
+    UserRoleEnum.OPERATOR.value: ("Operator produkcji", "Production operator"),
+    UserRoleEnum.QA.value: ("Specjalista QA", "QA specialist"),
+    UserRoleEnum.LINE_MANAGER.value: ("Kierownik linii", "Line manager"),
+    UserRoleEnum.COMPLIANCE.value: ("Compliance Officer", "Compliance officer"),
+    UserRoleEnum.PLANT_MANAGER.value: ("Kierownik zakładu", "Plant manager"),
+    UserRoleEnum.ADMIN.value: ("Administrator", "Administrator"),
+}
+
+
+def seed_initial(admin_email: str = "admin@local", admin_password: str = "ChangeMe123!") -> None:
+    """Idempotent seeding - safe to call multiple times."""
+    _seed_permissions()
+    _seed_roles()
+    _seed_admin(admin_email, admin_password)
+    _seed_demo_line()
+    db.session.commit()
+
+
+def _seed_permissions() -> None:
+    existing = {p.code for p in Permission.query.all()}
+    for code, desc in PERMISSIONS:
+        if code not in existing:
+            db.session.add(Permission(code=code, description=desc))
+    db.session.flush()
+
+
+def _seed_roles() -> None:
+    perms = {p.code: p for p in Permission.query.all()}
+    for role_code, perm_codes in ROLE_PERMISSIONS.items():
+        role = Role.query.filter_by(code=role_code).first()
+        name_pl, name_en = ROLE_LABELS[role_code]
+        if role is None:
+            role = Role(code=role_code, name_pl=name_pl, name_en=name_en)
+            db.session.add(role)
+            db.session.flush()
+        role.permissions = [perms[c] for c in perm_codes if c in perms]
+    db.session.flush()
+
+
+def _seed_admin(email: str, password: str) -> None:
+    if User.query.filter_by(email=email).first():
+        return
+    admin_role = Role.query.filter_by(code=UserRoleEnum.ADMIN.value).first()
+    if not admin_role:
+        return
+    admin = User(
+        email=email,
+        password_hash=hash_password(password),
+        full_name="Administrator",
+        language="en",
+        role_id=admin_role.id,
+    )
+    db.session.add(admin)
+    db.session.flush()
+
+
+def _seed_demo_line() -> None:
+    if ProductionLine.query.filter_by(code="LINE_A").first():
+        return
+    line = ProductionLine(code="LINE_A", name="Line A — Bread", location="Zone 1")
+    db.session.add(line)
+    db.session.flush()
+
+    pipeline = Pipeline(line_id=line.id, version=1, is_active=True)
+    db.session.add(pipeline)
+    db.session.flush()
+
+    stages = [
+        ("detection", {"pl": "Wykrycie", "en": "Detection"}, None, 5, False),
+        ("classification", {"pl": "Klasyfikacja", "en": "Classification"}, "qa", 15, False),
+        ("analysis", {"pl": "Analiza", "en": "Analysis"}, "qa", 60, True),
+        ("corrective", {"pl": "Akcja korygująca", "en": "Corrective action"}, "line_manager", 120, False),
+        ("verification", {"pl": "Weryfikacja", "en": "Verification"}, "qa", 60, False),
+        ("closure", {"pl": "Zamknięcie", "en": "Closure"}, "line_manager", 30, False),
+    ]
+    for idx, (code, name, role, sla, ccp) in enumerate(stages):
+        db.session.add(
+            PipelineStage(
+                pipeline_id=pipeline.id,
+                order_index=idx,
+                code=code,
+                name=name,
+                required_role_code=role,
+                sla_minutes=sla,
+                is_ccp_checkpoint=ccp,
+            )
+        )
+    db.session.flush()
