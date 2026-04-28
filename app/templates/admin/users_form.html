@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.users') }}{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>{% if edit %}{{ _('admin.users.edit') }}{% else %}{{ _('admin.users.new') }}{% endif %}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label><span>{{ _('auth.login.email') }}</span>
+      {{ form.email(required=True, type="email", disabled=edit) }}
+    </label>
+    <label><span>{{ _('admin.users.full_name') }}</span>{{ form.full_name(required=True) }}</label>
+    <label><span>{{ _('admin.users.role') }}</span>{{ form.role_code() }}</label>
+    <label><span>{{ _('admin.users.language') }}</span>{{ form.language() }}</label>
+    <label>
+      <span>{{ _('auth.login.password') }} {% if edit %}({{ _('admin.users.leave_blank') }}){% endif %}</span>
+      {{ form.password(type="password", autocomplete="new-password", minlength=8) }}
+    </label>
+    <label class="inline">{{ form.is_active() }} {{ _('admin.users.active') }}</label>
+    <div class="actions">
+      <a class="btn btn-ghost" href="{{ url_for('admin.users_index') }}">{{ _('common.cancel') }}</a>
+      <button class="btn btn-primary" type="submit">{{ _('common.save') }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

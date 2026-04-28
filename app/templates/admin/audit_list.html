@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.audit') }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ _('admin.audit') }}</h1>
+  {% if chain_ok %}
+    <span class="status status-closed">{{ _('admin.audit.chain_ok') }}</span>
+  {% else %}
+    <span class="status status-escalated">{{ _('admin.audit.chain_broken') }} #{{ broken_id }}</span>
+  {% endif %}
+</header>
+
+<table class="data">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>{{ _('admin.when') }}</th>
+      <th>{{ _('admin.entity') }}</th>
+      <th>ID</th>
+      <th>{{ _('admin.action') }}</th>
+      <th>{{ _('admin.users') }}</th>
+      <th>checksum…</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.id }}</td>
+      <td>{{ r.occurred_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      <td>{{ r.entity_type }}</td>
+      <td><small>{{ r.entity_id or '—' }}</small></td>
+      <td>{{ r.action }}</td>
+      <td><small>{{ r.user_id or '—' }}</small></td>
+      <td><code>{{ r.checksum[:12] }}…</code></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<nav class="filters">
+  {% if page > 1 %}<a class="btn btn-ghost" href="?page={{ page - 1 }}">‹ {{ _('common.prev') if _('common.prev') != 'common.prev' else 'Prev' }}</a>{% endif %}
+  <span>{{ page }}</span>
+  {% if rows | length == page_size %}<a class="btn btn-ghost" href="?page={{ page + 1 }}">{{ _('common.next') if _('common.next') != 'common.next' else 'Next' }} ›</a>{% endif %}
+</nav>
+{% endblock %}

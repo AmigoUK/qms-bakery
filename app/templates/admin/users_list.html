@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.users') }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ _('admin.users') }}</h1>
+  <a class="btn btn-primary" href="{{ url_for('admin.users_new') }}">+ {{ _('admin.users.new') }}</a>
+</header>
+
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('auth.login.email') }}</th>
+      <th>{{ _('admin.users.full_name') }}</th>
+      <th>{{ _('admin.users.role') }}</th>
+      <th>{{ _('admin.users.language') }}</th>
+      <th>{{ _('admin.users.active') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.email }}</td>
+      <td>{{ u.full_name }}</td>
+      <td>{{ u.role.code if u.role else '—' }}</td>
+      <td>{{ u.language }}</td>
+      <td>{{ _('common.yes') if u.is_active_flag else _('common.no') }}</td>
+      <td><a class="btn btn-secondary" href="{{ url_for('admin.users_edit', user_id=u.id) }}">{{ _('admin.users.edit') }}</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

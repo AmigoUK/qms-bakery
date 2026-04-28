@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.triggers') }}{% endblock %}
+{% block content %}
+<header class="page-head"><h1>{{ _('admin.triggers') }}</h1></header>
+
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('admin.code') }}</th>
+      <th>{{ _('admin.scope') }}</th>
+      <th>{{ _('admin.condition') }}</th>
+      <th>{{ _('tickets.field.severity') }}</th>
+      <th>{{ _('admin.responders') }}</th>
+      <th>{{ _('admin.users.active') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in triggers %}
+    <tr>
+      <td>{{ t.code }}</td>
+      <td>{{ t.scope or '—' }}</td>
+      <td><code>{{ t.condition.metric }} {{ t.condition.operator }} {{ t.condition.value }}</code></td>
+      <td><span class="sev sev-{{ t.severity }}">{{ _('tickets.severity.' + t.severity) }}</span></td>
+      <td>{{ t.responders | length }}</td>
+      <td>{{ _('common.yes') if t.is_active else _('common.no') }}{% if t.dry_run %} ({{ _('admin.dry_run') }}){% endif %}</td>
+      <td>
+        <form method="post" action="{{ url_for('admin.trigger_toggle', trigger_id=t.id) }}" class="inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-secondary" type="submit">
+            {% if t.is_active %}{{ _('admin.deactivate') }}{% else %}{{ _('admin.activate') }}{% endif %}
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

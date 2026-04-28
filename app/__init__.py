@@ -31,6 +31,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     def _unauthorized():
         return redirect(url_for("auth.login", next=request.path))
 
+    from app.blueprints.admin import bp as admin_bp
     from app.blueprints.api import bp as api_bp
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.dashboard import bp as dashboard_bp
@@ -43,6 +44,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(tickets_bp, url_prefix="/tickets")
     app.register_blueprint(haccp_bp, url_prefix="/haccp")
     app.register_blueprint(salsa_bp, url_prefix="/salsa")
+    app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(api_bp, url_prefix="/api")
 
     @app.cli.command("init-db")

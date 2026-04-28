@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title_suffix %} · Admin{% endblock %}
+{% block content %}
+<header class="page-head"><h1>{{ _('admin.title') }}</h1></header>
+
+<section class="kpi-grid">
+  <div class="kpi"><div class="kpi-value">{{ counts.users }}</div><div class="kpi-label">{{ _('admin.users') }}</div></div>
+  <div class="kpi"><div class="kpi-value">{{ counts.lines }}</div><div class="kpi-label">{{ _('admin.lines') }}</div></div>
+  <div class="kpi"><div class="kpi-value">{{ counts.ccps }}</div><div class="kpi-label">{{ _('admin.ccps') }}</div></div>
+  <div class="kpi"><div class="kpi-value">{{ counts.salsa }}</div><div class="kpi-label">{{ _('admin.salsa') }}</div></div>
+  <div class="kpi"><div class="kpi-value">{{ counts.triggers }}</div><div class="kpi-label">{{ _('admin.triggers') }}</div></div>
+  <div class="kpi"><div class="kpi-value">{{ counts.audit_entries }}</div><div class="kpi-label">{{ _('admin.audit') }}</div></div>
+</section>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>{{ _('admin.quick_links') }}</h2>
+    <ul>
+      {% if current_user.has_permission('users.manage') %}
+        <li><a href="{{ url_for('admin.users_index') }}">{{ _('admin.users') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission('triggers.define') %}
+        <li><a href="{{ url_for('admin.triggers_index') }}">{{ _('admin.triggers') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission('audit.view') %}
+        <li><a href="{{ url_for('admin.audit_index') }}">{{ _('admin.audit') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission('ccp.measure') %}
+        <li><a href="{{ url_for('haccp.index') }}">HACCP / CCP</a></li>
+      {% endif %}
+      {% if current_user.has_permission('salsa.respond') %}
+        <li><a href="{{ url_for('salsa.index') }}">SALSA</a></li>
+      {% endif %}
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>{{ _('admin.recent_audit') }}</h2>
+    <table class="data">
+      <thead><tr><th>#</th><th>{{ _('admin.entity') }}</th><th>{{ _('admin.action') }}</th><th>{{ _('admin.when') }}</th></tr></thead>
+      <tbody>
+        {% for r in recent_audit %}
+        <tr>
+          <td>{{ r.id }}</td>
+          <td>{{ r.entity_type }}</td>
+          <td>{{ r.action }}</td>
+          <td>{{ r.occurred_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

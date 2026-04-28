@@ -23,6 +23,9 @@
         {% if current_user.has_permission('salsa.respond') %}
           <a href="{{ url_for('salsa.index') }}">{{ _('nav.salsa') }}</a>
         {% endif %}
+        {% if current_user.has_permission('system.configure') %}
+          <a href="{{ url_for('admin.index') }}">{{ _('nav.admin') }}</a>
+        {% endif %}
       {% endif %}
     </nav>
     <div class="topright">
