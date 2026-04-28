@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title_suffix %} · 2FA{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>{{ _('auth.2fa.title') }}</h1>
+  <p class="subtitle">{{ _('auth.2fa.prompt') }}</p>
+  {% if error %}<div class="flash flash-danger">{{ error }}</div>{% endif %}
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('auth.2fa.code') }}</span>
+      {{ form.code(autocomplete="one-time-code", inputmode="numeric", pattern="[0-9]*",
+                   maxlength=10, autofocus=True) }}
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _('auth.2fa.verify') }}</button>
+  </form>
+</div>
+{% endblock %}

@@ -55,26 +55,32 @@ Szczegóły — patrz dokumenty `01-` i `02-`.
 ✅ **Co już działa** (uruchamialne):
 
 - Flask app factory + konfiguracja (UV, `pyproject.toml`)
-- Modele SQLAlchemy 2.0: User, Role, Permission, ProductionLine, Pipeline, PipelineStage, Ticket, TicketEvent, AuditLog
+- Modele SQLAlchemy 2.0: User, Role, Permission, ProductionLine, Pipeline, PipelineStage, Ticket, TicketEvent, AuditLog, CCPDefinition, CCPMeasurement, SalsaChecklist, SalsaResponse, Trigger, Responder, TriggerExecution, InAppNotification
 - Auth + RBAC (bcrypt, lockout, dekorator `@require_permission`)
-- Tickets: CRUD, state machine (NEW → ASSIGNED → IN_PROGRESS → AWAITING_VERIFICATION → CLOSED), komentarze
-- Audit trail z chain-hashing SHA-256 + weryfikacja łańcucha
+- **2FA TOTP** (pyotp) — wymóg dla ról `admin` i `compliance`
+- Tickets: CRUD, state machine, komentarze, transitions z audytem
+- **HACCP/CCP** — definicje, pomiary, automatyczne tickety przy odchyleniu od limitów, scoping per linia
+- **SALSA checklists** — szablony z bilingwalnymi pozycjami, wypełnianie, automatyczny ticket przy niezgodności
+- **Trigger/responder engine** — silnik reguł z JSONB-warunkami, dispatch responderów (notify_in_app, create_ticket, escalate, webhook), tryb `dry_run`
+- **REST API** `/api/v1/measurements` z HMAC-SHA256 dla integracji IoT/ERP
+- **Panel admina** — przegląd KPI, CRUD użytkowników, toggle triggerów, przeglądarka audit_log z weryfikacją integralności łańcucha
+- Audit trail z chain-hashing SHA-256 + weryfikacja łańcucha (tamper-evidence)
 - i18n PL/EN przez JSON message catalogs
-- Frontend HTML/CSS/JS (Jinja2) — login, dashboard, lista i szczegół ticketu
-- Seed data: 6 ról, 17 uprawnień, demo linia z 6-etapowym pipeline'em
-- 26 testów (pytest), wszystkie zielone
+- Frontend HTML/CSS/JS (Jinja2) — login (z 2FA), dashboard, tickety, HACCP, SALSA, admin
+- Seed data: 6 ról, 17 uprawnień, demo linia z pipeline'em + 2 CCP + 2 SALSA + trigger
+- **69 testów (pytest)**, wszystkie zielone
 - Docker Compose (Postgres 16 + Redis + Mosquitto + app)
 
 ⏳ **W planie kolejnych faz** (patrz `01-plan-...` sekcja 8):
 
 - Pipeline configurator (drag-drop UI)
-- HACCP/CCP moduł (definicje + pomiary)
-- SALSA checklisty
-- MQTT Bridge (IoT)
-- Trigger engine + respondery (RQ worker)
-- Raporty PDF (HACCP miesięczny, FSA traceability)
+- MQTT Bridge runtime (paho-mqtt → Redis Stream → trigger evaluator)
+- RQ worker (asynchroniczne respondery, webhook retry)
+- Raporty PDF (HACCP miesięczny, FSA traceability) z WeasyPrint
 - Alembic migrations (zamiast `db.create_all()`)
-- 2FA (TOTP)
+- Form-builder dla triggerów (obecnie: aktywacja/deaktywacja w admin, edycja JSON-em w panelu compliance)
+- WebHooks wychodzące + DLQ
+- E-mail/SMS respondery (Flask-Mail / Twilio)
 
 ## Szybki start (lokalnie, bez Dockera)
 
@@ -111,7 +117,7 @@ docker compose up app
 
 ```bash
 PYTHONPATH=. python3 -m pytest -v
-# 26 passed in ~1.5s
+# 69 passed in ~5s
 ```
 
 Testy używają SQLite in-memory dla szybkości; produkcja — PostgreSQL 16 (patrz `docker-compose.yml`).
@@ -120,31 +126,52 @@ Testy używają SQLite in-memory dla szybkości; produkcja — PostgreSQL 16 (pa
 
 ```
 app/
-├── __init__.py            # Flask app factory
+├── __init__.py            # Flask app factory + blueprint registration
 ├── extensions.py          # db, login_manager, csrf
-├── i18n.py                # PL/EN message catalogs
+├── i18n.py                # PL/EN message catalogs (cookie/header/user-pref)
 ├── auth.py                # password hashing, RBAC decorator
 ├── seeds.py               # idempotent seed data
 ├── models/
-│   ├── _base.py           # UUIDPKMixin, TimestampMixin
-│   ├── auth.py            # User, Role, Permission
+│   ├── _base.py           # UUIDPKMixin, TimestampMixin, utcnow
+│   ├── auth.py            # User (+ TOTP fields), Role, Permission
 │   ├── production.py      # ProductionLine, Pipeline, PipelineStage
 │   ├── tickets.py         # Ticket, TicketEvent + state machine
-│   └── audit.py           # AuditLog (chain-hashed)
+│   ├── haccp.py           # CCPDefinition, CCPMeasurement
+│   ├── salsa.py           # SalsaChecklist, SalsaResponse
+│   ├── triggers.py        # Trigger, Responder, TriggerExecution, InAppNotification
+│   └── audit.py           # AuditLog (chain-hashed, BIGINT PK)
 ├── services/
 │   ├── audit.py           # record(), verify_chain()
-│   └── tickets.py         # create_ticket, transition, list_tickets
+│   ├── tickets.py         # create_ticket, transition, list_tickets
+│   ├── haccp.py           # record_measurement → auto-ticket on out-of-spec
+│   ├── salsa.py           # submit_response → auto-ticket on nonconformity
+│   ├── triggers.py        # evaluate(payload) + responder dispatcher
+│   └── totp.py            # TOTP enroll/verify, role requirement matrix
 ├── blueprints/
-│   ├── auth.py            # /auth/login, /auth/logout, /auth/lang/<code>
+│   ├── auth.py            # /auth/login (+2FA), /auth/logout, /auth/2fa/*, /auth/lang/<code>
 │   ├── dashboard.py       # /
-│   └── tickets.py         # /tickets/*
-├── templates/             # Jinja2 templates
+│   ├── tickets.py         # /tickets/*
+│   ├── haccp.py           # /haccp/*
+│   ├── salsa.py           # /salsa/*
+│   ├── admin.py           # /admin/* (users, triggers, audit viewer)
+│   └── api.py             # /api/v1/measurements (HMAC), /api/v1/health
+├── templates/             # Jinja2 templates per blueprint
 ├── static/css/app.css     # Hand-written CSS, mobile-first
 └── translations/
     ├── pl.json
     └── en.json
 
-tests/                     # pytest (26 tests, SQLite in-memory)
+tests/                     # pytest (69 tests, SQLite in-memory)
+├── test_models.py
+├── test_audit.py
+├── test_auth.py
+├── test_tickets.py
+├── test_haccp.py
+├── test_salsa.py
+├── test_triggers.py       # incl. signed REST API
+├── test_admin.py
+├── test_totp.py
+└── test_i18n.py
 ```
 
 ## Zespół

@@ -78,6 +78,8 @@ class User(UUIDPKMixin, TimestampMixin, UserMixin, db.Model):
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     role_id: Mapped[str] = mapped_column(String(36), ForeignKey("roles.id"), nullable=False)
+    totp_secret: Mapped[str | None] = mapped_column(String(64))
+    totp_enrolled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     role: Mapped[Role] = relationship(lazy="joined")
 
@@ -89,6 +91,10 @@ class User(UUIDPKMixin, TimestampMixin, UserMixin, db.Model):
 
     def has_permission(self, code: str) -> bool:
         return self.role is not None and self.role.has_permission(code)
+
+    @property
+    def totp_enabled(self) -> bool:
+        return bool(self.totp_secret and self.totp_enrolled_at)
 
     def is_locked(self) -> bool:
         from datetime import timezone

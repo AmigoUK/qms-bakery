@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title_suffix %} · 2FA enrollment{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>{{ _('auth.2fa.enroll.title') }}</h1>
+  <p>{{ _('auth.2fa.enroll.intro') }}</p>
+
+  <h2>{{ _('auth.2fa.enroll.step1') }}</h2>
+  <p><code style="font-size: 1rem; word-break: break-all;">{{ secret }}</code></p>
+  <p class="subtitle">{{ _('auth.2fa.enroll.uri_hint') }}</p>
+  <p><code style="font-size: 0.85rem; word-break: break-all;">{{ uri }}</code></p>
+
+  <h2>{{ _('auth.2fa.enroll.step2') }}</h2>
+  <form method="post" novalidate>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>
+      <span>{{ _('auth.2fa.code') }}</span>
+      <input type="text" name="code" autocomplete="one-time-code" inputmode="numeric"
+             pattern="[0-9]*" maxlength="10" required autofocus>
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _('auth.2fa.enroll.confirm') }}</button>
+  </form>
+</div>
+{% endblock %}

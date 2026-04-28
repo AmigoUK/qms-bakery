@@ -118,5 +118,17 @@
   "admin.audit.chain_ok": "Chain integrity OK",
   "admin.audit.chain_broken": "Chain BROKEN at",
   "common.prev": "Previous",
-  "common.next": "Next"
+  "common.next": "Next",
+  "auth.2fa.title": "Two-factor authentication",
+  "auth.2fa.prompt": "Enter the 6-digit code from your authenticator app.",
+  "auth.2fa.code": "Code",
+  "auth.2fa.verify": "Verify",
+  "auth.2fa.invalid": "Invalid 2FA code.",
+  "auth.2fa.enrolled": "2FA enrolled successfully.",
+  "auth.2fa.enroll.title": "Enable two-factor authentication",
+  "auth.2fa.enroll.intro": "Compliance and admin roles must use 2FA. Add the secret to a TOTP app (e.g. Google Authenticator, 1Password, Aegis) and confirm the first code.",
+  "auth.2fa.enroll.step1": "1. Add this secret to your authenticator app",
+  "auth.2fa.enroll.step2": "2. Enter the current 6-digit code to confirm",
+  "auth.2fa.enroll.confirm": "Confirm and enable",
+  "auth.2fa.enroll.uri_hint": "Or use this otpauth:// URI:"
 }

@@ -118,5 +118,17 @@
   "admin.audit.chain_ok": "Łańcuch spójny",
   "admin.audit.chain_broken": "Łańcuch ZŁAMANY przy",
   "common.prev": "Poprzednia",
-  "common.next": "Następna"
+  "common.next": "Następna",
+  "auth.2fa.title": "Uwierzytelnianie dwuetapowe",
+  "auth.2fa.prompt": "Podaj 6-cyfrowy kod z aplikacji uwierzytelniającej.",
+  "auth.2fa.code": "Kod",
+  "auth.2fa.verify": "Zweryfikuj",
+  "auth.2fa.invalid": "Nieprawidłowy kod 2FA.",
+  "auth.2fa.enrolled": "2FA zostało włączone.",
+  "auth.2fa.enroll.title": "Włącz uwierzytelnianie dwuetapowe",
+  "auth.2fa.enroll.intro": "Role compliance i admin muszą używać 2FA. Dodaj tajny klucz do aplikacji TOTP (np. Google Authenticator, 1Password, Aegis) i potwierdź pierwszy kod.",
+  "auth.2fa.enroll.step1": "1. Dodaj klucz do swojej aplikacji uwierzytelniającej",
+  "auth.2fa.enroll.step2": "2. Podaj aktualny 6-cyfrowy kod, aby potwierdzić",
+  "auth.2fa.enroll.confirm": "Potwierdź i włącz",
+  "auth.2fa.enroll.uri_hint": "Albo użyj tego linku otpauth://:"
 }
