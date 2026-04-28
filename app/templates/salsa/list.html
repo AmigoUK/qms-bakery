@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title_suffix %} · SALSA{% endblock %}
+{% block content %}
+<header class="page-head"><h1>SALSA — {{ _('salsa.checklists') }}</h1></header>
+
+{% if checklists %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('salsa.code') }}</th>
+      <th>{{ _('salsa.name') }}</th>
+      <th>{{ _('salsa.frequency') }}</th>
+      <th>{{ _('salsa.items') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for c in checklists %}
+    <tr>
+      <td>{{ c.code }}</td>
+      <td>{{ c.name | i18n }}</td>
+      <td>{{ c.frequency }}</td>
+      <td>{{ c.items | length }}</td>
+      <td><a class="btn btn-secondary" href="{{ url_for('salsa.fill', checklist_id=c.id) }}">{{ _('salsa.fill') }}</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">{{ _('salsa.empty') }}</p>
+{% endif %}
+{% endblock %}

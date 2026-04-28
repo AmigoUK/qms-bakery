@@ -71,5 +71,17 @@
   "haccp.no_measurements": "Brak pomiarów.",
   "haccp.measure.ok": "Pomiar zapisany — w granicach.",
   "haccp.measure.deviation": "Odchylenie wykryte — automatycznie utworzono zgłoszenie.",
-  "nav.haccp": "HACCP / CCP"
+  "nav.haccp": "HACCP / CCP",
+  "nav.salsa": "SALSA",
+  "salsa.checklists": "Checklisty",
+  "salsa.code": "Kod",
+  "salsa.name": "Nazwa",
+  "salsa.frequency": "Częstotliwość",
+  "salsa.items": "Pozycje",
+  "salsa.fill": "Wypełnij",
+  "salsa.empty": "Brak skonfigurowanych checklist.",
+  "salsa.submit": "Wyślij",
+  "salsa.comment_optional": "Komentarz (opcjonalny)",
+  "salsa.submit.ok": "Checklista wysłana — bez uwag.",
+  "salsa.submit.with_issues": "Checklista wysłana — utworzono zgłoszenie dla niezgodności."
 }

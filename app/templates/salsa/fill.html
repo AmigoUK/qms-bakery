@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ checklist.code }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1>{{ checklist.code }}</h1>
+    <h2 class="subtitle">{{ checklist.name | i18n }}</h2>
+  </div>
+</header>
+
+<form method="post" class="card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+  {% for item in checklist.items %}
+  <fieldset class="checklist-item">
+    <legend>{{ item.prompt | i18n }}</legend>
+    <label class="inline">
+      <input type="radio" name="item__{{ item.key }}__ok" value="yes" required>
+      {{ _('common.yes') }}
+    </label>
+    <label class="inline">
+      <input type="radio" name="item__{{ item.key }}__ok" value="no" required>
+      {{ _('common.no') }}
+    </label>
+    <input type="text" name="item__{{ item.key }}__comment" placeholder="{{ _('salsa.comment_optional') }}" maxlength="500"/>
+  </fieldset>
+  {% endfor %}
+  <div class="actions">
+    <a class="btn btn-ghost" href="{{ url_for('salsa.index') }}">{{ _('common.cancel') }}</a>
+    <button class="btn btn-primary" type="submit">{{ _('salsa.submit') }}</button>
+  </div>
+</form>
+{% endblock %}

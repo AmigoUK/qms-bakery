@@ -71,5 +71,17 @@
   "haccp.no_measurements": "No measurements yet.",
   "haccp.measure.ok": "Measurement recorded — within limits.",
   "haccp.measure.deviation": "Deviation detected — ticket auto-created.",
-  "nav.haccp": "HACCP / CCP"
+  "nav.haccp": "HACCP / CCP",
+  "nav.salsa": "SALSA",
+  "salsa.checklists": "Checklists",
+  "salsa.code": "Code",
+  "salsa.name": "Name",
+  "salsa.frequency": "Frequency",
+  "salsa.items": "Items",
+  "salsa.fill": "Fill in",
+  "salsa.empty": "No checklists configured.",
+  "salsa.submit": "Submit",
+  "salsa.comment_optional": "Comment (optional)",
+  "salsa.submit.ok": "Checklist submitted — no issues.",
+  "salsa.submit.with_issues": "Checklist submitted — ticket created for nonconformities."
 }

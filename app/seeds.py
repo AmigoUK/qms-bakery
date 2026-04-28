@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models.auth import Permission, Role, User, UserRoleEnum
 from app.models.haccp import CCPDefinition
 from app.models.production import Pipeline, PipelineStage, ProductionLine
+from app.models.salsa import ChecklistFrequency, SalsaChecklist
 
 
 PERMISSIONS: list[tuple[str, str]] = [
@@ -105,7 +106,79 @@ def seed_initial(admin_email: str = "admin@local", admin_password: str = "Change
     _seed_admin(admin_email, admin_password)
     _seed_demo_line()
     _seed_demo_ccps()
+    _seed_demo_salsa()
     db.session.commit()
+
+
+def _seed_demo_salsa() -> None:
+    line = ProductionLine.query.filter_by(code="LINE_A").first()
+    if SalsaChecklist.query.filter_by(code="HYG-DAILY").first():
+        return
+
+    db.session.add(
+        SalsaChecklist(
+            code="HYG-DAILY",
+            name={"pl": "Higiena personelu — codziennie", "en": "Personnel hygiene — daily"},
+            frequency=ChecklistFrequency.DAILY.value,
+            line_id=line.id if line else None,
+            items=[
+                {
+                    "key": "gloves",
+                    "prompt": {
+                        "pl": "Wszyscy operatorzy mają czyste rękawice.",
+                        "en": "All operators wear clean gloves.",
+                    },
+                },
+                {
+                    "key": "hairnets",
+                    "prompt": {
+                        "pl": "Wszyscy operatorzy mają siatki na włosy.",
+                        "en": "All operators wear hairnets.",
+                    },
+                },
+                {
+                    "key": "no_jewellery",
+                    "prompt": {
+                        "pl": "Brak biżuterii (poza zatwierdzoną).",
+                        "en": "No jewellery (except approved).",
+                    },
+                },
+                {
+                    "key": "health_check",
+                    "prompt": {
+                        "pl": "Brak zgłoszonych objawów chorobowych.",
+                        "en": "No reported illness symptoms.",
+                    },
+                },
+            ],
+        )
+    )
+    db.session.add(
+        SalsaChecklist(
+            code="MACH-SHIFT",
+            name={
+                "pl": "Higiena maszyn — przed zmianą",
+                "en": "Machine hygiene — pre-shift",
+            },
+            frequency=ChecklistFrequency.SHIFT.value,
+            line_id=line.id if line else None,
+            items=[
+                {
+                    "key": "mixer_clean",
+                    "prompt": {"pl": "Mikser umyty.", "en": "Mixer cleaned."},
+                },
+                {
+                    "key": "conveyor_clean",
+                    "prompt": {"pl": "Taśma czysta.", "en": "Conveyor clean."},
+                },
+                {
+                    "key": "oven_inspected",
+                    "prompt": {"pl": "Piec sprawdzony.", "en": "Oven inspected."},
+                },
+            ],
+        )
+    )
+    db.session.flush()
 
 
 def _seed_demo_ccps() -> None:

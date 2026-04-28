@@ -20,6 +20,9 @@
         {% if current_user.has_permission('ccp.measure') %}
           <a href="{{ url_for('haccp.index') }}">{{ _('nav.haccp') }}</a>
         {% endif %}
+        {% if current_user.has_permission('salsa.respond') %}
+          <a href="{{ url_for('salsa.index') }}">{{ _('nav.salsa') }}</a>
+        {% endif %}
       {% endif %}
     </nav>
     <div class="topright">
