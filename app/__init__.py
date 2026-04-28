@@ -31,6 +31,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     def _unauthorized():
         return redirect(url_for("auth.login", next=request.path))
 
+    from app.blueprints.api import bp as api_bp
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.dashboard import bp as dashboard_bp
     from app.blueprints.haccp import bp as haccp_bp
@@ -42,6 +43,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(tickets_bp, url_prefix="/tickets")
     app.register_blueprint(haccp_bp, url_prefix="/haccp")
     app.register_blueprint(salsa_bp, url_prefix="/salsa")
+    app.register_blueprint(api_bp, url_prefix="/api")
 
     @app.cli.command("init-db")
     def _init_db_cmd():
@@ -81,4 +83,6 @@ def _default_config() -> dict[str, Any]:
         "LOCKOUT_THRESHOLD": int(os.environ.get("LOCKOUT_THRESHOLD", "5")),
         "LOCKOUT_MINUTES": int(os.environ.get("LOCKOUT_MINUTES", "15")),
         "AUTO_CREATE_TABLES": False,
+        # API keys for external integrations: {key_id: secret}
+        "API_KEYS": {},
     }
