@@ -1,8 +1,8 @@
 """Dead-letter-queue inspection + replay over RQ's failed-job registries.
 
-Both async responder queues (`qms:webhooks`, `qms:emails`) drop their
-exhausted jobs into RQ's per-queue `FailedJobRegistry`. This module is
-the read/manage surface for those:
+All async responder queues (`qms:webhooks`, `qms:emails`, `qms:sms`)
+drop their exhausted jobs into RQ's per-queue `FailedJobRegistry`. This
+module is the read/manage surface for those:
 
   * `list_failed()`     — flatten both registries into a single ordered list
   * `get_failed(job_id)` — fetch a single job + its traceback
@@ -66,11 +66,15 @@ def _safe(v):
 
 
 def _queues(app: Flask | None = None) -> list[Queue]:
-    return [queue_service.get_queue(app), queue_service.get_email_queue(app)]
+    return [
+        queue_service.get_queue(app),
+        queue_service.get_email_queue(app),
+        queue_service.get_sms_queue(app),
+    ]
 
 
 def list_failed(app: Flask | None = None) -> list[FailedJobView]:
-    """All failed jobs across webhook + email queues, newest-first."""
+    """All failed jobs across every responder queue, newest-first."""
     out: list[FailedJobView] = []
     for q in _queues(app):
         registry = FailedJobRegistry(queue=q)

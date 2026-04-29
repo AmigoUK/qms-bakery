@@ -263,6 +263,20 @@ def _dispatch_responder(responder: Responder, trigger: Trigger, payload: dict) -
         )
         return {"queued_email": to, "job_id": job.id}
 
+    if rtype is ResponderType.SMS:
+        to = cfg.get("to") or cfg.get("recipients") or []
+        if isinstance(to, str):
+            to = [to]
+        if not to:
+            raise TriggerError("sms responder requires to (list or string)")
+        body = _interpolate(cfg.get("body", ""), payload, trigger)
+        if not body:
+            raise TriggerError("sms responder requires body")
+        from app.services import queue as queue_service
+
+        job = queue_service.enqueue_sms(to=to, body=body)
+        return {"queued_sms": to, "job_id": job.id}
+
     raise TriggerError(f"Unknown responder type: {responder.type}")
 
 

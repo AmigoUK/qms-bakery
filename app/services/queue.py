@@ -1,12 +1,13 @@
 """RQ queue service for asynchronous responders.
 
-Two queues:
+Three queues:
   * `qms:webhooks` — outbound HTTP POSTs (WEBHOOK responder)
   * `qms:emails`   — outbound SMTP sends (EMAIL responder)
+  * `qms:sms`      — outbound ClickSend SMS sends (SMS responder)
 
 Retry schedule mirrors `01-architectural-functional-plan.md` risk
 register: 3 / 9 / 27 minute backoff, then DLQ via RQ's failed-job
-registry. Both queues share the same retry envelope and the same binary
+registry. All queues share the same retry envelope and the same binary
 Redis connection.
 """
 
@@ -19,6 +20,7 @@ from rq import Queue, Retry
 
 QUEUE_NAME = "qms:webhooks"
 EMAIL_QUEUE_NAME = "qms:emails"
+SMS_QUEUE_NAME = "qms:sms"
 RETRY_INTERVALS_SECONDS = [180, 540, 1620]  # 3, 9, 27 minutes
 
 
@@ -102,6 +104,50 @@ def enqueue_email(
             "smtp_password": cfg.get("SMTP_PASSWORD"),
             "smtp_use_tls": bool(cfg.get("SMTP_USE_TLS", False)),
             "sender": cfg.get("SMTP_FROM", "qms@local"),
+        },
+        retry=Retry(
+            max=len(RETRY_INTERVALS_SECONDS), interval=RETRY_INTERVALS_SECONDS
+        ),
+        result_ttl=86400,
+        failure_ttl=86400 * 7,
+    )
+
+
+def get_sms_queue(app: Flask | None = None, *, is_async: bool = True) -> Queue:
+    """Build (or reuse) the SMS queue. Same Redis connection as the
+    other responder queues."""
+    return Queue(
+        SMS_QUEUE_NAME, connection=_get_binary_redis(app), is_async=is_async
+    )
+
+
+def enqueue_sms(
+    to: list[str] | str,
+    body: str,
+    *,
+    app: Flask | None = None,
+    queue: Queue | None = None,
+):
+    """Enqueue a ClickSend SMS send with the standard retry policy.
+
+    ClickSend credentials (`CLICKSEND_USERNAME`, `CLICKSEND_API_KEY`,
+    `CLICKSEND_SOURCE`, `CLICKSEND_BASE_URL`) are read from app config
+    and frozen into the job kwargs at enqueue time — same reasoning as
+    the email queue: a later config rotation must not silently retarget
+    queued jobs."""
+    cfg = (app or current_app).config
+    q = queue if queue is not None else get_sms_queue(app)
+    return q.enqueue(
+        "app.jobs.sms.send_sms",
+        kwargs={
+            "to": to,
+            "body": body,
+            "username": cfg.get("CLICKSEND_USERNAME", ""),
+            "api_key": cfg.get("CLICKSEND_API_KEY", ""),
+            "source": cfg.get("CLICKSEND_SOURCE", "QMS"),
+            "base_url": cfg.get(
+                "CLICKSEND_BASE_URL", "https://rest.clicksend.com/v3"
+            ),
         },
         retry=Retry(
             max=len(RETRY_INTERVALS_SECONDS), interval=RETRY_INTERVALS_SECONDS

@@ -76,16 +76,15 @@ For the full picture see documents `01-` and `02-`.
 - PL/EN i18n via JSON message catalogs
 - HTML/CSS/JS frontend (Jinja2) — login (with 2FA), dashboard, tickets, HACCP, SALSA, admin
 - Seed data: 6 roles, 17 permissions, demo line with pipeline + 2 CCPs + 2 SALSA + trigger
-- **169 pytest tests**, all green
+- **183 pytest tests**, all green
 - Docker Compose (Postgres 16 + Redis + Mosquitto + app + mqtt-bridge + trigger-worker + rq-worker)
 - E-mail responder via SMTP — same RQ infra (`qms:emails` queue, 3/9/27 min retry → DLQ)
 - **DLQ inspection / replay UI** at `/admin/dlq` — list failed webhook + email jobs across queues, view kwargs + traceback, requeue back onto origin queue or discard. Gated by `dlq.manage` (admin + compliance), every action audited.
 - **Trigger form-builder** at `/admin/triggers/new` and `/admin/triggers/<id>/edit` — structured fields for code, bilingual name, scope (`line:*`), curated metric list (or custom name), operator, threshold, optional duration window, severity, dry-run, and ordered responder attachment. Replaces the old raw-JSON workflow; every save audited.
 - **Pipeline configurator** at `/admin/pipelines` — drag-and-drop stage editor (SortableJS) with bilingual names, role gating, SLA minutes, CCP-checkpoint flag. Saving creates a new immutable Pipeline version (old version `is_active=False` but kept so existing tickets keep their stage FK). Gated by `pipeline.configure`.
+- **SMS responder via ClickSend** — POSTs `https://rest.clicksend.com/v3/sms/send` (HTTP Basic auth, `messages: [{to, source, body}]` shape) on the `qms:sms` RQ queue. Same 3/9/27 min retry envelope and DLQ as webhook + email; 4xx (auth/validation/credit) is short-circuited to permanent failure so retries aren't wasted. Credentials (`CLICKSEND_USERNAME`, `CLICKSEND_API_KEY`, `CLICKSEND_SOURCE`) frozen into job kwargs at enqueue time.
 
-⏳ **Planned for the next phases** (see `01-architectural-functional-plan.md` section 8):
-
-- SMS responder (Twilio) — same RQ infra as webhooks/email
+⏳ **Phase 2 done.** Next: Phase 3 (multi-tenant + production hardening).
 
 ## Quick start (local, without Docker)
 

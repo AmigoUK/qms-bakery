@@ -38,6 +38,7 @@ class ResponderType(str, enum.Enum):
     ESCALATE = "escalate"
     WEBHOOK = "webhook"
     EMAIL = "email"
+    SMS = "sms"
 
 
 class Trigger(UUIDPKMixin, TimestampMixin, db.Model):

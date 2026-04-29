@@ -107,6 +107,10 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_USE_TLS: ${SMTP_USE_TLS:-0}
       SMTP_FROM: ${SMTP_FROM:-qms@local}
+      CLICKSEND_USERNAME: ${CLICKSEND_USERNAME:-}
+      CLICKSEND_API_KEY: ${CLICKSEND_API_KEY:-}
+      CLICKSEND_SOURCE: ${CLICKSEND_SOURCE:-QMS}
+      CLICKSEND_BASE_URL: ${CLICKSEND_BASE_URL:-https://rest.clicksend.com/v3}
     restart: unless-stopped
     command: flask rq-worker
 

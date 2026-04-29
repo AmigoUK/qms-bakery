@@ -1,12 +1,12 @@
 """RQ worker entrypoint for asynchronous responder jobs.
 
-Subscribes to both async responder queues:
+Subscribes to all async responder queues:
   * `qms:webhooks` — outbound HTTP POSTs
   * `qms:emails`   — outbound SMTP sends
+  * `qms:sms`      — outbound ClickSend SMS sends
 
-Both queues share the same binary Redis connection. Add a new queue here
-when introducing another async responder type (SMS, scheduled
-follow-ups, ...).
+All queues share the same binary Redis connection. Add a new queue here
+when introducing another async responder type.
 """
 
 from __future__ import annotations
@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 def run(app: Flask) -> None:
     webhook_q = queue_service.get_queue(app)
     email_q = queue_service.get_email_queue(app)
-    queues = [webhook_q, email_q]
+    sms_q = queue_service.get_sms_queue(app)
+    queues = [webhook_q, email_q, sms_q]
     logger.info(
         "RQ worker starting: queues=%s connection=%r",
         [q.name for q in queues],

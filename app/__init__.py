@@ -129,4 +129,10 @@ def _default_config() -> dict[str, Any]:
         "SMTP_PASSWORD": os.environ.get("SMTP_PASSWORD"),
         "SMTP_USE_TLS": os.environ.get("SMTP_USE_TLS", "0") not in ("0", "false", "False"),
         "SMTP_FROM": os.environ.get("SMTP_FROM", "qms@local"),
+        "CLICKSEND_USERNAME": os.environ.get("CLICKSEND_USERNAME", ""),
+        "CLICKSEND_API_KEY": os.environ.get("CLICKSEND_API_KEY", ""),
+        "CLICKSEND_SOURCE": os.environ.get("CLICKSEND_SOURCE", "QMS"),
+        "CLICKSEND_BASE_URL": os.environ.get(
+            "CLICKSEND_BASE_URL", "https://rest.clicksend.com/v3"
+        ),
     }
