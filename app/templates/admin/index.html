@@ -25,6 +25,9 @@
       {% if current_user.has_permission('audit.view') %}
         <li><a href="{{ url_for('admin.audit_index') }}">{{ _('admin.audit') }}</a></li>
       {% endif %}
+      {% if current_user.has_permission('dlq.manage') %}
+        <li><a href="{{ url_for('admin.dlq_index') }}">{{ _('admin.dlq.title') }}</a></li>
+      {% endif %}
       {% if current_user.has_permission('ccp.measure') %}
         <li><a href="{{ url_for('haccp.index') }}">HACCP / CCP</a></li>
       {% endif %}

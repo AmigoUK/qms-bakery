@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.dlq.title') }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ _('admin.dlq.title') }}</h1>
+  <p class="muted">{{ _('admin.dlq.subtitle') }}</p>
+</header>
+
+<section class="kpi-grid">
+  {% for queue_name, count in counts.items() %}
+    <div class="kpi">
+      <div class="kpi-value">{{ count }}</div>
+      <div class="kpi-label">{{ queue_name }}</div>
+    </div>
+  {% endfor %}
+</section>
+
+{% if rows %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('admin.dlq.queue') }}</th>
+      <th>{{ _('admin.dlq.func') }}</th>
+      <th>{{ _('admin.dlq.failed_at') }}</th>
+      <th>{{ _('admin.dlq.error') }}</th>
+      <th>{{ _('admin.action') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td><code>{{ r.queue }}</code></td>
+      <td><small>{{ r.func_name }}</small></td>
+      <td><small>{{ r.failed_at or '—' }}</small></td>
+      <td><small>{{ r.exc_summary or '—' }}</small></td>
+      <td>
+        <a class="btn btn-ghost" href="{{ url_for('admin.dlq_detail', job_id=r.id) }}">{{ _('admin.dlq.view') }}</a>
+        <form method="post" action="{{ url_for('admin.dlq_requeue', job_id=r.id) }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn" type="submit">{{ _('admin.dlq.requeue') }}</button>
+        </form>
+        <form method="post" action="{{ url_for('admin.dlq_discard', job_id=r.id) }}" style="display:inline"
+              onsubmit="return confirm('{{ _('admin.dlq.confirm_discard') }}');">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="btn btn-ghost" type="submit">{{ _('admin.dlq.discard') }}</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <p class="muted">{{ _('admin.dlq.empty') }}</p>
+{% endif %}
+{% endblock %}

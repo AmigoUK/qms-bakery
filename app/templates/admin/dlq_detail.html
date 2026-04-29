@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.dlq.title') }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ _('admin.dlq.title') }} · <code>{{ job.id }}</code></h1>
+  <p class="muted">{{ queue_name }} · {{ job.func_name }}</p>
+</header>
+
+<div class="grid-2">
+  <section class="card">
+    <h2>{{ _('admin.dlq.kwargs') }}</h2>
+    <table class="data">
+      <tbody>
+        {% for k, v in (job.kwargs or {}).items() %}
+        <tr>
+          <th><code>{{ k }}</code></th>
+          <td><pre style="white-space:pre-wrap">{{ v }}</pre></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>{{ _('admin.dlq.traceback') }}</h2>
+    <pre style="white-space:pre-wrap">{{ job.exc_info or '—' }}</pre>
+  </section>
+</div>
+
+<section class="card" style="margin-top:1rem">
+  <form method="post" action="{{ url_for('admin.dlq_requeue', job_id=job.id) }}" style="display:inline">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn" type="submit">{{ _('admin.dlq.requeue') }}</button>
+  </form>
+  <form method="post" action="{{ url_for('admin.dlq_discard', job_id=job.id) }}" style="display:inline"
+        onsubmit="return confirm('{{ _('admin.dlq.confirm_discard') }}');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <button class="btn btn-ghost" type="submit">{{ _('admin.dlq.discard') }}</button>
+  </form>
+  <a class="btn btn-ghost" href="{{ url_for('admin.dlq_index') }}">{{ _('admin.dlq.back') }}</a>
+</section>
+{% endblock %}

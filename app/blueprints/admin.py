@@ -210,3 +210,83 @@ def audit_index():
         chain_ok=chain_ok,
         broken_id=broken_id,
     )
+
+
+# ─── DLQ (failed responder jobs) ─────────────────────────────────────────
+
+
+@bp.route("/dlq")
+@login_required
+@require_permission("dlq.manage")
+def dlq_index():
+    from app.services import dlq as dlq_service
+
+    rows = dlq_service.list_failed()
+    counts = dlq_service.counts()
+    return render_template("admin/dlq_list.html", rows=rows, counts=counts)
+
+
+@bp.route("/dlq/<job_id>")
+@login_required
+@require_permission("dlq.manage")
+def dlq_detail(job_id: str):
+    from rq.exceptions import NoSuchJobError
+
+    from app.services import dlq as dlq_service
+
+    try:
+        job, queue_name = dlq_service.get_failed(job_id)
+    except NoSuchJobError:
+        abort(404)
+    return render_template(
+        "admin/dlq_detail.html",
+        job=job,
+        queue_name=queue_name,
+    )
+
+
+@bp.route("/dlq/<job_id>/requeue", methods=["POST"])
+@login_required
+@require_permission("dlq.manage")
+def dlq_requeue(job_id: str):
+    from rq.exceptions import NoSuchJobError
+
+    from app.services import dlq as dlq_service
+
+    try:
+        _job, queue_name = dlq_service.get_failed(job_id)
+        dlq_service.requeue(job_id)
+    except NoSuchJobError:
+        abort(404)
+    audit.record(
+        entity_type="rq_job",
+        entity_id=job_id,
+        action="dlq_requeue",
+        diff={"queue": queue_name},
+    )
+    db.session.commit()
+    flash(_("admin.dlq.requeued"), "success")
+    return redirect(url_for("admin.dlq_index"))
+
+
+@bp.route("/dlq/<job_id>/discard", methods=["POST"])
+@login_required
+@require_permission("dlq.manage")
+def dlq_discard(job_id: str):
+    from rq.exceptions import NoSuchJobError
+
+    from app.services import dlq as dlq_service
+
+    try:
+        queue_name = dlq_service.discard(job_id)
+    except NoSuchJobError:
+        abort(404)
+    audit.record(
+        entity_type="rq_job",
+        entity_id=job_id,
+        action="dlq_discard",
+        diff={"queue": queue_name},
+    )
+    db.session.commit()
+    flash(_("admin.dlq.discarded"), "success")
+    return redirect(url_for("admin.dlq_index"))

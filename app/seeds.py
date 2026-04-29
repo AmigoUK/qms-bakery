@@ -29,6 +29,7 @@ PERMISSIONS: list[tuple[str, str]] = [
     ("reports.generate", "Generate reports"),
     ("dashboard.view", "View dashboards"),
     ("system.configure", "Configure system"),
+    ("dlq.manage", "View and replay failed responder jobs"),
 ]
 
 
@@ -79,6 +80,7 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         "audit.export",
         "reports.generate",
         "dashboard.view",
+        "dlq.manage",
     ],
     UserRoleEnum.PLANT_MANAGER.value: [
         "tickets.view",
