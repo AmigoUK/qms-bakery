@@ -1,0 +1,61 @@
+{% extends "reports/base.html" %}
+
+{% block title %}FSA traceability — {{ date_from }} → {{ date_to }}{% endblock %}
+
+{% block heading %}FSA traceability report{% endblock %}
+
+{% block meta %}
+  <dt>Period</dt>
+  <dd>{{ date_from.strftime('%Y-%m-%d') }} → {{ date_to.strftime('%Y-%m-%d') }}</dd>
+  <dt>Audit entries</dt>
+  <dd>{{ total_entries }}</dd>
+  <dt>Chain integrity</dt>
+  <dd>
+    {% if chain_ok %}
+      <span class="badge-ok">verified — chain intact</span>
+    {% else %}
+      <span class="badge-bad">FAILED — first bad entry id={{ chain_broken_at }}</span>
+    {% endif %}
+  </dd>
+{% endblock %}
+
+{% block content %}
+<div class="summary-box">
+  Append-only audit trail extract for the period above.
+  Each entry is SHA-256 chain-hashed against its predecessor; tampering with
+  any historical record breaks chain verification, which is reported in the
+  header above.
+</div>
+
+{% if entries %}
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Occurred at (UTC)</th>
+        <th>User</th>
+        <th>Entity</th>
+        <th>Action</th>
+        <th>Checksum</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+        <tr>
+          <td>{{ e.id }}</td>
+          <td>{{ e.occurred_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+          <td>
+            {% set u = users.get(e.user_id) if e.user_id else None %}
+            {% if u %}{{ u.full_name }} ({{ u.email }}){% else %}<span class="text-muted">system</span>{% endif %}
+          </td>
+          <td>{{ e.entity_type }}{% if e.entity_id %} · <span class="mono">{{ e.entity_id[:8] }}…</span>{% endif %}</td>
+          <td>{{ e.action }}</td>
+          <td><span class="mono">{{ e.checksum[:12] }}…</span></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p class="text-muted"><em>No audit entries in the selected period.</em></p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "reports/base.html" %}
+
+{% block title %}HACCP monthly — {{ month_name }} {{ year }}{% endblock %}
+
+{% block heading %}HACCP monthly report — {{ month_name }} {{ year }}{% endblock %}
+
+{% block meta %}
+  <dt>Period</dt>
+  <dd>{{ period_from.strftime('%Y-%m-%d') }} → {{ period_to.strftime('%Y-%m-%d') }}</dd>
+  <dt>Production line</dt>
+  <dd>
+    {% if line %}{{ line.code }} — {{ line.name }}{% else %}<span class="text-muted">all lines</span>{% endif %}
+  </dd>
+  <dt>CCPs in scope</dt>
+  <dd>{{ rows | length }}</dd>
+{% endblock %}
+
+{% block content %}
+<div class="summary-box">
+  <strong>Summary:</strong>
+  {{ overall_total }} measurement{{ '' if overall_total == 1 else 's' }} recorded;
+  {{ overall_deviations }} out-of-spec
+  {%- if overall_within_pct is not none %}
+    ({{ overall_within_pct }}% within limits)
+  {%- endif -%}
+  .
+</div>
+
+{% if rows %}
+  {% for row in rows %}
+    <h2>{{ row.ccp.code }} — {{ row.ccp.name.get('en', row.ccp.parameter) }}</h2>
+    <p class="text-muted">
+      Parameter: <strong>{{ row.ccp.parameter }}</strong> ({{ row.ccp.unit }}) ·
+      Limits:
+      {% if row.ccp.critical_limit_min is not none %}min {{ row.ccp.critical_limit_min }}{{ row.ccp.unit }}{% endif %}
+      {% if row.ccp.critical_limit_min is not none and row.ccp.critical_limit_max is not none %} / {% endif %}
+      {% if row.ccp.critical_limit_max is not none %}max {{ row.ccp.critical_limit_max }}{{ row.ccp.unit }}{% endif %}
+      {% if row.ccp.monitoring_frequency_minutes %} · every {{ row.ccp.monitoring_frequency_minutes }} min{% endif %}
+    </p>
+
+    {% if row.measurements %}
+      <table>
+        <thead>
+          <tr>
+            <th>Time (UTC)</th>
+            <th>Value</th>
+            <th>Status</th>
+            <th>Operator</th>
+            <th>Device</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in row.measurements %}
+            <tr class="{{ 'deviation' if not m.is_within_limits }}">
+              <td>{{ m.measured_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>{{ '%.2f' % m.measured_value }} {{ row.ccp.unit }}</td>
+              <td>
+                {% if m.is_within_limits %}
+                  <span class="badge-ok">within limits</span>
+                {% else %}
+                  <span class="badge-bad">deviation</span>
+                {% endif %}
+              </td>
+              <td>{{ m.measured_by.full_name if m.measured_by else '—' }}</td>
+              <td>{{ m.device_id or '—' }}</td>
+              <td>{{ m.notes or '' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <p class="text-right text-muted">
+        {{ row.total }} measurement{{ '' if row.total == 1 else 's' }};
+        {{ row.deviations }} deviation{{ '' if row.deviations == 1 else 's' }}
+        {% if row.within_limits_pct is not none %}({{ row.within_limits_pct }}% within){% endif %}
+      </p>
+    {% else %}
+      <p class="text-muted"><em>No measurements recorded for this CCP in the period.</em></p>
+    {% endif %}
+  {% endfor %}
+{% else %}
+  <p class="text-muted"><em>No active CCPs in scope.</em></p>
+{% endif %}
+{% endblock %}

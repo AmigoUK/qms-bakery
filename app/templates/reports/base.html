@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{% block title %}QMS Report{% endblock %}</title>
+<style>
+  @page {
+    size: A4;
+    margin: 18mm 15mm 22mm 15mm;
+    @bottom-center {
+      content: "Page " counter(page) " of " counter(pages);
+      font-family: "Helvetica", "Arial", sans-serif;
+      font-size: 9pt;
+      color: #555;
+    }
+    @bottom-right {
+      content: "QMS — confidential";
+      font-family: "Helvetica", "Arial", sans-serif;
+      font-size: 8pt;
+      color: #888;
+    }
+  }
+  body {
+    font-family: "Helvetica", "Arial", sans-serif;
+    font-size: 10pt;
+    color: #1a1a1a;
+    line-height: 1.35;
+  }
+  h1 {
+    font-size: 18pt;
+    color: #0b3d2e;
+    margin: 0 0 4pt 0;
+  }
+  h2 {
+    font-size: 13pt;
+    color: #0b3d2e;
+    border-bottom: 1px solid #d0d0d0;
+    padding-bottom: 2pt;
+    margin: 18pt 0 6pt 0;
+  }
+  h3 {
+    font-size: 11pt;
+    color: #1a1a1a;
+    margin: 10pt 0 4pt 0;
+  }
+  .report-header {
+    border-bottom: 2px solid #0b3d2e;
+    padding-bottom: 8pt;
+    margin-bottom: 14pt;
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4pt 16pt;
+    font-size: 9.5pt;
+    margin-top: 6pt;
+  }
+  .meta-grid dt {
+    color: #555;
+    margin: 0;
+  }
+  .meta-grid dd {
+    margin: 0 0 2pt 0;
+    font-weight: 600;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 6pt 0 12pt 0;
+    font-size: 9pt;
+  }
+  th, td {
+    border: 1px solid #c8c8c8;
+    padding: 3pt 5pt;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: #f0eee5;
+    color: #0b3d2e;
+    font-weight: 600;
+    font-size: 9pt;
+  }
+  tr.deviation td {
+    background: #fdecec;
+  }
+  .badge-ok {
+    display: inline-block;
+    padding: 1pt 6pt;
+    background: #e6f4ea;
+    color: #1e6e3a;
+    border-radius: 2pt;
+    font-size: 8.5pt;
+    font-weight: 600;
+  }
+  .badge-bad {
+    display: inline-block;
+    padding: 1pt 6pt;
+    background: #fdecec;
+    color: #a72929;
+    border-radius: 2pt;
+    font-size: 8.5pt;
+    font-weight: 600;
+  }
+  .summary-box {
+    background: #f6f5ee;
+    border-left: 3px solid #0b3d2e;
+    padding: 6pt 10pt;
+    margin: 8pt 0;
+    font-size: 10pt;
+  }
+  .signature {
+    margin-top: 30pt;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28pt;
+  }
+  .signature .line {
+    border-top: 1px solid #888;
+    padding-top: 4pt;
+    font-size: 9pt;
+    color: #555;
+  }
+  code, .mono {
+    font-family: "Menlo", "Consolas", "Liberation Mono", monospace;
+    font-size: 8.5pt;
+  }
+  .text-muted { color: #777; }
+  .text-right { text-align: right; }
+</style>
+</head>
+<body>
+<div class="report-header">
+  <h1>{% block heading %}{% endblock %}</h1>
+  <dl class="meta-grid">
+    {% block meta %}{% endblock %}
+    <dt>Generated at</dt><dd>{{ generated_at.strftime('%Y-%m-%d %H:%M UTC') }}</dd>
+  </dl>
+</div>
+
+{% block content %}{% endblock %}
+
+<div class="signature">
+  <div class="line">Quality Manager (signature, date)</div>
+  <div class="line">Production Manager (signature, date)</div>
+</div>
+</body>
+</html>

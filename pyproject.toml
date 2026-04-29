@@ -23,6 +23,7 @@ dependencies = [
     "pyotp>=2.9.0",
     "babel>=2.16.0",
     "paho-mqtt>=2.1.0",
+    "weasyprint>=62",
 ]
 
 [project.optional-dependencies]
