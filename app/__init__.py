@@ -72,6 +72,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
         run_worker(app)
 
+    @app.cli.command("rq-worker")
+    def _rq_worker_cmd():
+        from app.workers.rq_worker import run as run_rq
+
+        run_rq(app)
+
     @app.context_processor
     def _inject_globals():
         return {"current_lang": g.get("lang", app.config["DEFAULT_LANGUAGE"])}
@@ -112,7 +118,9 @@ def _default_config() -> dict[str, Any]:
         "MQTT_PASSWORD": os.environ.get("MQTT_PASSWORD"),
         "MQTT_USE_STREAM": os.environ.get("MQTT_USE_STREAM", "1") not in ("0", "false", "False"),
         "REDIS_URL": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
-        # Tests inject `fakeredis.FakeRedis(decode_responses=True)` here so
-        # stream code paths run without a real broker.
+        # Tests inject text-mode (`decode_responses=True`) and binary
+        # fakeredis clients sharing a single FakeServer, so stream + RQ
+        # code paths run without a real broker.
         "REDIS_CLIENT": None,
+        "REDIS_BINARY_CLIENT": None,
     }

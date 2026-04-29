@@ -9,13 +9,26 @@ from app.seeds import seed_initial
 
 
 @pytest.fixture()
-def redis_client():
-    """Fresh in-memory Redis per test (so streams/groups don't leak)."""
-    return fakeredis.FakeRedis(decode_responses=True)
+def redis_server():
+    """Single FakeServer per test, shared by text + binary clients."""
+    return fakeredis.FakeServer()
 
 
 @pytest.fixture()
-def app(redis_client):
+def redis_client(redis_server):
+    """Text-mode (`decode_responses=True`) client for the stream service."""
+    return fakeredis.FakeRedis(server=redis_server, decode_responses=True)
+
+
+@pytest.fixture()
+def redis_binary_client(redis_server):
+    """Binary client for RQ — RQ stores job data as raw bytes and cannot
+    be paired with `decode_responses=True`."""
+    return fakeredis.FakeRedis(server=redis_server)
+
+
+@pytest.fixture()
+def app(redis_client, redis_binary_client):
     application = create_app(
         {
             "TESTING": True,
@@ -25,6 +38,7 @@ def app(redis_client):
             "BCRYPT_LOG_ROUNDS": 4,
             "AUTO_CREATE_TABLES": True,
             "REDIS_CLIENT": redis_client,
+            "REDIS_BINARY_CLIENT": redis_binary_client,
         }
     )
     with application.app_context():

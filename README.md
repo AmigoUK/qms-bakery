@@ -69,22 +69,22 @@ For the full picture see documents `01-` and `02-`.
 - **Redis-Stream buffer + trigger worker** — bridge `XADD`s parsed readings to `qms:readings` (bounded MAXLEN 100k, FIFO drop on overflow); a separate `flask trigger-worker` process consumes via `XREADGROUP qms-workers` and feeds the trigger engine. At-least-once delivery, scales horizontally, decouples MQTT from DB latency.
 - **Duration-window triggers** — a trigger condition with `duration_seconds: 30` only fires after the metric has continuously breached the threshold for 30s. First-true timestamps are kept in Redis (`trigger_state:<id>:<scope>:first_true`, TTL 3×duration), reset when the condition flips back to safe. Per-scope isolation, no spurious tickets from a single 1-second spike.
 - **PDF reports (WeasyPrint)** — `/reports/haccp/monthly?year=&month=&line_id=` renders a print-ready HACCP monthly report (CCP measurements, deviations, within-spec %, signature lines); `/reports/fsa/traceability?from=&to=` exports the chain-verified audit trail for a date range. Both return `application/pdf`, gated by `reports.generate`.
+- **RQ worker for async responders** — WEBHOOK responder now enqueues an outbound HTTP POST job onto `qms:webhooks` with HMAC-SHA256 signing (`X-QMS-Signature: sha256=...`), 3/9/27-minute retry backoff, and DLQ via RQ's failed-job registry. `flask rq-worker` CLI + dedicated Compose service.
 - **Admin panel** — KPI overview, user CRUD, trigger toggle, audit_log viewer with chain-integrity verification
 - **Alembic migrations** (Flask-Migrate) — versioned schema, `flask db upgrade`/`downgrade`, baseline in `migrations/versions/`
 - Audit trail with SHA-256 chain-hashing + chain verification (tamper evidence)
 - PL/EN i18n via JSON message catalogs
 - HTML/CSS/JS frontend (Jinja2) — login (with 2FA), dashboard, tickets, HACCP, SALSA, admin
 - Seed data: 6 roles, 17 permissions, demo line with pipeline + 2 CCPs + 2 SALSA + trigger
-- **121 pytest tests**, all green
-- Docker Compose (Postgres 16 + Redis + Mosquitto + app + mqtt-bridge + trigger-worker)
+- **130 pytest tests**, all green
+- Docker Compose (Postgres 16 + Redis + Mosquitto + app + mqtt-bridge + trigger-worker + rq-worker)
 
 ⏳ **Planned for the next phases** (see `01-architectural-functional-plan.md` section 8):
 
 - Pipeline configurator (drag-and-drop UI)
-- RQ worker (asynchronous responders, webhook retry)
 - Trigger form-builder (currently: enable/disable in admin, raw JSON edit in compliance panel)
-- Outbound webhooks + DLQ
-- E-mail / SMS responders (Flask-Mail / Twilio)
+- DLQ inspection / replay UI (jobs land in RQ's failed registry today; needs a viewer + manual requeue)
+- E-mail / SMS responders (Flask-Mail / Twilio) — same RQ infra as webhooks
 
 ## Quick start (local, without Docker)
 
@@ -166,7 +166,10 @@ app/
 │   ├── trigger_state.py   # Redis-backed first-true state for duration-window triggers
 │   ├── stream.py          # Redis Stream helpers: publish_reading, consume (XREADGROUP+XACK)
 │   ├── reports.py         # HACCP-monthly + FSA-traceability PDF generation (WeasyPrint)
+│   ├── queue.py           # RQ queue (qms:webhooks) + retry/backoff policy
 │   └── totp.py            # TOTP enroll/verify, role requirement matrix
+├── jobs/
+│   └── webhook.py         # Outbound HMAC-signed HTTP POST (runs on RQ worker)
 ├── blueprints/
 │   ├── auth.py            # /auth/login (+2FA), /auth/logout, /auth/2fa/*, /auth/lang/<code>
 │   ├── dashboard.py       # /
@@ -179,14 +182,15 @@ app/
 ├── mqtt/
 │   └── bridge.py          # paho-mqtt subscriber → Redis Stream (enqueue_message)
 ├── workers/
-│   └── trigger_worker.py  # `flask trigger-worker` — consumes qms:readings → trigger engine
+│   ├── trigger_worker.py  # `flask trigger-worker` — consumes qms:readings → trigger engine
+│   └── rq_worker.py       # `flask rq-worker` — drains qms:webhooks (and future async queues)
 ├── templates/             # Jinja2 templates per blueprint (incl. reports/{base,haccp_monthly,fsa_traceability}.html)
 ├── static/css/app.css     # Hand-written CSS, mobile-first
 └── translations/
     ├── pl.json
     └── en.json
 
-tests/                     # pytest (121 tests, SQLite in-memory + fakeredis)
+tests/                     # pytest (130 tests, SQLite in-memory + fakeredis)
 ├── test_models.py
 ├── test_audit.py
 ├── test_auth.py
@@ -201,7 +205,9 @@ tests/                     # pytest (121 tests, SQLite in-memory + fakeredis)
 ├── test_stream.py         # Redis Stream publish + XREADGROUP/XACK (fakeredis)
 ├── test_trigger_worker.py # bridge → stream → worker → trigger fires (fakeredis)
 ├── test_trigger_duration.py # duration-window gating + reset on flip-false (fakeredis + freezegun)
-└── test_reports.py        # HACCP/FSA PDF service + HTTP routes (WeasyPrint)
+├── test_reports.py        # HACCP/FSA PDF service + HTTP routes (WeasyPrint)
+├── test_webhook_job.py    # post_webhook unit: HMAC signing, raise-on-non-2xx
+└── test_responder_webhook.py # WEBHOOK responder enqueues onto qms:webhooks (fakeredis)
 ```
 
 ## Team

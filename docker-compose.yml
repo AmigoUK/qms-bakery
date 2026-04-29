@@ -87,5 +87,22 @@ services:
     restart: unless-stopped
     command: flask trigger-worker
 
+  rq-worker:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      FLASK_APP: app:create_app
+    restart: unless-stopped
+    command: flask rq-worker
+
 volumes:
   pgdata:

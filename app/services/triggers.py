@@ -224,8 +224,21 @@ def _dispatch_responder(responder: Responder, trigger: Trigger, payload: dict) -
         return {"escalated_ticket_id": ticket_id}
 
     if rtype is ResponderType.WEBHOOK:
-        # In-process placeholder: real implementation enqueues HTTP POST in RQ.
-        return {"queued_webhook": cfg.get("url")}
+        url = cfg.get("url")
+        if not url:
+            raise TriggerError("webhook responder requires url")
+        from app.services import queue as queue_service
+
+        job = queue_service.enqueue_webhook(
+            url,
+            payload={
+                "trigger_code": trigger.code,
+                "severity": trigger.severity,
+                "payload": payload,
+            },
+            secret=cfg.get("secret"),
+        )
+        return {"queued_webhook": url, "job_id": job.id}
 
     raise TriggerError(f"Unknown responder type: {responder.type}")
 

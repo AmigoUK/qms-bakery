@@ -24,6 +24,7 @@ dependencies = [
     "babel>=2.16.0",
     "paho-mqtt>=2.1.0",
     "weasyprint>=62",
+    "requests>=2.32",
 ]
 
 [project.optional-dependencies]
