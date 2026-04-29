@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.pipelines') }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ _('admin.pipelines') }}</h1>
+</header>
+
+<p class="muted">{{ _('admin.pipelines.intro') }}</p>
+
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('tickets.field.line') }}</th>
+      <th>{{ _('admin.pipelines.version') }}</th>
+      <th>{{ _('admin.pipelines.stage_count') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for row in rows %}
+    <tr>
+      <td>{{ row.line.code }} — {{ row.line.name }}</td>
+      <td>
+        {% if row.pipeline %}v{{ row.pipeline.version }}{% else %}—{% endif %}
+      </td>
+      <td>
+        {% if row.pipeline %}{{ row.pipeline.stages | length }}{% else %}—{% endif %}
+      </td>
+      <td>
+        <a class="btn btn-ghost"
+           href="{{ url_for('admin.pipelines_edit', line_id=row.line.id) }}">
+          {% if row.pipeline %}{{ _('admin.users.edit') }}{% else %}{{ _('admin.pipelines.create') }}{% endif %}
+        </a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

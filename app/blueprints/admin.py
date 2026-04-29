@@ -8,6 +8,9 @@ etc.) to keep audit semantics consistent.
 
 from __future__ import annotations
 
+import json
+import re
+
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
@@ -30,6 +33,8 @@ from app.models import (
     AuditLog,
     CCPDefinition,
     Permission,
+    Pipeline,
+    PipelineStage,
     ProductionLine,
     Role,
     SalsaChecklist,
@@ -52,6 +57,7 @@ def index():
         "ccps": CCPDefinition.query.count(),
         "salsa": SalsaChecklist.query.count(),
         "triggers": Trigger.query.count(),
+        "pipelines": Pipeline.query.filter_by(is_active=True).count(),
         "audit_entries": AuditLog.query.count(),
     }
     recent_audit = (
@@ -441,6 +447,187 @@ def audit_index():
         page_size=page_size,
         chain_ok=chain_ok,
         broken_id=broken_id,
+    )
+
+
+# ─── Pipelines ───────────────────────────────────────────────────────────
+
+# Stage codes go into URLs and audit diffs - keep them ASCII-snake. Same shape
+# as ProductionLine.code; 32 chars matches the column width.
+_STAGE_CODE_RE = re.compile(r"^[a-z][a-z0-9_]{0,31}$")
+
+
+def _role_code_choices() -> list[tuple[str, str]]:
+    """Roles available for stage `required_role_code`. Empty means 'any'."""
+    return [("", "(any)")] + [(r.code, r.code) for r in Role.query.order_by(Role.code)]
+
+
+class PipelineForm(FlaskForm):
+    """Holds the JSON payload + CSRF token. Stage data lives in stages_json."""
+
+    stages_json = StringField("stages_json", validators=[DataRequired()])
+    submit = SubmitField()
+
+
+def _serialise_pipeline(pipeline: Pipeline | None) -> list[dict]:
+    if pipeline is None:
+        return []
+    return [
+        {
+            "code": s.code,
+            "name_pl": (s.name or {}).get("pl", ""),
+            "name_en": (s.name or {}).get("en", ""),
+            "required_role_code": s.required_role_code or "",
+            "sla_minutes": s.sla_minutes if s.sla_minutes is not None else "",
+            "is_ccp_checkpoint": bool(s.is_ccp_checkpoint),
+        }
+        for s in pipeline.stages
+    ]
+
+
+def _validate_stages_payload(payload) -> tuple[list[dict] | None, str | None]:
+    """Validate the parsed JSON. Returns (clean_stages, error_msg)."""
+    if not isinstance(payload, list) or not payload:
+        return None, "admin.pipelines.empty_stages"
+    seen_codes: set[str] = set()
+    clean: list[dict] = []
+    valid_role_codes = {r.code for r in Role.query.all()}
+    for raw in payload:
+        if not isinstance(raw, dict):
+            return None, "admin.pipelines.invalid_stage"
+        code = (raw.get("code") or "").strip().lower()
+        if not _STAGE_CODE_RE.match(code):
+            return None, "admin.pipelines.invalid_code"
+        if code in seen_codes:
+            return None, "admin.pipelines.duplicate_code"
+        seen_codes.add(code)
+        name_pl = (raw.get("name_pl") or "").strip()
+        name_en = (raw.get("name_en") or "").strip()
+        if not name_pl or not name_en:
+            return None, "admin.pipelines.missing_name"
+        role_code = (raw.get("required_role_code") or "").strip() or None
+        if role_code and role_code not in valid_role_codes:
+            return None, "admin.pipelines.unknown_role"
+        sla_raw = raw.get("sla_minutes")
+        sla: int | None
+        if sla_raw in (None, "", "null"):
+            sla = None
+        else:
+            try:
+                sla = int(sla_raw)
+            except (TypeError, ValueError):
+                return None, "admin.pipelines.invalid_sla"
+            if sla < 0 or sla > 100000:
+                return None, "admin.pipelines.invalid_sla"
+        clean.append(
+            {
+                "code": code,
+                "name": {"pl": name_pl, "en": name_en},
+                "required_role_code": role_code,
+                "sla_minutes": sla,
+                "is_ccp_checkpoint": bool(raw.get("is_ccp_checkpoint")),
+            }
+        )
+    return clean, None
+
+
+@bp.route("/pipelines")
+@login_required
+@require_permission("pipeline.configure")
+def pipelines_index():
+    lines = ProductionLine.query.order_by(ProductionLine.code).all()
+    rows = []
+    for line in lines:
+        active = (
+            Pipeline.query.filter_by(line_id=line.id, is_active=True)
+            .order_by(Pipeline.version.desc())
+            .first()
+        )
+        rows.append({"line": line, "pipeline": active})
+    return render_template("admin/pipelines_list.html", rows=rows)
+
+
+@bp.route("/pipelines/<line_id>/edit", methods=["GET", "POST"])
+@login_required
+@require_permission("pipeline.configure")
+def pipelines_edit(line_id: str):
+    line = db.session.get(ProductionLine, line_id)
+    if line is None:
+        abort(404)
+    active = (
+        Pipeline.query.filter_by(line_id=line.id, is_active=True)
+        .order_by(Pipeline.version.desc())
+        .first()
+    )
+    form = PipelineForm()
+
+    if form.validate_on_submit():
+        try:
+            payload = json.loads(form.stages_json.data or "[]")
+        except json.JSONDecodeError:
+            flash(_("admin.pipelines.invalid_payload"), "danger")
+            stages = json.loads(form.stages_json.data or "[]") if False else _serialise_pipeline(active)
+            return render_template(
+                "admin/pipelines_editor.html",
+                form=form, line=line, pipeline=active,
+                stages=stages, role_choices=_role_code_choices(),
+            )
+        clean_stages, err_key = _validate_stages_payload(payload)
+        if err_key:
+            flash(_(err_key), "danger")
+            return render_template(
+                "admin/pipelines_editor.html",
+                form=form, line=line, pipeline=active,
+                stages=payload if isinstance(payload, list) else _serialise_pipeline(active),
+                role_choices=_role_code_choices(),
+            )
+        # Create new version. Old stays in DB (FKs from existing tickets) but
+        # is_active=False — the engine reads only the active version.
+        next_version = (
+            db.session.query(db.func.max(Pipeline.version))
+            .filter(Pipeline.line_id == line.id)
+            .scalar()
+            or 0
+        ) + 1
+        if active is not None:
+            active.is_active = False
+        new_pipeline = Pipeline(line_id=line.id, version=next_version, is_active=True)
+        db.session.add(new_pipeline)
+        db.session.flush()
+        for idx, s in enumerate(clean_stages):
+            db.session.add(
+                PipelineStage(
+                    pipeline_id=new_pipeline.id,
+                    order_index=idx,
+                    code=s["code"],
+                    name=s["name"],
+                    required_role_code=s["required_role_code"],
+                    sla_minutes=s["sla_minutes"],
+                    is_ccp_checkpoint=s["is_ccp_checkpoint"],
+                )
+            )
+        audit.record(
+            entity_type="pipeline",
+            entity_id=new_pipeline.id,
+            action="create_version",
+            diff={
+                "line_code": line.code,
+                "version": next_version,
+                "stage_codes": [s["code"] for s in clean_stages],
+            },
+        )
+        db.session.commit()
+        flash(_("admin.pipelines.saved"), "success")
+        return redirect(url_for("admin.pipelines_index"))
+
+    stages = _serialise_pipeline(active)
+    return render_template(
+        "admin/pipelines_editor.html",
+        form=form,
+        line=line,
+        pipeline=active,
+        stages=stages,
+        role_choices=_role_code_choices(),
     )
 
 

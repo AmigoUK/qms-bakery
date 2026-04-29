@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.pipelines') }}{% endblock %}
+{% block content %}
+<header class="page-head">
+  <h1>{{ _('admin.pipelines.edit') }} · <code>{{ line.code }}</code></h1>
+  <a class="btn btn-ghost" href="{{ url_for('admin.pipelines_index') }}">{{ _('common.cancel') }}</a>
+</header>
+
+<p class="muted">
+  {{ _('admin.pipelines.edit_hint') }}
+  {% if pipeline %}<br><small>{{ _('admin.pipelines.current_version') }}: v{{ pipeline.version }}</small>{% endif %}
+</p>
+
+<form method="post" id="pipeline-form">
+  {{ form.csrf_token }}
+  {{ form.stages_json(type="hidden", id="stages-json") }}
+
+  <ul id="stage-list" class="stage-list">
+    {% for s in stages %}
+    <li class="stage-row" data-stage>
+      <div class="stage-handle" title="{{ _('admin.pipelines.drag_hint') }}">⋮⋮</div>
+      <div class="stage-fields">
+        <div class="grid-2">
+          <label><span>{{ _('admin.code') }}</span>
+            <input type="text" data-field="code" value="{{ s.code }}" maxlength="32" required pattern="[a-z][a-z0-9_]{0,31}">
+          </label>
+          <label><span>{{ _('admin.pipelines.role') }}</span>
+            <select data-field="required_role_code">
+              {% for code, label in role_choices %}
+                <option value="{{ code }}" {% if s.required_role_code == code %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+        </div>
+        <div class="grid-2">
+          <label><span>{{ _('admin.triggers.name_en') }}</span>
+            <input type="text" data-field="name_en" value="{{ s.name_en }}" required>
+          </label>
+          <label><span>{{ _('admin.triggers.name_pl') }}</span>
+            <input type="text" data-field="name_pl" value="{{ s.name_pl }}" required>
+          </label>
+        </div>
+        <div class="grid-2">
+          <label><span>{{ _('admin.pipelines.sla') }}</span>
+            <input type="number" data-field="sla_minutes" value="{{ s.sla_minutes }}" min="0" max="100000" placeholder="—">
+          </label>
+          <label class="inline">
+            <input type="checkbox" data-field="is_ccp_checkpoint" {% if s.is_ccp_checkpoint %}checked{% endif %}>
+            {{ _('admin.pipelines.is_ccp') }}
+          </label>
+        </div>
+      </div>
+      <button type="button" class="btn btn-ghost stage-remove" aria-label="{{ _('admin.pipelines.remove') }}">×</button>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <div class="actions">
+    <button type="button" class="btn btn-secondary" id="add-stage">{{ _('admin.pipelines.add_stage') }}</button>
+    <button type="submit" class="btn btn-primary">{{ _('common.save') }}</button>
+  </div>
+</form>
+
+<template id="stage-template">
+  <li class="stage-row" data-stage>
+    <div class="stage-handle">⋮⋮</div>
+    <div class="stage-fields">
+      <div class="grid-2">
+        <label><span>{{ _('admin.code') }}</span>
+          <input type="text" data-field="code" maxlength="32" required pattern="[a-z][a-z0-9_]{0,31}">
+        </label>
+        <label><span>{{ _('admin.pipelines.role') }}</span>
+          <select data-field="required_role_code">
+            {% for code, label in role_choices %}
+              <option value="{{ code }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="grid-2">
+        <label><span>{{ _('admin.triggers.name_en') }}</span>
+          <input type="text" data-field="name_en" required>
+        </label>
+        <label><span>{{ _('admin.triggers.name_pl') }}</span>
+          <input type="text" data-field="name_pl" required>
+        </label>
+      </div>
+      <div class="grid-2">
+        <label><span>{{ _('admin.pipelines.sla') }}</span>
+          <input type="number" data-field="sla_minutes" min="0" max="100000" placeholder="—">
+        </label>
+        <label class="inline">
+          <input type="checkbox" data-field="is_ccp_checkpoint">
+          {{ _('admin.pipelines.is_ccp') }}
+        </label>
+      </div>
+    </div>
+    <button type="button" class="btn btn-ghost stage-remove" aria-label="{{ _('admin.pipelines.remove') }}">×</button>
+  </li>
+</template>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script>
+(function () {
+  const list = document.getElementById("stage-list");
+  const tpl = document.getElementById("stage-template");
+  const addBtn = document.getElementById("add-stage");
+  const form = document.getElementById("pipeline-form");
+  const hidden = document.getElementById("stages-json");
+
+  if (window.Sortable) {
+    Sortable.create(list, { handle: ".stage-handle", animation: 150 });
+  }
+
+  function bindRow(row) {
+    row.querySelector(".stage-remove").addEventListener("click", () => row.remove());
+  }
+  list.querySelectorAll("[data-stage]").forEach(bindRow);
+
+  addBtn.addEventListener("click", () => {
+    const node = tpl.content.firstElementChild.cloneNode(true);
+    list.appendChild(node);
+    bindRow(node);
+    node.querySelector("[data-field='code']").focus();
+  });
+
+  form.addEventListener("submit", (ev) => {
+    const rows = list.querySelectorAll("[data-stage]");
+    const stages = [];
+    rows.forEach((row) => {
+      const get = (k) => row.querySelector(`[data-field='${k}']`);
+      stages.push({
+        code: get("code").value,
+        name_pl: get("name_pl").value,
+        name_en: get("name_en").value,
+        required_role_code: get("required_role_code").value,
+        sla_minutes: get("sla_minutes").value,
+        is_ccp_checkpoint: get("is_ccp_checkpoint").checked,
+      });
+    });
+    hidden.value = JSON.stringify(stages);
+  });
+})();
+</script>
+{% endblock %}

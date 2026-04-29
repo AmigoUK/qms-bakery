@@ -165,6 +165,17 @@ form.filters { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0 1
 .timeline-item time { font-size: 0.8rem; color: var(--ink-2); margin-right: 0.5rem; }
 .timeline-item p { margin: 0.4rem 0 0; color: var(--ink-2); }
 
+/* Pipeline editor */
+.stage-list { list-style: none; padding: 0; margin: 1rem 0; display: flex; flex-direction: column; gap: 0.6rem; }
+.stage-row { display: grid; grid-template-columns: 28px 1fr 32px; gap: 0.75rem; align-items: start;
+  padding: 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.stage-handle { cursor: grab; color: var(--ink-2); font-size: 1.2rem; line-height: 1; padding-top: 0.5rem;
+  user-select: none; text-align: center; }
+.stage-handle:active { cursor: grabbing; }
+.stage-fields { display: flex; flex-direction: column; gap: 0.4rem; }
+.stage-remove { padding: 0 0.6rem; font-size: 1.2rem; line-height: 1.4; }
+.sortable-ghost { opacity: 0.4; }
+
 /* Utility */
 .empty { color: var(--ink-2); font-style: italic; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
