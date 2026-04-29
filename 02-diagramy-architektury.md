@@ -76,7 +76,7 @@ graph TB
     ERP <-->|REST API + HMAC| NGINX
     WORKER -->|SMTP| EMAIL
     WORKER -->|HTTP API| SMS
-    WORKER -->|S3 PUT (Object Lock)| S3
+    WORKER -->|"S3 PUT (Object Lock)"| S3
     PG -.replikacja audit.- S3
 
     FLASK -->|read/write| FILES

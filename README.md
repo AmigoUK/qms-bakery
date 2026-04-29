@@ -1,46 +1,46 @@
-# QMS — System Zarządzania Jakością dla piekarni (UK)
+# QMS — Quality Management System for UK bakery
 
-> **Status:** Dokumentacja przed-implementacyjna (v1.0)
-> **Stos technologiczny:** Python 3.12 + Flask + UV · PostgreSQL 16 · Redis 7 · MQTT (Mosquitto) · HTML/CSS/JS + HTMX
-> **Region regulacyjny:** Wielka Brytania — zgodność z **FSA**, **SALSA**, **HACCP**
-> **Tryb pracy:** Multiuser, wielojęzyczny (PL/EN), PWA dla operatorów hali
+> **Status:** Pre-implementation documentation (v1.0)
+> **Tech stack:** Python 3.12 + Flask + UV · PostgreSQL 16 · Redis 7 · MQTT (Mosquitto) · HTML/CSS/JS + HTMX
+> **Regulatory region:** United Kingdom — compliance with **FSA**, **SALSA**, **HACCP**
+> **Operating mode:** Multiuser, multilingual (PL/EN), PWA for shop-floor operators
 
-## Czym jest ten projekt
+## What this project is
 
-System Zarządzania Jakością (QMS) dedykowany produkcji żywności w Wielkiej Brytanii — w szczególności piekarnictwu. Rejestruje, klasyfikuje i obsługuje **niezgodności jakościowe** (tickety) z trzech źródeł:
+A Quality Management System (QMS) dedicated to UK food production — bakery in particular. It records, classifies and processes **quality nonconformities** (tickets) from three sources:
 
-1. **Manualne** — operatorzy zgłaszają z poziomu tabletu na hali
-2. **IoT** — automatyczne tickety z urządzeń (czujniki temperatury, wagi) przez MQTT
-3. **API** — integracje z ERP, systemami klienta, portalami reklamacyjnymi
+1. **Manual** — operators report from a shop-floor tablet
+2. **IoT** — automatic tickets from devices (temperature sensors, scales) via MQTT
+3. **API** — integrations with ERP, customer systems, complaint portals
 
-Każdy ticket przechodzi przez **konfigurowalny pipeline** etapów (wykrycie → klasyfikacja → analiza → akcja korygująca → weryfikacja → zamknięcie). System silnika reguł (triggery + respondery) automatycznie wykrywa anomalie i uruchamia akcje (powiadomienia, eskalacje, wstrzymanie linii). Wszystko z pełnym audit trail i raportowaniem zgodnym z wymogami FSA.
+Every ticket flows through a **configurable pipeline** of stages (detection → classification → analysis → corrective action → verification → closure). A rule engine (triggers + responders) detects anomalies in real time and dispatches actions (notifications, escalations, line pause). All of it backed by a full audit trail and FSA-compliant reporting.
 
-## Dokumentacja
+## Documentation
 
-| # | Dokument | Opis |
+| # | Document | Description |
 |---|---|---|
-| 1 | [`01-plan-architektoniczny-funkcjonalny.md`](./01-plan-architektoniczny-funkcjonalny.md) | Pełny plan systemu — architektura, moduły, model bazy, UX, RBAC, plan wdrożenia, ryzyka |
-| 2 | [`02-diagramy-architektury.md`](./02-diagramy-architektury.md) | 5 diagramów technicznych (Mermaid): warstwy, przepływ ticketów, compliance, uprawnienia, i18n |
+| 1 | [`01-plan-architektoniczny-funkcjonalny.md`](./01-plan-architektoniczny-funkcjonalny.md) | Full system plan — architecture, modules, data model, UX, RBAC, rollout plan, risks |
+| 2 | [`02-diagramy-architektury.md`](./02-diagramy-architektury.md) | 5 technical Mermaid diagrams: layers, ticket flow, compliance, permissions, i18n |
 
-## Kluczowe cechy
+## Key features
 
-- ✅ **Pełna zgodność SALSA + HACCP + FSA** — checklisty, definicje CCP, raporty regulacyjne
-- ✅ **Audit trail z chain-hashing** — niezmienialny zapis 7 lat (partycjonowany, replikowany do WORM)
-- ✅ **Konfigurowalny pipeline** per linia produkcyjna, wersjonowany
-- ✅ **Silnik triggerów** — własny DSL w JSONB, ewaluacja w czasie rzeczywistym z Redis Stream
-- ✅ **Multi-source tickety** — manual / IoT / API (HMAC + idempotency)
-- ✅ **PWA offline-first** — operator hali pracuje nawet przy zerwanym WiFi
-- ✅ **PL/EN** — UI, raporty, e-maile per użytkownik; treści dynamiczne w JSONB
+- ✅ **Full SALSA + HACCP + FSA compliance** — checklists, CCP definitions, regulatory reports
+- ✅ **Audit trail with chain-hashing** — immutable 7-year record (partitioned, replicated to WORM)
+- ✅ **Configurable pipeline** per production line, versioned
+- ✅ **Trigger engine** — custom DSL in JSONB, real-time evaluation off Redis Streams
+- ✅ **Multi-source tickets** — manual / IoT / API (HMAC + idempotency)
+- ✅ **PWA offline-first** — shop-floor operator keeps working even on flaky Wi-Fi
+- ✅ **PL/EN** — UI, reports, e-mails per user; dynamic content stored in JSONB
 
-## Diagram szybkiego przeglądu (high-level)
+## High-level overview
 
 ```mermaid
 graph LR
-    SRC["📥 Źródła<br/>Manual / IoT / API"]
+    SRC["📥 Sources<br/>Manual / IoT / API"]
     APP["⚙️ Flask + UV<br/>Pipeline Engine<br/>Triggers/Responders"]
     DB[("🐘 PostgreSQL<br/>+ audit_log")]
-    OUT["📤 Akcje<br/>Notify · Pause · Report"]
-    REP["📊 Raporty<br/>HACCP · SALSA · FSA"]
+    OUT["📤 Actions<br/>Notify · Pause · Report"]
+    REP["📊 Reports<br/>HACCP · SALSA · FSA"]
 
     SRC --> APP
     APP --> DB
@@ -48,63 +48,66 @@ graph LR
     DB --> REP
 ```
 
-Szczegóły — patrz dokumenty `01-` i `02-`.
+For the full picture see documents `01-` and `02-`.
 
-## Status implementacji (Faza 1 — MVP)
+## Implementation status (Phase 1 — MVP)
 
-✅ **Co już działa** (uruchamialne):
+✅ **Already working** (runnable):
 
-- Flask app factory + konfiguracja (UV, `pyproject.toml`)
-- Modele SQLAlchemy 2.0: User, Role, Permission, ProductionLine, Pipeline, PipelineStage, Ticket, TicketEvent, AuditLog, CCPDefinition, CCPMeasurement, SalsaChecklist, SalsaResponse, Trigger, Responder, TriggerExecution, InAppNotification
-- Auth + RBAC (bcrypt, lockout, dekorator `@require_permission`)
-- **2FA TOTP** (pyotp) — wymóg dla ról `admin` i `compliance`
-- Tickets: CRUD, state machine, komentarze, transitions z audytem
-- **HACCP/CCP** — definicje, pomiary, automatyczne tickety przy odchyleniu od limitów, scoping per linia
-- **SALSA checklists** — szablony z bilingwalnymi pozycjami, wypełnianie, automatyczny ticket przy niezgodności
-- **Trigger/responder engine** — silnik reguł z JSONB-warunkami, dispatch responderów (notify_in_app, create_ticket, escalate, webhook), tryb `dry_run`
-- **REST API** `/api/v1/measurements` z HMAC-SHA256 dla integracji IoT/ERP
-- **Panel admina** — przegląd KPI, CRUD użytkowników, toggle triggerów, przeglądarka audit_log z weryfikacją integralności łańcucha
-- Audit trail z chain-hashing SHA-256 + weryfikacja łańcucha (tamper-evidence)
-- i18n PL/EN przez JSON message catalogs
-- Frontend HTML/CSS/JS (Jinja2) — login (z 2FA), dashboard, tickety, HACCP, SALSA, admin
-- Seed data: 6 ról, 17 uprawnień, demo linia z pipeline'em + 2 CCP + 2 SALSA + trigger
-- **69 testów (pytest)**, wszystkie zielone
+- Flask app factory + configuration (UV, `pyproject.toml`)
+- SQLAlchemy 2.0 models: User, Role, Permission, ProductionLine, Pipeline, PipelineStage, Ticket, TicketEvent, AuditLog, CCPDefinition, CCPMeasurement, SalsaChecklist, SalsaResponse, Trigger, Responder, TriggerExecution, InAppNotification
+- Auth + RBAC (bcrypt, lockout, `@require_permission` decorator)
+- **2FA TOTP** (pyotp) — required for `admin` and `compliance` roles
+- Tickets: CRUD, state machine, comments, audited transitions
+- **HACCP/CCP** — definitions, measurements, automatic tickets on out-of-limit values, per-line scoping
+- **SALSA checklists** — bilingual templates, responses, automatic ticket on nonconformity
+- **Trigger/responder engine** — JSONB-condition rule engine, responder dispatch (notify_in_app, create_ticket, escalate, webhook), `dry_run` mode
+- **REST API** `/api/v1/measurements` with HMAC-SHA256 for IoT/ERP integrations
+- **Admin panel** — KPI overview, user CRUD, trigger toggle, audit_log viewer with chain-integrity verification
+- **Alembic migrations** (Flask-Migrate) — versioned schema, `flask db upgrade`/`downgrade`, baseline in `migrations/versions/`
+- Audit trail with SHA-256 chain-hashing + chain verification (tamper evidence)
+- PL/EN i18n via JSON message catalogs
+- HTML/CSS/JS frontend (Jinja2) — login (with 2FA), dashboard, tickets, HACCP, SALSA, admin
+- Seed data: 6 roles, 17 permissions, demo line with pipeline + 2 CCPs + 2 SALSA + trigger
+- **69 pytest tests**, all green
 - Docker Compose (Postgres 16 + Redis + Mosquitto + app)
 
-⏳ **W planie kolejnych faz** (patrz `01-plan-...` sekcja 8):
+⏳ **Planned for the next phases** (see `01-plan-...` section 8):
 
-- Pipeline configurator (drag-drop UI)
+- Pipeline configurator (drag-and-drop UI)
 - MQTT Bridge runtime (paho-mqtt → Redis Stream → trigger evaluator)
-- RQ worker (asynchroniczne respondery, webhook retry)
-- Raporty PDF (HACCP miesięczny, FSA traceability) z WeasyPrint
-- Alembic migrations (zamiast `db.create_all()`)
-- Form-builder dla triggerów (obecnie: aktywacja/deaktywacja w admin, edycja JSON-em w panelu compliance)
-- WebHooks wychodzące + DLQ
-- E-mail/SMS respondery (Flask-Mail / Twilio)
+- RQ worker (asynchronous responders, webhook retry)
+- PDF reports (HACCP monthly, FSA traceability) via WeasyPrint
+- Trigger form-builder (currently: enable/disable in admin, raw JSON edit in compliance panel)
+- Outbound webhooks + DLQ
+- E-mail / SMS responders (Flask-Mail / Twilio)
 
-## Szybki start (lokalnie, bez Dockera)
+## Quick start (local, without Docker)
 
 ```bash
-# 1. Wirtualne środowisko + zależności
+# 1. Virtualenv + dependencies
 uv venv --python 3.12
 source .venv/bin/activate
 uv pip install -e ".[dev]"
 
-# 2. Konfiguracja
+# 2. Configuration
 cp .env.example .env
-# Wygeneruj SECRET_KEY: python -c "import secrets; print(secrets.token_hex(32))"
+# Generate SECRET_KEY: python -c "import secrets; print(secrets.token_hex(32))"
 
-# 3. Inicjalizacja bazy + seed
+# 3. Database init + seed (runs `flask db upgrade` and loads seed data)
 export FLASK_APP=app:create_app
 flask init-db
+# or step by step:
+#   flask db upgrade   # apply Alembic migrations
+#   flask db current   # show current revision
 
-# 4. Uruchomienie
+# 4. Run
 flask run
 # → http://localhost:5000
-# Domyślne konto: admin@local / ChangeMe123!
+# Default account: admin@local / ChangeMe123!
 ```
 
-## Szybki start (Docker Compose)
+## Quick start (Docker Compose)
 
 ```bash
 echo "SECRET_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" > .env
@@ -113,16 +116,16 @@ docker compose run --rm app flask init-db
 docker compose up app
 ```
 
-## Testy
+## Tests
 
 ```bash
 PYTHONPATH=. python3 -m pytest -v
 # 69 passed in ~5s
 ```
 
-Testy używają SQLite in-memory dla szybkości; produkcja — PostgreSQL 16 (patrz `docker-compose.yml`).
+Tests use SQLite in-memory for speed; production runs on PostgreSQL 16 (see `docker-compose.yml`).
 
-## Struktura projektu
+## Project structure
 
 ```
 app/
@@ -174,15 +177,15 @@ tests/                     # pytest (69 tests, SQLite in-memory)
 └── test_i18n.py
 ```
 
-## Zespół
+## Team
 
-Dokumentacja przygotowana przez zespół ról:
+Documentation prepared by a multi-role team:
 
-- 🏗️ **Architekt systemów** — projekt warstw, integracji, skalowania
-- 🐍 **Python Developer** — wybór frameworka, struktura blueprintów, ORM
-- 🔬 **Specjalista QMS / Compliance UK** — mapowanie wymagań SALSA/HACCP/FSA na funkcje
-- 🎨 **UX/UI Designer** — wireframy, zasady projektowe dla hali produkcyjnej
+- 🏗️ **Systems architect** — layer design, integrations, scaling
+- 🐍 **Python developer** — framework choice, blueprint structure, ORM
+- 🔬 **QMS / UK compliance specialist** — mapping SALSA/HACCP/FSA requirements to features
+- 🎨 **UX/UI designer** — wireframes, design rules for the production floor
 
 ---
 
-*Wersja dokumentacji: 1.0 — 2026-04-28*
+*Documentation version: 1.0 — 2026-04-28*
