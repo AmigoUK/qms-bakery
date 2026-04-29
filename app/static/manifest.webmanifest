@@ -1,0 +1,20 @@
+{
+  "name": "QMS — Quality Management System",
+  "short_name": "QMS",
+  "description": "Shop-floor quality management for FSA / SALSA / HACCP compliance",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0b3d2e",
+  "theme_color": "#0b3d2e",
+  "lang": "en",
+  "icons": [
+    {
+      "src": "/static/icons/qms-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

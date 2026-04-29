@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title_suffix %} — {{ _('pwa.offline.title') }}{% endblock %}
+{% block content %}
+<section class="offline-page">
+  <h1>{{ _('pwa.offline.heading') }}</h1>
+  <p class="muted">{{ _('pwa.offline.body') }}</p>
+  <p>
+    <a class="btn btn-primary" href="/">{{ _('pwa.offline.retry') }}</a>
+  </p>
+  <p class="muted small">{{ _('pwa.offline.note') }}</p>
+</section>
+{% endblock %}

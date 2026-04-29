@@ -29,7 +29,7 @@ Every ticket flows through a **configurable pipeline** of stages (detection → 
 - ✅ **Configurable pipeline** per production line, versioned
 - ✅ **Trigger engine** — custom DSL in JSONB, real-time evaluation off Redis Streams
 - ✅ **Multi-source tickets** — manual / IoT / API (HMAC + idempotency)
-- ✅ **PWA offline-first** — shop-floor operator keeps working even on flaky Wi-Fi
+- ✅ **PWA offline-first** — installable web app with a service worker that pre-caches the app shell + offline fallback so the shop-floor operator keeps a usable screen on flaky Wi-Fi
 - ✅ **PL/EN** — UI, reports, e-mails per user; dynamic content stored in JSONB
 
 ## High-level overview
@@ -76,7 +76,7 @@ For the full picture see documents `01-` and `02-`.
 - PL/EN i18n via JSON message catalogs
 - HTML/CSS/JS frontend (Jinja2) — login (with 2FA), dashboard, tickets, HACCP, SALSA, admin
 - Seed data: 6 roles, 17 permissions, demo line with pipeline + 2 CCPs + 2 SALSA + trigger
-- **203 pytest tests**, all green
+- **238 pytest tests**, all green
 - Docker Compose (Postgres 16 + Redis + Mosquitto + app + mqtt-bridge + trigger-worker + rq-worker)
 - E-mail responder via SMTP — same RQ infra (`qms:emails` queue, 3/9/27 min retry → DLQ)
 - **DLQ inspection / replay UI** at `/admin/dlq` — list failed webhook + email jobs across queues, view kwargs + traceback, requeue back onto origin queue or discard. Gated by `dlq.manage` (admin + compliance), every action audited.
@@ -86,6 +86,7 @@ For the full picture see documents `01-` and `02-`.
 - **Production hardening (Phase 3)** — `/healthz` (liveness, always 200) + `/readyz` (probes DB + Redis, 503 on degraded) wired into the Compose healthcheck. Hand-rolled security-header middleware sets a tight CSP (`'self'` + jsdelivr only, no inline JS), HSTS over HTTPS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Permissions-Policy locking down camera/geo/microphone. Per-IP rate limits via Redis fixed-window counters: `/auth/login` capped at 10/min, `/api/v1/measurements` at 600/min and rate-limited *before* signature verification so credential floods get throttled.
 - **Load-test harness** (`loadtest/locustfile.py`) — Locust suite that drives `/api/v1/measurements` with HMAC-signed payloads (70 % in-spec, 30 % deviating) and a parallel `DashboardBrowser` user simulating a logged-in operator. Smoke profile (1 user / 30 s) and soak profile (50 users / 5 min) document the 200 tickets/min target with explicit P95 / 5xx / 429 pass criteria. See `loadtest/README.md`.
 - **OWASP Top 10 self-audit** (`docs/security/owasp-self-audit.md`) — category-by-category review at the close of Phase 3. Three vulnerabilities patched in this pass: SSRF guard on the webhook responder (`UnsafeWebhookURL` rejects loopback / link-local / RFC1918), open-redirect filter on `?next=` in `/auth/login` and `/auth/login/2fa`, and explicit `Secure` + `SameSite=Lax` flags on session and remember-me cookies. Regression tests in `tests/test_security_audit.py` (27 tests).
+- **PWA app shell** — `/manifest.webmanifest` (installable, standalone display, theme `#0b3d2e`) + `/sw.js` registered with `Service-Worker-Allowed: /` so the SW controls the whole site. Pre-caches the app shell on install (CSS, register script, manifest, icon, `/offline` page); cache-first for static, network-first with offline-fallback for navigations; mutating requests bypass the cache so failed writes never look successful. Bilingual `/offline` page tells the operator what's still cached and what to re-enter. Versioned cache (`qms-v1`) so future shell changes evict old assets cleanly.
 
 ✅ **Phase 3 complete.** Remaining: external pen-test pass before production rollout (out of scope for self-audit).
 

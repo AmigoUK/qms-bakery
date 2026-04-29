@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#0b3d2e">
   <title>{{ _('app.title') }}{% block title_suffix %}{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <link rel="manifest" href="{{ url_for('pwa.manifest') }}">
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/qms-icon.svg') }}">
+  <script src="{{ url_for('static', filename='js/sw-register.js') }}" defer></script>
 </head>
 <body>
   <header class="topbar">

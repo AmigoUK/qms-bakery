@@ -187,5 +187,10 @@
   "auth.2fa.enroll.step1": "1. Dodaj klucz do swojej aplikacji uwierzytelniającej",
   "auth.2fa.enroll.step2": "2. Podaj aktualny 6-cyfrowy kod, aby potwierdzić",
   "auth.2fa.enroll.confirm": "Potwierdź i włącz",
-  "auth.2fa.enroll.uri_hint": "Albo użyj tego linku otpauth://:"
+  "auth.2fa.enroll.uri_hint": "Albo użyj tego linku otpauth://:",
+  "pwa.offline.title": "Offline",
+  "pwa.offline.heading": "Brak połączenia",
+  "pwa.offline.body": "Nie możemy się połączyć z serwerem QMS — tablet jest offline albo strona jest nieosiągalna.",
+  "pwa.offline.retry": "Spróbuj ponownie",
+  "pwa.offline.note": "Niedawno odwiedzone strony są dostępne z pamięci podręcznej. Niezapisane pomiary i zmiany zgłoszeń trzeba wprowadzić ponownie po powrocie łączności."
 }
