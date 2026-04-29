@@ -84,8 +84,9 @@ For the full picture see documents `01-` and `02-`.
 - **Pipeline configurator** at `/admin/pipelines` — drag-and-drop stage editor (SortableJS) with bilingual names, role gating, SLA minutes, CCP-checkpoint flag. Saving creates a new immutable Pipeline version (old version `is_active=False` but kept so existing tickets keep their stage FK). Gated by `pipeline.configure`.
 - **SMS responder via ClickSend** — POSTs `https://rest.clicksend.com/v3/sms/send` (HTTP Basic auth, `messages: [{to, source, body}]` shape) on the `qms:sms` RQ queue. Same 3/9/27 min retry envelope and DLQ as webhook + email; 4xx (auth/validation/credit) is short-circuited to permanent failure so retries aren't wasted. Credentials (`CLICKSEND_USERNAME`, `CLICKSEND_API_KEY`, `CLICKSEND_SOURCE`) frozen into job kwargs at enqueue time.
 - **Production hardening (Phase 3)** — `/healthz` (liveness, always 200) + `/readyz` (probes DB + Redis, 503 on degraded) wired into the Compose healthcheck. Hand-rolled security-header middleware sets a tight CSP (`'self'` + jsdelivr only, no inline JS), HSTS over HTTPS, X-Frame-Options DENY, X-Content-Type-Options nosniff, Permissions-Policy locking down camera/geo/microphone. Per-IP rate limits via Redis fixed-window counters: `/auth/login` capped at 10/min, `/api/v1/measurements` at 600/min and rate-limited *before* signature verification so credential floods get throttled.
+- **Load-test harness** (`loadtest/locustfile.py`) — Locust suite that drives `/api/v1/measurements` with HMAC-signed payloads (70 % in-spec, 30 % deviating) and a parallel `DashboardBrowser` user simulating a logged-in operator. Smoke profile (1 user / 30 s) and soak profile (50 users / 5 min) document the 200 tickets/min target with explicit P95 / 5xx / 429 pass criteria. See `loadtest/README.md`.
 
-⏳ **Phase 3 remaining:** Locust load-test harness, OWASP pen-test pass.
+⏳ **Phase 3 remaining:** OWASP pen-test pass.
 
 ## Quick start (local, without Docker)
 
