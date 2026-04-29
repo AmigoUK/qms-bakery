@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.triggers') }}{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>
+    {% if edit %}{{ _('admin.triggers.edit') }} · <code>{{ trigger.code }}</code>
+    {% else %}{{ _('admin.triggers.new') }}{% endif %}
+  </h1>
+
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+
+    <fieldset>
+      <legend>{{ _('admin.triggers.section_identity') }}</legend>
+      <label><span>{{ _('admin.code') }}</span>
+        {{ form.code(required=True, maxlength=64, placeholder="OVEN1_OVERHEAT") }}
+      </label>
+      <div class="grid-2">
+        <label><span>{{ _('admin.triggers.name_en') }}</span>
+          {{ form.name_en(required=True, placeholder="Oven 1 overheat") }}
+        </label>
+        <label><span>{{ _('admin.triggers.name_pl') }}</span>
+          {{ form.name_pl(required=True, placeholder="Przegrzanie pieca 1") }}
+        </label>
+      </div>
+      <label><span>{{ _('admin.scope') }}</span>{{ form.scope() }}</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>{{ _('admin.triggers.section_condition') }}</legend>
+      <div class="grid-2">
+        <label><span>{{ _('admin.triggers.metric') }}</span>{{ form.metric() }}</label>
+        <label><span>{{ _('admin.triggers.metric_other') }}</span>
+          {{ form.metric_other(placeholder="custom_metric_name") }}
+        </label>
+      </div>
+      <div class="grid-2">
+        <label><span>{{ _('admin.triggers.operator') }}</span>{{ form.operator() }}</label>
+        <label><span>{{ _('admin.triggers.value') }}</span>
+          {{ form.value(required=True, type="number", step="any") }}
+        </label>
+      </div>
+      <label>
+        <span>{{ _('admin.triggers.duration') }}</span>
+        {{ form.duration_seconds(type="number", min=0, max=3600, placeholder="0") }}
+        <small class="muted">{{ _('admin.triggers.duration_hint') }}</small>
+      </label>
+    </fieldset>
+
+    <fieldset>
+      <legend>{{ _('admin.triggers.section_dispatch') }}</legend>
+      <label><span>{{ _('tickets.field.severity') }}</span>{{ form.severity() }}</label>
+      <label><span>{{ _('admin.responders') }}</span>
+        {{ form.responder_ids(size=6) }}
+        <small class="muted">{{ _('admin.triggers.responders_hint') }}</small>
+      </label>
+      <label class="inline">{{ form.is_active() }} {{ _('admin.users.active') }}</label>
+      <label class="inline">{{ form.dry_run() }} {{ _('admin.dry_run') }}</label>
+    </fieldset>
+
+    <div class="actions">
+      <a class="btn btn-ghost" href="{{ url_for('admin.triggers_index') }}">{{ _('common.cancel') }}</a>
+      <button class="btn btn-primary" type="submit">{{ _('common.save') }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

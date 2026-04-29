@@ -12,8 +12,16 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
 from sqlalchemy import select
-from wtforms import BooleanField, SelectField, StringField, SubmitField
-from wtforms.validators import DataRequired, Length
+from wtforms import (
+    BooleanField,
+    DecimalField,
+    IntegerField,
+    SelectField,
+    SelectMultipleField,
+    StringField,
+    SubmitField,
+)
+from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 from app.auth import hash_password, require_permission
 from app.extensions import db
@@ -28,6 +36,7 @@ from app.models import (
     Trigger,
     User,
 )
+from app.models.triggers import Responder, trigger_responders
 from app.services import audit
 
 bp = Blueprint("admin", __name__, template_folder="../templates")
@@ -183,6 +192,229 @@ def trigger_toggle(trigger_id: str):
     )
     db.session.commit()
     return redirect(url_for("admin.triggers_index"))
+
+
+# Curated metric list. The form also accepts free-text via metric_other so a
+# new sensor type doesn't need a code change to wire a trigger for it.
+TRIGGER_METRIC_CHOICES: list[tuple[str, str]] = [
+    ("temperature", "temperature"),
+    ("humidity", "humidity"),
+    ("pressure", "pressure"),
+    ("weight", "weight"),
+    ("ph", "pH"),
+    ("count", "count"),
+    ("__other__", "(other — type below)"),
+]
+
+TRIGGER_OPERATOR_CHOICES: list[tuple[str, str]] = [
+    (">", ">"),
+    (">=", ">="),
+    ("<", "<"),
+    ("<=", "<="),
+    ("==", "=="),
+    ("!=", "!="),
+]
+
+TRIGGER_SEVERITY_CHOICES: list[tuple[str, str]] = [
+    ("low", "low"),
+    ("medium", "medium"),
+    ("high", "high"),
+    ("critical", "critical"),
+]
+
+
+class TriggerForm(FlaskForm):
+    code = StringField("code", validators=[DataRequired(), Length(max=64)])
+    name_pl = StringField("name_pl", validators=[DataRequired(), Length(max=200)])
+    name_en = StringField("name_en", validators=[DataRequired(), Length(max=200)])
+    scope = SelectField("scope", validators=[Optional()])
+    metric = SelectField(
+        "metric", choices=TRIGGER_METRIC_CHOICES, validators=[DataRequired()]
+    )
+    metric_other = StringField("metric_other", validators=[Optional(), Length(max=64)])
+    operator = SelectField(
+        "operator", choices=TRIGGER_OPERATOR_CHOICES, validators=[DataRequired()]
+    )
+    value = DecimalField("value", validators=[DataRequired()])
+    duration_seconds = IntegerField(
+        "duration_seconds",
+        default=0,
+        validators=[Optional(), NumberRange(min=0, max=3600)],
+    )
+    severity = SelectField(
+        "severity", choices=TRIGGER_SEVERITY_CHOICES, validators=[DataRequired()]
+    )
+    is_active = BooleanField("is_active", default=True)
+    dry_run = BooleanField("dry_run", default=False)
+    responder_ids = SelectMultipleField("responder_ids", validators=[Optional()])
+    submit = SubmitField()
+
+
+def _populate_trigger_form_choices(form: TriggerForm) -> None:
+    line_codes = [
+        ("", "(none)"),
+        *[
+            (f"line:{code}", f"line:{code}")
+            for (code,) in db.session.execute(
+                select(ProductionLine.code).order_by(ProductionLine.code)
+            ).all()
+        ],
+    ]
+    form.scope.choices = line_codes
+    form.responder_ids.choices = [
+        (r.id, f"{r.code} ({r.type})")
+        for r in Responder.query.order_by(Responder.code).all()
+    ]
+
+
+def _resolve_metric(form: TriggerForm) -> str:
+    if form.metric.data == "__other__":
+        return (form.metric_other.data or "").strip()
+    return form.metric.data
+
+
+def _trigger_to_form(trigger: Trigger, form: TriggerForm) -> None:
+    """Populate a bound form from an existing Trigger row."""
+    form.code.data = trigger.code
+    form.name_pl.data = (trigger.name or {}).get("pl", "")
+    form.name_en.data = (trigger.name or {}).get("en", "")
+    form.scope.data = trigger.scope or ""
+    cond = trigger.condition or {}
+    metric = cond.get("metric", "")
+    if metric in {c for c, _ in TRIGGER_METRIC_CHOICES}:
+        form.metric.data = metric
+    elif metric:
+        form.metric.data = "__other__"
+        form.metric_other.data = metric
+    form.operator.data = cond.get("operator", ">")
+    form.value.data = cond.get("value")
+    form.duration_seconds.data = int(cond.get("duration_seconds") or 0)
+    form.severity.data = trigger.severity
+    form.is_active.data = trigger.is_active
+    form.dry_run.data = trigger.dry_run
+    form.responder_ids.data = [r.id for r in trigger.responders]
+
+
+def _apply_form_to_trigger(form: TriggerForm, trigger: Trigger) -> None:
+    """Copy validated form data into a Trigger row (without committing)."""
+    trigger.code = form.code.data.strip()
+    trigger.name = {"pl": form.name_pl.data.strip(), "en": form.name_en.data.strip()}
+    trigger.scope = form.scope.data or None
+    metric = _resolve_metric(form)
+    condition: dict = {
+        "metric": metric,
+        "operator": form.operator.data,
+        "value": float(form.value.data),
+    }
+    duration = int(form.duration_seconds.data or 0)
+    if duration > 0:
+        condition["duration_seconds"] = duration
+    trigger.condition = condition
+    trigger.severity = form.severity.data
+    trigger.is_active = form.is_active.data
+    trigger.dry_run = form.dry_run.data
+
+
+def _sync_trigger_responders(trigger: Trigger, responder_ids: list[str]) -> None:
+    """Replace the trigger ↔ responder associations preserving the order
+    in which the IDs were submitted."""
+    db.session.execute(
+        trigger_responders.delete().where(
+            trigger_responders.c.trigger_id == trigger.id
+        )
+    )
+    for idx, rid in enumerate(responder_ids):
+        if not rid:
+            continue
+        db.session.execute(
+            trigger_responders.insert(),
+            [{"trigger_id": trigger.id, "responder_id": rid, "order_index": idx}],
+        )
+
+
+@bp.route("/triggers/new", methods=["GET", "POST"])
+@login_required
+@require_permission("triggers.define")
+def triggers_new():
+    form = TriggerForm()
+    _populate_trigger_form_choices(form)
+    if form.validate_on_submit():
+        if Trigger.query.filter_by(code=form.code.data.strip()).first():
+            flash(_("admin.triggers.code_taken"), "danger")
+        elif form.metric.data == "__other__" and not (form.metric_other.data or "").strip():
+            flash(_("admin.triggers.metric_required"), "danger")
+        else:
+            trigger = Trigger(condition={})
+            _apply_form_to_trigger(form, trigger)
+            db.session.add(trigger)
+            db.session.flush()
+            _sync_trigger_responders(trigger, form.responder_ids.data or [])
+            audit.record(
+                entity_type="trigger",
+                entity_id=trigger.id,
+                action="create",
+                diff={
+                    "code": trigger.code,
+                    "scope": trigger.scope,
+                    "condition": trigger.condition,
+                },
+            )
+            db.session.commit()
+            flash(_("admin.triggers.created"), "success")
+            return redirect(url_for("admin.triggers_index"))
+    return render_template("admin/triggers_form.html", form=form, edit=False)
+
+
+@bp.route("/triggers/<trigger_id>/edit", methods=["GET", "POST"])
+@login_required
+@require_permission("triggers.define")
+def triggers_edit(trigger_id: str):
+    trigger = db.session.get(Trigger, trigger_id)
+    if trigger is None:
+        abort(404)
+    form = TriggerForm()
+    _populate_trigger_form_choices(form)
+    if request.method == "GET":
+        _trigger_to_form(trigger, form)
+    if form.validate_on_submit():
+        existing = Trigger.query.filter_by(code=form.code.data.strip()).first()
+        if existing and existing.id != trigger.id:
+            flash(_("admin.triggers.code_taken"), "danger")
+        elif form.metric.data == "__other__" and not (form.metric_other.data or "").strip():
+            flash(_("admin.triggers.metric_required"), "danger")
+        else:
+            before = {
+                "code": trigger.code,
+                "scope": trigger.scope,
+                "condition": trigger.condition,
+                "severity": trigger.severity,
+                "is_active": trigger.is_active,
+                "dry_run": trigger.dry_run,
+            }
+            _apply_form_to_trigger(form, trigger)
+            _sync_trigger_responders(trigger, form.responder_ids.data or [])
+            audit.record(
+                entity_type="trigger",
+                entity_id=trigger.id,
+                action="update",
+                diff={
+                    "before": before,
+                    "after": {
+                        "code": trigger.code,
+                        "scope": trigger.scope,
+                        "condition": trigger.condition,
+                        "severity": trigger.severity,
+                        "is_active": trigger.is_active,
+                        "dry_run": trigger.dry_run,
+                    },
+                },
+            )
+            db.session.commit()
+            flash(_("admin.triggers.updated"), "success")
+            return redirect(url_for("admin.triggers_index"))
+    return render_template(
+        "admin/triggers_form.html", form=form, edit=True, trigger=trigger
+    )
 
 
 # ─── Audit trail (read-only) ─────────────────────────────────────────────

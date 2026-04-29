@@ -1,7 +1,10 @@
 {% extends "base.html" %}
 {% block title_suffix %} · {{ _('admin.triggers') }}{% endblock %}
 {% block content %}
-<header class="page-head"><h1>{{ _('admin.triggers') }}</h1></header>
+<header class="page-head">
+  <h1>{{ _('admin.triggers') }}</h1>
+  <a class="btn btn-primary" href="{{ url_for('admin.triggers_new') }}">{{ _('admin.triggers.new') }}</a>
+</header>
 
 <table class="data">
   <thead>
@@ -25,6 +28,7 @@
       <td>{{ t.responders | length }}</td>
       <td>{{ _('common.yes') if t.is_active else _('common.no') }}{% if t.dry_run %} ({{ _('admin.dry_run') }}){% endif %}</td>
       <td>
+        <a class="btn btn-ghost" href="{{ url_for('admin.triggers_edit', trigger_id=t.id) }}">{{ _('admin.users.edit') }}</a>
         <form method="post" action="{{ url_for('admin.trigger_toggle', trigger_id=t.id) }}" class="inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button class="btn btn-secondary" type="submit">
