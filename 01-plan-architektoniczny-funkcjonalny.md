@@ -1,63 +1,63 @@
-# Plan architektoniczno-funkcjonalny
-## System Zarządzania Jakością (QMS) dla produkcji żywności w UK
+# Architectural and functional plan
+## Quality Management System (QMS) for UK food production
 
-> **Domena:** Piekarnia / produkcja żywności
-> **Region regulacyjny:** Wielka Brytania (FSA, SALSA, HACCP)
-> **Stos technologiczny:** Flask + UV (Python), HTML/CSS/JS, PostgreSQL, Redis, MQTT
-> **Tryb pracy:** Multiuser, wielojęzyczny (PL/EN)
-> **Wersja dokumentu:** 1.0
-> **Data:** 2026-04-28
+> **Domain:** Bakery / food production
+> **Regulatory region:** United Kingdom (FSA, SALSA, HACCP)
+> **Tech stack:** Flask + UV (Python), HTML/CSS/JS, PostgreSQL, Redis, MQTT
+> **Operating mode:** Multiuser, multilingual (PL/EN)
+> **Document version:** 1.0
+> **Date:** 2026-04-28
 
 ---
 
-## 0. Streszczenie wykonawcze
+## 0. Executive summary
 
-System QMS dla piekarni to platforma webowa rejestrująca, klasyfikująca i obsługująca **niezgodności jakościowe** (tzw. *tickety*) na linii produkcyjnej. Każdy ticket przechodzi przez **konfigurowalny pipeline etapów** (od wykrycia, przez analizę, akcję korygującą, weryfikację, aż po zamknięcie). System integruje się z urządzeniami IoT (czujniki temperatury w piecach, wagi, mierniki wilgotności) oraz pozwala operatorom ręcznie zgłaszać incydenty z poziomu tabletu na hali.
+The QMS for a bakery is a web platform that records, classifies and processes **quality nonconformities** (so-called *tickets*) on the production line. Every ticket runs through a **configurable pipeline of stages** (from detection, through analysis, corrective action, verification, to closure). The system integrates with IoT devices (oven temperature sensors, scales, humidity meters) and lets operators raise incidents manually from a shop-floor tablet.
 
-Kluczowe wartości biznesowe:
+Key business value:
 
-| Wartość | Mechanizm |
+| Value | Mechanism |
 |---|---|
-| **Zgodność z FSA i SALSA** | Pełny audit trail, dokumentacja CCP wg HACCP, raporty 1-click |
-| **Redukcja strat surowca** | Wczesne wykrywanie anomalii (triggery z czujników → automatyczne wstrzymanie partii) |
-| **Skrócony czas reakcji** | Respondery uruchamiające akcje (powiadomienie SMS, e-mail, wstrzymanie linii) |
-| **Mierzalność procesu** | KPI: First Pass Yield, NCR rate, MTTR, Cost of Poor Quality |
-| **Praca wielonarodowa** | Interfejs PL/EN — typowy zespół piekarni UK |
+| **FSA and SALSA compliance** | Full audit trail, HACCP-conformant CCP documentation, 1-click reports |
+| **Reduced raw-material waste** | Early anomaly detection (sensor triggers → automatic batch hold) |
+| **Faster reaction time** | Responders firing actions (SMS / e-mail notification, line pause) |
+| **Process measurability** | KPIs: First Pass Yield, NCR rate, MTTR, Cost of Poor Quality |
+| **Multinational workforce** | PL/EN UI — typical UK bakery team |
 
-Kluczowe decyzje architektoniczne (uzasadnione w sekcji 1):
+Key architectural decisions (justified in section 1):
 
-- **Flask + UV** — lekki, dojrzały framework Python; UV dla deterministycznych buildów i szybkiego onboardingu deweloperów.
-- **PostgreSQL 16** — JSONB dla elastycznych pól pipeline, partycjonowanie audit_log po dacie, transakcyjność krytyczna dla CCP.
-- **Redis + RQ** — asynchroniczne respondery, kolejka triggerów, sesje.
-- **MQTT (Mosquitto)** — standard de-facto dla IoT w przemyśle spożywczym, low-bandwidth, QoS.
-- **HTMX + Vanilla JS + Web Components** — żadnych ciężkich bundlerów, szybkie ładowanie na słabszym sprzęcie hali produkcyjnej.
+- **Flask + UV** — lightweight, mature Python framework; UV for deterministic builds and fast developer onboarding.
+- **PostgreSQL 16** — JSONB for flexible pipeline fields, partitioning of `audit_log` by date, transactional integrity critical for CCP.
+- **Redis + RQ** — asynchronous responders, trigger queue, sessions.
+- **MQTT (Mosquitto)** — de-facto standard for IoT in food production, low-bandwidth, QoS.
+- **HTMX + Vanilla JS + Web Components** — no heavy bundlers; fast loading on the lower-end shop-floor hardware.
 
 ---
 
-## 1. Architektura systemu
+## 1. System architecture
 
-### 1.1. Model warstwowy
+### 1.1. Layered model
 
-System realizuje klasyczną architekturę trzywarstwową z dodatkową warstwą integracyjną dla IoT:
+The system follows a classic three-tier architecture with an additional integration layer for IoT:
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  WARSTWA PREZENTACJI                                          │
-│  • Frontend webowy (HTML5 + CSS3 + Vanilla JS + HTMX)         │
-│  • PWA dla operatorów na tablecie (offline-first)             │
-│  • Web Components dla widgetów (timeline, drag-drop pipeline) │
+│  PRESENTATION LAYER                                           │
+│  • Web frontend (HTML5 + CSS3 + Vanilla JS + HTMX)            │
+│  • PWA for tablet operators (offline-first)                   │
+│  • Web Components for widgets (timeline, drag-drop pipeline)  │
 └──────────────────────────────────────────────────────────────┘
                             ▲ HTTPS / REST + Server-Sent Events
                             ▼
 ┌──────────────────────────────────────────────────────────────┐
-│  WARSTWA LOGIKI BIZNESOWEJ (Flask + UV)                       │
-│  • Flask App (WSGI: gunicorn z uvicorn workerami)             │
-│  • Blueprinty: auth, tickets, pipeline, triggers, admin, api  │
-│  • SQLAlchemy 2.0 ORM + Alembic (migracje)                    │
-│  • Flask-Babel (i18n PL/EN)                                   │
+│  BUSINESS LOGIC LAYER (Flask + UV)                            │
+│  • Flask App (WSGI: gunicorn with uvicorn workers)            │
+│  • Blueprints: auth, tickets, pipeline, triggers, admin, api  │
+│  • SQLAlchemy 2.0 ORM + Alembic (migrations)                  │
+│  • Flask-Babel (PL/EN i18n)                                   │
 │  • Flask-Login + RBAC (custom decorators)                     │
-│  • Silnik reguł (triggers/responders) — własny DSL w JSONB    │
-│  • Worker RQ (zadania asynchroniczne)                         │
+│  • Rule engine (triggers/responders) — custom DSL in JSONB    │
+│  • RQ Worker (asynchronous tasks)                             │
 └──────────────────────────────────────────────────────────────┘
        ▲                    ▲                    ▲
        │ MQTT              │ SQL               │ Redis
@@ -67,122 +67,122 @@ System realizuje klasyczną architekturę trzywarstwową z dodatkową warstwą i
 │ (IoT bridge)│      │     16      │      │ cache+queue │
 └─────────────┘      └─────────────┘      └─────────────┘
        ▲
-       │ czujniki, wagi, mierniki
+       │ sensors, scales, meters
    ┌───┴────┐
    │  IoT   │
-   │ (hala) │
+   │ (floor)│
    └────────┘
 ```
 
-### 1.2. Komponenty i ich odpowiedzialności
+### 1.2. Components and responsibilities
 
-| Komponent | Technologia | Odpowiedzialność |
+| Component | Technology | Responsibility |
 |---|---|---|
-| **Reverse proxy** | Nginx | TLS termination, rate-limiting, statyki |
-| **Aplikacja Flask** | Python 3.12 + UV | Logika biznesowa, REST API, renderowanie szablonów Jinja2 |
-| **Worker** | RQ (Python) | Asynchroniczne respondery, generowanie raportów PDF, wysyłka powiadomień |
-| **MQTT Bridge** | paho-mqtt + Flask | Subskrypcja topiców z urządzeń, normalizacja, wstawianie do kolejki ticketów |
-| **Baza relacyjna** | PostgreSQL 16 | Trwałe dane, transakcyjność, audit log |
-| **Cache i kolejka** | Redis 7 | Sesje, rate-limiting, kolejka RQ, pub/sub dla SSE |
-| **Storage plików** | Wolumen lokalny / S3 | Załączniki ticketów (zdjęcia z hali), raporty PDF |
+| **Reverse proxy** | Nginx | TLS termination, rate-limiting, static assets |
+| **Flask application** | Python 3.12 + UV | Business logic, REST API, Jinja2 template rendering |
+| **Worker** | RQ (Python) | Asynchronous responders, PDF report generation, notification dispatch |
+| **MQTT Bridge** | paho-mqtt + Flask | Subscribes to device topics, normalises payload, enqueues for ticketing |
+| **Relational database** | PostgreSQL 16 | Persistent data, transactional integrity, audit log |
+| **Cache and queue** | Redis 7 | Sessions, rate-limiting, RQ queue, pub/sub for SSE |
+| **File storage** | Local volume / S3 | Ticket attachments (shop-floor photos), PDF reports |
 
-### 1.3. Uzasadnienie kluczowych wyborów
+### 1.3. Justification of key choices
 
-**Dlaczego Flask, a nie Django/FastAPI?**
-Flask oferuje minimalizm i pełną kontrolę nad strukturą blueprintów, co jest istotne przy custom silniku reguł i specyficznym pipeline'ie HACCP. Django jest zbyt opiniotwórcze (admin), a FastAPI nie ma dojrzałego wsparcia dla server-rendered HTML, którego wymaga PWA dla operatorów. Flask + Blueprinty + SQLAlchemy to sprawdzony stack dla aplikacji compliance.
+**Why Flask, not Django/FastAPI?**
+Flask offers minimalism and full control over blueprint structure, which matters when building a custom rule engine and a domain-specific HACCP pipeline. Django is too opinionated (admin), and FastAPI lacks mature support for the server-rendered HTML required by the operator PWA. Flask + Blueprints + SQLAlchemy is a proven stack for compliance applications.
 
-**Dlaczego UV?**
-UV (Astral) zapewnia 10–100× szybsze rozwiązywanie zależności niż pip, deterministyczne `uv.lock`, oraz łatwy onboarding (`uv sync`). Krytyczne przy CI/CD i instalacji na środowiskach produkcyjnych z ograniczonym łączem.
+**Why UV?**
+UV (Astral) provides 10–100× faster dependency resolution than pip, deterministic `uv.lock`, and easy onboarding (`uv sync`). Critical for CI/CD and installation on production environments with limited bandwidth.
 
-**Dlaczego PostgreSQL?**
-- JSONB pozwala zapisać definicję pipeline jako elastyczny dokument, bez migracji schematu przy każdej zmianie linii produkcyjnej.
-- Partycjonowanie deklaratywne `audit_log` po `created_at` (miesięcznie) — niezbędne przy retention 7 lat (wymóg FSA).
-- Transakcje serializowalne dla rejestrowania pomiarów CCP (atomicity gwarantująca, że pomiar i jego konsekwencje są spójne).
-- Pełnotekstowe wyszukiwanie (`tsvector`) dla przeszukiwania komentarzy ticketów.
+**Why PostgreSQL?**
+- JSONB lets us store the pipeline definition as a flexible document, without schema migrations every time a production line changes.
+- Declarative partitioning of `audit_log` by `created_at` (monthly) — required for the FSA-mandated 7-year retention.
+- Serializable transactions for CCP measurement recording (atomicity guaranteeing measurement and its consequences are consistent).
+- Full-text search (`tsvector`) for searching ticket comments.
 
-**Dlaczego HTMX zamiast React/Vue?**
-Operatorzy na hali używają tabletów Android sprzed kilku lat, często w rękawiczkach, w hałasie. HTMX daje szybkie, server-rendered HTML z minimalnym JS. Brak bundlera = brak `node_modules` = niższy próg utrzymaniowy. Web Components dla widgetów wymagających state'u (timeline ticketu, drag-drop konfigurator pipeline'u).
+**Why HTMX instead of React/Vue?**
+Operators on the floor use Android tablets that are several years old, often while wearing gloves, in noise. HTMX delivers fast, server-rendered HTML with minimal JS. No bundler = no `node_modules` = lower maintenance bar. Web Components are reserved for stateful widgets (ticket timeline, drag-drop pipeline configurator).
 
 ---
 
-## 2. Specyfikacja modułów
+## 2. Module specification
 
-### 2.1. Moduł `auth` — Uwierzytelnianie i autoryzacja
+### 2.1. `auth` module — Authentication and authorisation
 
-**Odpowiedzialność:** Logowanie, sesje, RBAC, polityka haseł, opcjonalne 2FA.
+**Responsibility:** Login, sessions, RBAC, password policy, optional 2FA.
 
-**Komponenty:**
+**Components:**
 - `UserModel` (SQLAlchemy) — `id`, `email`, `password_hash` (bcrypt cost 12), `role_id`, `language`, `is_active`, `last_login_at`, `failed_attempts`.
-- `RoleModel` + `PermissionModel` — relacja many-to-many.
-- Dekorator `@require_permission('tickets.create')` na widokach Flask.
-- `Flask-Login` dla sesji + `Flask-WTF` z CSRF.
-- Polityka: lockout po 5 nieudanych próbach na 15 min, wymuszenie zmiany hasła co 90 dni (wymaganie SALSA dla kont z dostępem do CCP).
+- `RoleModel` + `PermissionModel` — many-to-many relation.
+- `@require_permission('tickets.create')` decorator on Flask views.
+- `Flask-Login` for sessions + `Flask-WTF` with CSRF.
+- Policy: lockout after 5 failed attempts for 15 min, forced password change every 90 days (SALSA requirement for accounts with CCP access).
 
-**Endpointy:**
+**Endpoints:**
 - `POST /auth/login` / `POST /auth/logout`
 - `POST /auth/2fa/enroll` / `POST /auth/2fa/verify` (TOTP)
 - `POST /auth/password/change`
 
-### 2.2. Moduł `tickets` — Zgłoszenia jakościowe
+### 2.2. `tickets` module — Quality nonconformities
 
-**Odpowiedzialność:** Cykl życia ticketu (zgłoszenie → analiza → akcja → weryfikacja → zamknięcie), klasyfikacja, przypisanie, załączniki.
+**Responsibility:** Ticket lifecycle (report → analysis → action → verification → closure), classification, assignment, attachments.
 
-**Stany ticketu (state machine):**
+**Ticket states (state machine):**
 ```
 NEW → ASSIGNED → IN_PROGRESS → AWAITING_VERIFICATION → CLOSED
                       ↓                                    ↑
                   ESCALATED ──────────────────────────────┘
                       ↓
-                  REJECTED (z uzasadnieniem)
+                  REJECTED (with justification)
 ```
 
-Każde przejście stanu zapisuje rekord w `ticket_events` (kto, kiedy, z jakiego stanu, do jakiego, komentarz).
+Every state transition writes a row into `ticket_events` (who, when, from, to, comment).
 
-**Pola ticketu:**
+**Ticket fields:**
 - `id` (UUID), `production_line_id`, `pipeline_id`, `current_stage_id`
 - `source` (enum: `manual`, `iot`, `api`)
 - `severity` (enum: `low`, `medium`, `high`, `critical`)
-- `category` (enum konfigurowalny: `temperature_deviation`, `weight_out_of_spec`, `foreign_body`, `allergen_cross_contact`, `hygiene`, `other`)
-- `title`, `description` (i18n: zapisywany język + oryginalny tekst)
+- `category` (configurable enum: `temperature_deviation`, `weight_out_of_spec`, `foreign_body`, `allergen_cross_contact`, `hygiene`, `other`)
+- `title`, `description` (i18n: original-language flag + raw text)
 - `assigned_to_user_id`, `created_by_user_id`
 - `created_at`, `updated_at`, `closed_at`
-- `metadata` (JSONB) — np. odczyty czujników, batch_id, lot_number
-- `is_ccp_related` (boolean) — flaga wskazująca powiązanie z krytycznym punktem kontroli
+- `metadata` (JSONB) — e.g. sensor readings, batch_id, lot_number
+- `is_ccp_related` (boolean) — flag indicating link to a critical control point
 
-**Kluczowe widoki:**
-- Lista z filtrami (linia, status, severity, data, przypisany)
-- Szczegół (timeline + załączniki + komentarze + akcje)
-- Formularz szybkiego zgłoszenia (mobilny, 3 kliknięcia)
+**Key views:**
+- List with filters (line, status, severity, date, assignee)
+- Detail (timeline + attachments + comments + actions)
+- Quick-report form (mobile, 3 taps)
 
-### 2.3. Moduł `pipeline` — Konfigurowalne etapy
+### 2.3. `pipeline` module — Configurable stages
 
-**Odpowiedzialność:** Definiowanie sekwencji etapów per linia produkcyjna; wymuszanie kolejności; walidacja przejść.
+**Responsibility:** Define the sequence of stages per production line; enforce ordering; validate transitions.
 
 **Model:**
-- `Pipeline` — definicja per `production_line_id`, wersjonowana (kolejne wersje przy zmianie konfiguracji, stare zachowane dla historycznych ticketów).
-- `PipelineStage` — `name`, `order_index`, `required_role_id`, `sla_minutes` (po przekroczeniu odpalany trigger), `required_fields` (JSONB: lista nazw pól wymaganych do przejścia dalej), `is_ccp_checkpoint`.
+- `Pipeline` — definition per `production_line_id`, versioned (subsequent versions on configuration change, old ones retained for historical tickets).
+- `PipelineStage` — `name`, `order_index`, `required_role_id`, `sla_minutes` (a trigger fires when exceeded), `required_fields` (JSONB: list of field names required to advance), `is_ccp_checkpoint`.
 
-**Konfigurator (UI):**
-- Drag-and-drop listy etapów (Web Component oparty o HTML5 Drag API).
-- Każdy etap: edytowalny tytuł (PL/EN), wymagana rola, SLA, lista wymaganych pól.
-- Wersjonowanie: edycja tworzy `version+1`, ticket zachowuje `pipeline_version_id`.
+**Configurator (UI):**
+- Drag-and-drop list of stages (Web Component built on the HTML5 Drag API).
+- Each stage: editable title (PL/EN), required role, SLA, list of required fields.
+- Versioning: editing creates `version+1`; tickets retain `pipeline_version_id`.
 
-**Domyślny pipeline dla piekarni** (przykład):
-1. **Wykrycie** (operator hali) — opis + zdjęcie obowiązkowe
-2. **Klasyfikacja** (QA specialist) — nadanie kategorii i severity
-3. **Analiza przyczyny** (QA specialist) — 5 Why / Ishikawa, opcjonalnie
-4. **Akcja korygująca** (line manager) — opis działania, batch hold/release
-5. **Weryfikacja** (QA specialist) — sprawdzenie skuteczności
-6. **Zamknięcie** (line manager) — podpis cyfrowy
+**Default pipeline for a bakery** (example):
+1. **Detection** (shop-floor operator) — description + photo mandatory
+2. **Classification** (QA specialist) — assign category and severity
+3. **Root-cause analysis** (QA specialist) — 5 Whys / Ishikawa, optional
+4. **Corrective action** (line manager) — action description, batch hold/release
+5. **Verification** (QA specialist) — confirm effectiveness
+6. **Closure** (line manager) — digital signature
 
-### 2.4. Moduł `triggers` — Silnik reguł
+### 2.4. `triggers` module — Rule engine
 
-**Odpowiedzialność:** Wykrywanie warunków (np. „temperatura > 220°C przez > 30s") i emisja zdarzeń wewnętrznych.
+**Responsibility:** Detect conditions (e.g. "temperature > 220°C for > 30s") and emit internal events.
 
-**Definicja triggera (JSONB):**
+**Trigger definition (JSONB):**
 ```json
 {
-  "name": "Pierwsza pieca przegrzanie",
+  "name": "Oven 1 overheating",
   "scope": "production_line:LINE_A",
   "condition": {
     "metric": "temperature",
@@ -201,201 +201,201 @@ Każde przejście stanu zapisuje rekord w `ticket_events` (kto, kiedy, z jakiego
 }
 ```
 
-**Implementacja:** ewaluator pracuje w kontekście strumienia odczytów IoT. Każdy odczyt z MQTT wpada do Redis Stream, worker subskrybuje i wykonuje `evaluate_triggers(reading)`. Stan czasowy (np. „przez 30s") trzymany w Redis z TTL.
+**Implementation:** the evaluator runs in the context of an IoT reading stream. Each MQTT reading lands on a Redis Stream; a worker subscribes and runs `evaluate_triggers(reading)`. Time-windowed state (e.g. "for 30s") is held in Redis with TTL.
 
-### 2.5. Moduł `responders` — Akcje reaktywne
+### 2.5. `responders` module — Reactive actions
 
-**Odpowiedzialność:** Wykonanie zaplanowanych akcji w odpowiedzi na trigger lub ręczną decyzję.
+**Responsibility:** Execute scheduled actions in response to a trigger or a manual decision.
 
-**Typy responderów:**
-| Typ | Akcja |
+**Responder types:**
+| Type | Action |
 |---|---|
-| `notify_email` | Wysyłka e-maila do listy odbiorców (z szablonem i18n) |
-| `notify_sms` | SMS przez Twilio / lokalnego dostawcę |
-| `notify_in_app` | Push-notification w aplikacji + dzwonek |
-| `create_ticket` | Utworzenie nowego ticketu |
-| `pause_line` | Wysłanie komendy MQTT do urządzenia (wstrzymanie linii) |
-| `escalate` | Eskalacja ticketu do wyższej roli |
-| `webhook` | POST do zewnętrznego URL (np. ERP) |
+| `notify_email` | Send e-mail to recipient list (with i18n template) |
+| `notify_sms` | SMS via Twilio / local provider |
+| `notify_in_app` | In-app push notification + chime |
+| `create_ticket` | Create a new ticket |
+| `pause_line` | Send MQTT command to a device (line halt) |
+| `escalate` | Escalate ticket to a higher role |
+| `webhook` | POST to external URL (e.g. ERP) |
 
-Każde wykonanie respondera zapisywane w `trigger_executions` (audit) — kiedy, jaki trigger, jaki responder, status (success/failed), payload.
+Each responder execution is recorded in `trigger_executions` (audit) — when, which trigger, which responder, status (success/failed), payload.
 
-### 2.6. Moduł `haccp` — HACCP i Critical Control Points
+### 2.6. `haccp` module — HACCP and Critical Control Points
 
-**Odpowiedzialność:** Definicja CCP, rejestracja pomiarów, alarmowanie przy odchyleniach, dokumentacja korekcyjna.
+**Responsibility:** CCP definitions, measurement recording, alerting on deviation, corrective-action documentation.
 
 **Model:**
-- `CCPDefinition` — `name`, `production_line_id`, `parameter` (np. „temperatura wewnętrzna pieczywa"), `critical_limit_min`, `critical_limit_max`, `unit`, `monitoring_frequency_minutes`, `corrective_action_template`.
-- `CCPMeasurement` — `ccp_definition_id`, `measured_value`, `measured_at`, `measured_by_user_id`, `device_id` (jeśli IoT), `is_within_limits`, `linked_ticket_id` (jeśli odchylenie).
+- `CCPDefinition` — `name`, `production_line_id`, `parameter` (e.g. "internal bread temperature"), `critical_limit_min`, `critical_limit_max`, `unit`, `monitoring_frequency_minutes`, `corrective_action_template`.
+- `CCPMeasurement` — `ccp_definition_id`, `measured_value`, `measured_at`, `measured_by_user_id`, `device_id` (if IoT), `is_within_limits`, `linked_ticket_id` (if deviation).
 
 **Workflow:**
-1. CCP definiowany przez Compliance Officera w panelu admina.
-2. System wymusza pomiar w zadanej częstotliwości (powiadomienia operatorów).
-3. Pomiar poza granicami → automatyczny ticket o wysokim severity, etap **Akcja korygująca** wymagany.
-4. Raport HACCP generowany jako miesięczny PDF z listą wszystkich pomiarów + uchybień + akcji korygujących.
+1. CCP defined by the Compliance Officer in the admin panel.
+2. The system enforces measurement at the configured frequency (operator notifications).
+3. Out-of-limit reading → automatic high-severity ticket with **Corrective action** stage required.
+4. HACCP report generated as a monthly PDF listing all measurements + deviations + corrective actions.
 
-### 2.7. Moduł `salsa` — Listy kontrolne SALSA
+### 2.7. `salsa` module — SALSA checklists
 
-**Odpowiedzialność:** Cykliczne checklisty zgodne ze standardem SALSA (Safe And Local Supplier Approval).
+**Responsibility:** Recurring checklists conformant to the SALSA (Safe And Local Supplier Approval) standard.
 
-**Zakres checklist:**
-- **Higiena personelu** — codziennie (rękawice, maski, biżuteria, kontrola zdrowia)
-- **Higiena maszyn** — przed każdą zmianą (ATP swab opcjonalnie)
-- **Kontrola dostaw** — przy każdej dostawie surowca (temperatury, opakowanie, dokumenty)
-- **Kontrola alergenów** — przy zmianie linii produkcyjnej między recepturami
-- **Kontrola szkodników** — tygodniowo
-- **Identyfikowalność (traceability)** — przy każdej partii (lot/batch)
+**Checklist scope:**
+- **Personal hygiene** — daily (gloves, masks, jewellery, health check)
+- **Machine hygiene** — before each shift (ATP swab optional)
+- **Goods inwards** — at every raw-material delivery (temperatures, packaging, paperwork)
+- **Allergen control** — when switching production line between recipes
+- **Pest control** — weekly
+- **Traceability** — at every batch (lot/batch)
 
 **Model:**
-- `SalsaChecklist` — szablon: `name`, `frequency` (`daily`/`shift`/`weekly`/`per_event`), `items` (JSONB lista pytań).
-- `SalsaResponse` — wypełnienie: `checklist_id`, `responded_by`, `responded_at`, `answers` (JSONB), `nonconformities_count`, `signature_hash`.
+- `SalsaChecklist` — template: `name`, `frequency` (`daily`/`shift`/`weekly`/`per_event`), `items` (JSONB list of questions).
+- `SalsaResponse` — submission: `checklist_id`, `responded_by`, `responded_at`, `answers` (JSONB), `nonconformities_count`, `signature_hash`.
 
-Checklisty są częścią workflow zmiany — bez wypełnienia checklisty otwarcia zmiany operator nie może zarejestrować pomiarów CCP.
+Checklists are part of the shift workflow — without a completed shift-open checklist, the operator cannot record CCP measurements.
 
-### 2.8. Moduł `audit` — Ścieżka audytu
+### 2.8. `audit` module — Audit trail
 
-**Odpowiedzialność:** Niezmienialny zapis każdej akcji w systemie.
+**Responsibility:** Immutable record of every action in the system.
 
-**Model `audit_log`:**
+**`audit_log` model:**
 ```sql
 id BIGSERIAL PRIMARY KEY,
 occurred_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-user_id UUID,                  -- NULL dla zdarzeń systemowych
+user_id UUID,                  -- NULL for system events
 session_id UUID,
-entity_type VARCHAR(50),       -- np. 'ticket', 'ccp_measurement'
+entity_type VARCHAR(50),       -- e.g. 'ticket', 'ccp_measurement'
 entity_id UUID,
 action VARCHAR(50),            -- 'create', 'update', 'delete', 'state_change', 'view'
-diff JSONB,                    -- przed/po
+diff JSONB,                    -- before/after
 ip_address INET,
 user_agent TEXT,
-checksum CHAR(64)              -- SHA-256 z poprzedniego rekordu (chain hashing)
+checksum CHAR(64)              -- SHA-256 of previous record (chain hashing)
 ```
 
-**Mechanizmy zabezpieczające:**
-- Tabela tylko `INSERT` (trigger PostgreSQL blokuje UPDATE/DELETE).
-- Chain hashing — każdy rekord zawiera SHA-256 poprzedniego (tamper-evidence).
-- Codzienna replikacja do WORM-storage (np. AWS S3 Object Lock w trybie compliance).
-- Partycjonowanie miesięczne — 7-letnia retencja zgodna z FSA.
+**Safeguards:**
+- `INSERT`-only table (PostgreSQL trigger blocks UPDATE/DELETE).
+- Chain hashing — each record contains the SHA-256 of the previous one (tamper-evidence).
+- Daily replication to WORM storage (e.g. AWS S3 Object Lock in compliance mode).
+- Monthly partitioning — 7-year retention conformant with FSA.
 
-### 2.9. Moduł `reporting` — Raportowanie
+### 2.9. `reporting` module — Reporting
 
-**Odpowiedzialność:** Generowanie raportów dla FSA, audytów wewnętrznych, managementu.
+**Responsibility:** Generate reports for the FSA, internal audits, and management.
 
-**Typy raportów:**
-| Raport | Częstotliwość | Format | Odbiorca |
+**Report types:**
+| Report | Frequency | Format | Recipient |
 |---|---|---|---|
-| HACCP Monitoring Report | Miesięcznie | PDF | Compliance Officer / FSA |
-| SALSA Compliance Report | Kwartalnie | PDF | Auditor SALSA |
-| NCR Report (Non-Conformity) | Tygodniowo | PDF + CSV | QA Manager |
+| HACCP Monitoring Report | Monthly | PDF | Compliance Officer / FSA |
+| SALSA Compliance Report | Quarterly | PDF | SALSA auditor |
+| NCR Report (Non-Conformity) | Weekly | PDF + CSV | QA Manager |
 | Production Quality KPI Dashboard | Live | HTML | Plant Manager |
-| Traceability Report (per batch) | Ad-hoc | PDF | FSA / klient |
-| Audit Trail Export | Ad-hoc | CSV / PDF (signed) | Auditor zewnętrzny |
+| Traceability Report (per batch) | Ad-hoc | PDF | FSA / customer |
+| Audit Trail Export | Ad-hoc | CSV / PDF (signed) | External auditor |
 
-**Implementacja:** WeasyPrint (HTML→PDF) dla raportów; szablony Jinja2 z pełnym i18n; podpis cyfrowy raportu (PDF z osadzonym certyfikatem).
+**Implementation:** WeasyPrint (HTML→PDF) for reports; Jinja2 templates with full i18n; digital signature on the report (PDF with embedded certificate).
 
-### 2.10. Moduł `admin` — Panel administracyjny
+### 2.10. `admin` module — Administration panel
 
-**Odpowiedzialność:** Konfiguracja systemu bez ingerencji programisty.
+**Responsibility:** System configuration without developer involvement.
 
-**Funkcje:**
-- CRUD linii produkcyjnych
-- Konfigurator pipeline'ów (drag-drop)
-- Definicje CCP
-- Szablony checklist SALSA
-- Definicje triggerów (formularz JSON-builder)
-- Zarządzanie użytkownikami i rolami
-- Konfiguracja powiadomień (kanały, odbiorcy)
-- Tłumaczenia UI (panel edycji message catalog)
-- Health-check integracji (status MQTT, kolejki RQ)
+**Features:**
+- CRUD for production lines
+- Pipeline configurator (drag-drop)
+- CCP definitions
+- SALSA checklist templates
+- Trigger definitions (JSON-builder form)
+- User and role management
+- Notification configuration (channels, recipients)
+- UI translations (message-catalog editor)
+- Integration health checks (MQTT status, RQ queue)
 
-### 2.11. Moduł `i18n` — Wielojęzyczność
+### 2.11. `i18n` module — Multilingual support
 
-**Odpowiedzialność:** Pełna lokalizacja PL/EN.
+**Responsibility:** Full PL/EN localisation.
 
-**Implementacja:**
-- Flask-Babel + pliki `.po` / `.mo` w `app/translations/{pl,en}/LC_MESSAGES/`.
-- Detekcja języka: cookie → preferencja użytkownika → `Accept-Language` → fallback `en`.
-- Treści dynamiczne (np. tytuły etapów pipeline) trzymane w JSONB jako `{"pl": "...", "en": "..."}`.
-- Funkcja `gettext_dynamic(field, lang)` w Jinja2.
-- Eksport raportów w języku odbiorcy (parametr `?lang=en`).
+**Implementation:**
+- Flask-Babel + `.po` / `.mo` files in `app/translations/{pl,en}/LC_MESSAGES/`.
+- Language detection: cookie → user preference → `Accept-Language` → fallback `en`.
+- Dynamic content (e.g. pipeline stage titles) stored in JSONB as `{"pl": "...", "en": "..."}`.
+- `gettext_dynamic(field, lang)` function in Jinja2.
+- Reports exported in the recipient's language (`?lang=en` parameter).
 
-Patrz: dokument **02-diagramy-architektury.md**, Diagram 5.
+See: document **02-diagramy-architektury.md**, Diagram 5.
 
-### 2.12. Moduł `integrations` — Integracje zewnętrzne
+### 2.12. `integrations` module — External integrations
 
-**Odpowiedzialność:** Komunikacja z urządzeniami i systemami zewnętrznymi.
+**Responsibility:** Communication with devices and external systems.
 
 **MQTT Bridge:**
-- Subskrypcja topiców `factory/{line}/{device}/{metric}`.
-- Normalizacja payloadu (różni producenci — różne formaty: JSON, CSV, binarny) przez warstwę adapterów (`adapters/oven_xyz.py`).
-- Buforowanie offline (Redis Stream, max 100k odczytów / linia, FIFO drop).
+- Subscribes to topics `factory/{line}/{device}/{metric}`.
+- Payload normalisation (different vendors — different formats: JSON, CSV, binary) via an adapter layer (`adapters/oven_xyz.py`).
+- Offline buffering (Redis Stream, max 100k readings / line, FIFO drop).
 
 **REST API:**
-- `/api/v1/tickets` (POST) — przyjmowanie zgłoszeń od systemów zewnętrznych (np. ERP, system reklamacyjny).
-- `/api/v1/measurements` (POST) — pomiary z urządzeń niewspierających MQTT.
-- API-key + HMAC w nagłówku `X-Signature` dla autoryzacji.
-- Rate-limiting: 100 req/min per klucz.
+- `/api/v1/tickets` (POST) — accepts submissions from external systems (e.g. ERP, complaint portal).
+- `/api/v1/measurements` (POST) — measurements from devices that don't support MQTT.
+- API-key + HMAC in the `X-Signature` header for authorisation.
+- Rate-limiting: 100 req/min per key.
 
-**Webhooks (wychodzące):**
-- POST do skonfigurowanego URL przy zdarzeniu (`ticket.created`, `ccp.violated`).
-- Retry z exponential backoff (3, 9, 27 minut), DLQ w Redis po wyczerpaniu.
+**Outbound webhooks:**
+- POST to a configured URL on event (`ticket.created`, `ccp.violated`).
+- Retry with exponential backoff (3, 9, 27 minutes), DLQ in Redis once exhausted.
 
 ---
 
-## 3. Przepływ danych i integracje
+## 3. Data flows and integrations
 
-### 3.1. Trzy źródła ticketów
+### 3.1. Three ticket sources
 
-#### Źródło 1: Wejście manualne (hala produkcyjna)
-1. Operator klika ikonę „Nowe zgłoszenie" na tablecie (PWA).
-2. Formularz: linia (auto-detect po zalogowanym urządzeniu), kategoria, severity, opis, zdjęcie z kamery.
-3. Submit → `POST /tickets` → walidacja → zapis → emisja zdarzenia `ticket.created`.
-4. Trigger reguł zaszywa `notify_qa` jeśli severity ≥ high.
+#### Source 1: Manual entry (shop floor)
+1. Operator taps "New report" on the tablet (PWA).
+2. Form: line (auto-detected from the logged-in device), category, severity, description, camera photo.
+3. Submit → `POST /tickets` → validation → save → emit `ticket.created` event.
+4. Rules engine runs `notify_qa` if severity ≥ high.
 
-#### Źródło 2: Urządzenia produkcyjne (IoT)
-1. Czujnik publikuje na MQTT topic `factory/line_a/oven_1/temp` co 1s.
-2. Mosquitto przekazuje do Flask MQTT Bridge.
-3. Bridge waliduje payload → wstawia do Redis Stream `metrics:line_a`.
-4. Worker `trigger_evaluator` konsumuje stream → ewaluuje aktywne triggery.
-5. Trigger spełniony → tworzy ticket przez `TicketService.create_from_trigger()`.
+#### Source 2: Production devices (IoT)
+1. Sensor publishes to MQTT topic `factory/line_a/oven_1/temp` every 1s.
+2. Mosquitto forwards to the Flask MQTT Bridge.
+3. Bridge validates payload → inserts into Redis Stream `metrics:line_a`.
+4. Worker `trigger_evaluator` consumes the stream → evaluates active triggers.
+5. Trigger satisfied → creates ticket via `TicketService.create_from_trigger()`.
 
-#### Źródło 3: API zewnętrzne
-1. System ERP wysyła `POST /api/v1/tickets` z reklamacją klienta.
-2. Walidacja API-key + HMAC.
-3. Mapowanie pól (zewnętrznych → wewnętrznych) przez adapter.
-4. Utworzenie ticketu z flagą `source=api` i metadanymi źródła.
+#### Source 3: External API
+1. The ERP system POSTs `/api/v1/tickets` with a customer complaint.
+2. API-key + HMAC validation.
+3. Field mapping (external → internal) via adapter.
+4. Ticket created with `source=api` flag and source metadata.
 
-### 3.2. Wewnętrzne przepływy
+### 3.2. Internal flows
 
 **Trigger → Responder:**
 ```
-Odczyt IoT → Redis Stream → Worker → Trigger Engine
+IoT reading → Redis Stream → Worker → Trigger Engine
    → match? → emit `trigger.fired` → Responder Dispatcher
-   → wykonanie akcji (notify/create_ticket/pause_line)
+   → execute action (notify/create_ticket/pause_line)
    → audit_log INSERT
 ```
 
-**Pomiar CCP:**
+**CCP measurement:**
 ```
-Operator wprowadza pomiar → walidacja kontra critical_limits
-   → if poza limitem: tworzenie ticketu (severity=critical)
-                    + alert do Compliance Officer
-                    + zablokowanie release'u partii
+Operator enters reading → validate against critical_limits
+   → if out of limit: create ticket (severity=critical)
+                    + alert Compliance Officer
+                    + block batch release
    → audit_log INSERT
 ```
 
-### 3.3. Diagramy
+### 3.3. Diagrams
 
-Szczegółowe diagramy sekwencyjne i flowcharty znajdują się w dokumencie **02-diagramy-architektury.md**:
-- Diagram 1 — Architektura warstwowa
-- Diagram 2 — Przepływ ticketów
-- Diagram 3 — Integracja modułów compliance
+Detailed sequence diagrams and flowcharts live in **02-diagramy-architektury.md**:
+- Diagram 1 — Layered architecture
+- Diagram 2 — Ticket flow
+- Diagram 3 — Compliance module integration
 
 ---
 
-## 4. Model bazy danych
+## 4. Database model
 
-### 4.1. Diagram ERD (logiczny)
+### 4.1. ERD (logical)
 
 ```
                                     ┌──────────────┐
@@ -409,8 +409,8 @@ Szczegółowe diagramy sekwencyjne i flowcharty znajdują się w dokumencie **02
                     └─────┬──────┘                    └─────────────┘
                           │ M:N                              ▲
                     ┌─────▼──────┐                           │ INSERT
-                    │permissions │                           │ przy każdej
-                    └────────────┘                           │ akcji
+                    │permissions │                           │ on every
+                    └────────────┘                           │ action
                                                              │
    ┌──────────────────┐    1:N    ┌──────────────────┐      │
    │ production_lines ├───────────►│   pipelines    │      │
@@ -446,10 +446,10 @@ Szczegółowe diagramy sekwencyjne i flowcharty znajdują się w dokumencie **02
        └─────────────┘
 ```
 
-### 4.2. Kluczowe tabele
+### 4.2. Key tables
 
 #### `users`
-| Pole | Typ | Indeks/Constraint |
+| Field | Type | Index/Constraint |
 |---|---|---|
 | id | UUID | PK |
 | email | VARCHAR(255) | UNIQUE |
@@ -462,10 +462,10 @@ Szczegółowe diagramy sekwencyjne i flowcharty znajdują się w dokumencie **02
 | created_at | TIMESTAMPTZ | DEFAULT now() |
 
 #### `roles`, `permissions`, `role_permissions`
-Klasyczny wzorzec RBAC. `permissions.code` to napis typu `tickets.create`, `pipeline.configure`, `audit.export`.
+Classic RBAC pattern. `permissions.code` is a string such as `tickets.create`, `pipeline.configure`, `audit.export`.
 
 #### `production_lines`
-| Pole | Typ |
+| Field | Type |
 |---|---|
 | id | UUID PK |
 | name | VARCHAR(100) |
@@ -474,7 +474,7 @@ Klasyczny wzorzec RBAC. `permissions.code` to napis typu `tickets.create`, `pipe
 | metadata | JSONB |
 
 #### `pipelines`
-| Pole | Typ |
+| Field | Type |
 |---|---|
 | id | UUID PK |
 | production_line_id | UUID FK |
@@ -486,7 +486,7 @@ Klasyczny wzorzec RBAC. `permissions.code` to napis typu `tickets.create`, `pipe
 UNIQUE (`production_line_id`, `version`).
 
 #### `pipeline_stages`
-| Pole | Typ |
+| Field | Type |
 |---|---|
 | id | UUID PK |
 | pipeline_id | UUID FK |
@@ -500,10 +500,10 @@ UNIQUE (`production_line_id`, `version`).
 INDEX (`pipeline_id`, `order_index`).
 
 #### `tickets`
-| Pole | Typ |
+| Field | Type |
 |---|---|
 | id | UUID PK |
-| ticket_number | VARCHAR(20) UNIQUE | (np. `QMS-2026-00042`) |
+| ticket_number | VARCHAR(20) UNIQUE | (e.g. `QMS-2026-00042`) |
 | production_line_id | UUID FK |
 | pipeline_id | UUID FK |
 | current_stage_id | UUID FK |
@@ -522,15 +522,15 @@ INDEX (`pipeline_id`, `order_index`).
 | updated_at | TIMESTAMPTZ |
 | closed_at | TIMESTAMPTZ |
 
-**Indeksy:**
+**Indexes:**
 - `idx_tickets_status_open` — partial: `WHERE status NOT IN ('CLOSED','REJECTED')`
 - `idx_tickets_line_created` — `(production_line_id, created_at DESC)`
 - `idx_tickets_severity_created` — `(severity, created_at DESC)`
 - `idx_tickets_assignee_status` — `(assigned_to_user_id, status)`
-- `idx_tickets_metadata_gin` — GIN na `metadata` (wyszukiwanie po batch_id, lot_number)
+- `idx_tickets_metadata_gin` — GIN on `metadata` (search by batch_id, lot_number)
 
 #### `ticket_events`
-| Pole | Typ |
+| Field | Type |
 |---|---|
 | id | BIGSERIAL PK |
 | ticket_id | UUID FK |
@@ -547,16 +547,16 @@ INDEX (`pipeline_id`, `order_index`).
 INDEX `(ticket_id, occurred_at)`.
 
 #### `audit_log`
-Patrz sekcja 2.8. Partycjonowanie miesięczne (`PARTITION BY RANGE (occurred_at)`), retention 7 lat.
+See section 2.8. Monthly partitioning (`PARTITION BY RANGE (occurred_at)`), 7-year retention.
 
 #### `ccp_definitions`, `ccp_measurements`
-Patrz sekcja 2.6. INDEX `(ccp_definition_id, measured_at DESC)` dla generowania raportów.
+See section 2.6. INDEX `(ccp_definition_id, measured_at DESC)` to speed up report generation.
 
 #### `salsa_checklists`, `salsa_responses`
-Patrz sekcja 2.7.
+See section 2.7.
 
 #### `triggers`
-| Pole | Typ |
+| Field | Type |
 |---|---|
 | id | UUID PK |
 | name | JSONB |
@@ -567,7 +567,7 @@ Patrz sekcja 2.7.
 | created_by_user_id | UUID |
 
 #### `responders`
-| Pole | Typ |
+| Field | Type |
 |---|---|
 | id | UUID PK |
 | name | JSONB |
@@ -579,472 +579,472 @@ Patrz sekcja 2.7.
 PK (`trigger_id`, `responder_id`, `order_index`).
 
 #### `trigger_executions`
-Każde wykonanie respondera. Indeks na `(trigger_id, executed_at DESC)`.
+Every responder execution. Index on `(trigger_id, executed_at DESC)`.
 
-#### `translations` (opcjonalnie — dla edycji w runtime)
-Override dla Babel `.po` przez panel admina. Klucz + język + tekst.
+#### `translations` (optional — for runtime edits)
+Override of Babel `.po` via the admin panel. Key + language + text.
 
-### 4.3. Strategia indeksów i wydajności
+### 4.3. Indexing and performance strategy
 
-- **Partial indexes** dla otwartych ticketów (większość zapytań dotyczy aktywnych).
-- **GIN** na JSONB tam, gdzie potrzebne wyszukiwanie po polach (`metadata`, `name`).
-- **Partycjonowanie** `audit_log` i `ccp_measurements` po dacie (po 12 miesięcy partycje aktywne, starsze read-only).
-- **VACUUM/ANALYZE** harmonogram nocny.
-- **Replikacja** read-replica dla raportowania (oddzielenie od OLTP).
-- **Connection pooling** PgBouncer w trybie transaction.
+- **Partial indexes** for open tickets (the majority of queries are about active ones).
+- **GIN** on JSONB where searching by fields is needed (`metadata`, `name`).
+- **Partitioning** of `audit_log` and `ccp_measurements` by date (12 months active, older ones read-only).
+- **VACUUM/ANALYZE** scheduled nightly.
+- **Replication** read-replica for reporting (separated from OLTP).
+- **Connection pooling** via PgBouncer in transaction mode.
 
-### 4.4. Skalowanie
+### 4.4. Scaling
 
-| Skala | Strategia |
+| Scale | Strategy |
 |---|---|
-| **MVP / 1 zakład / ~50 użytkowników** | Single-node PostgreSQL, ~100 GB |
-| **5 zakładów / 250 użytkowników** | Read-replica + PgBouncer, partycjonowanie |
-| **Korporacja / >1000 użytkowników** | Sharding po `tenant_id` + Citus / Patroni HA |
+| **MVP / 1 plant / ~50 users** | Single-node PostgreSQL, ~100 GB |
+| **5 plants / 250 users** | Read-replica + PgBouncer, partitioning |
+| **Enterprise / >1000 users** | Sharding by `tenant_id` + Citus / Patroni HA |
 
 ---
 
-## 5. UX/UI — wireframy i założenia
+## 5. UX/UI — wireframes and principles
 
-### 5.1. Zasady projektowe
+### 5.1. Design principles
 
-1. **Hala produkcyjna ≠ biuro.** Tablety w rękawiczkach → przyciski min 56×56 px, kontrast WCAG AAA.
-2. **3 kliknięcia do zgłoszenia.** Operator nie ma czasu klikać przez 10 ekranów.
-3. **Offline-first.** PWA cache'uje ostatnie dane; submit kolejkowany w IndexedDB.
-4. **Język — w jednym kliknięciu.** Switch PL/EN w prawym górnym rogu, persistuje per użytkownik.
-5. **Dark mode i wysoki kontrast.** Hala bywa ciemna, monitor — zalany światłem.
-6. **Brak żargonu IT.** „Zgłoszenie" zamiast „ticket", „etap" zamiast „stage", „alarm" zamiast „trigger".
+1. **Shop floor ≠ office.** Tablets used with gloves → buttons min 56×56 px, WCAG AAA contrast.
+2. **3 taps to a report.** The operator has no time to click through 10 screens.
+3. **Offline-first.** PWA caches the most recent data; submissions are queued in IndexedDB.
+4. **Language — one tap.** PL/EN switch in the top-right corner, persisted per user.
+5. **Dark mode and high contrast.** The shop floor is sometimes dark, sometimes glaring.
+6. **No IT jargon.** "Report" instead of "ticket", "stage" instead of "stage" (in Polish: "etap" instead of "stage"), "alarm" instead of "trigger".
 
-### 5.2. Wireframe — Dashboard główny
+### 5.2. Wireframe — Main dashboard
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│  QMS — Piekarnia A                  🇵🇱 PL │ 🇬🇧 EN     [Jan K. ▼] │
+│  QMS — Bakery A                     🇵🇱 PL │ 🇬🇧 EN     [Jan K. ▼] │
 ├────────────────────────────────────────────────────────────────────┤
-│ ▌ MENU       │  ALARMY (3)                                          │
+│ ▌ MENU       │  ALERTS (3)                                          │
 │              │  ┌──────────────────────────────────────────────┐   │
-│ ▣ Dashboard  │  │ 🔴 LINIA A — piec 1 — temp 232°C  [PRZEJDŹ]  │   │
-│ ▢ Zgłoszenia │  │ 🟠 LINIA B — waga — odchył +3.2%  [PRZEJDŹ]  │   │
-│ ▢ Pipeline   │  │ 🟡 LINIA C — SLA przekroczony     [PRZEJDŹ]  │   │
+│ ▣ Dashboard  │  │ 🔴 LINE A — oven 1 — temp 232°C   [GO]       │   │
+│ ▢ Tickets    │  │ 🟠 LINE B — scale — dev +3.2%     [GO]       │   │
+│ ▢ Pipeline   │  │ 🟡 LINE C — SLA exceeded          [GO]       │   │
 │ ▢ HACCP/CCP  │  └──────────────────────────────────────────────┘   │
 │ ▢ SALSA      │                                                      │
-│ ▢ Raporty    │  PRZEGLĄD LINII                                      │
+│ ▢ Reports    │  LINE OVERVIEW                                       │
 │ ▢ Admin      │  ┌─────────┬─────────┬─────────┐                    │
-│              │  │ LINIA A │ LINIA B │ LINIA C │                    │
+│              │  │ LINE A  │ LINE B  │ LINE C  │                    │
 │              │  │  ✅ OK  │ ⚠️ NCR │  🔴 STOP│                    │
-│              │  │  98% FPY│ 92% FPY │  —     │                    │
+│              │  │  98% FPY│ 92% FPY │  —      │                    │
 │              │  │  2 open │ 5 open  │ 12 open │                    │
 │              │  └─────────┴─────────┴─────────┘                    │
 │              │                                                      │
-│              │  KPI (24h)            │  CCP (dziś)                  │
-│              │  • Otwarte: 19        │  ┌──────────────────────┐   │
-│              │  • Zamknięte: 47      │  │ ▓▓▓▓▓▓░░░ 7/9 done   │   │
-│              │  • MTTR: 42 min       │  │ ❌ 1 odchylenie       │   │
+│              │  KPI (24h)            │  CCP (today)                 │
+│              │  • Open: 19           │  ┌──────────────────────┐   │
+│              │  • Closed: 47         │  │ ▓▓▓▓▓▓░░░ 7/9 done   │   │
+│              │  • MTTR: 42 min       │  │ ❌ 1 deviation        │   │
 │              │  • Severity h+: 3     │  └──────────────────────┘   │
 └──────────────┴──────────────────────────────────────────────────────┘
 ```
 
-### 5.3. Wireframe — Lista zgłoszeń
+### 5.3. Wireframe — Ticket list
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│  ZGŁOSZENIA                                  [+ NOWE ZGŁOSZENIE]   │
+│  TICKETS                                       [+ NEW TICKET]      │
 ├────────────────────────────────────────────────────────────────────┤
-│ Linia: [Wszystkie ▼]  Status: [Otwarte ▼]  Severity: [Wszystkie ▼] │
-│ Data od: [____] do: [____]    🔍 Szukaj: [_____________]   [Filtr] │
+│ Line: [All ▼]   Status: [Open ▼]   Severity: [All ▼]               │
+│ Date from: [____] to: [____]   🔍 Search: [_____________]   [Filter]│
 ├────────────────────────────────────────────────────────────────────┤
-│ # NUMER       │ LINIA │ KAT.        │ SEV │ STATUS  │ SLA  │ AKCJA │
+│ # NUMBER      │ LINE  │ CATEGORY    │ SEV │ STATUS  │ SLA  │ ACT.  │
 ├───────────────┼───────┼─────────────┼─────┼─────────┼──────┼───────┤
-│ QMS-2026-0042 │ A     │ Temperatura │ 🔴  │ Analiza │ 12m  │ [▶]   │
-│ QMS-2026-0041 │ B     │ Waga        │ 🟠  │ Akcja   │ 1h   │ [▶]   │
-│ QMS-2026-0040 │ A     │ Higiena     │ 🟡  │ Weryf.  │ 4h   │ [▶]   │
-│ QMS-2026-0039 │ C     │ Alergen     │ 🔴  │ Zamkn.  │ —    │ [▶]   │
+│ QMS-2026-0042 │ A     │ Temperature │ 🔴  │ Analysis│ 12m  │ [▶]   │
+│ QMS-2026-0041 │ B     │ Weight      │ 🟠  │ Action  │ 1h   │ [▶]   │
+│ QMS-2026-0040 │ A     │ Hygiene     │ 🟡  │ Verify  │ 4h   │ [▶]   │
+│ QMS-2026-0039 │ C     │ Allergen    │ 🔴  │ Closed  │ —    │ [▶]   │
 │ ...                                                                │
 ├────────────────────────────────────────────────────────────────────┤
-│                                  [‹ Poprz.]  Strona 1/12  [Nast. ›]│
+│                                  [‹ Prev]   Page 1/12   [Next ›]   │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.4. Wireframe — Szczegół zgłoszenia
+### 5.4. Wireframe — Ticket detail
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ ← Wstecz   QMS-2026-0042: Przegrzanie pieca 1 (LINIA A)            │
-│            🔴 Severity: HIGH    Status: ANALIZA    SLA: 12 min ⏱️   │
+│ ← Back   QMS-2026-0042: Oven 1 overheating (LINE A)                │
+│            🔴 Severity: HIGH    Status: ANALYSIS   SLA: 12 min ⏱️   │
 ├────────────────────────────────────────────────────────────────────┤
 │ ┌──────────────────────────┬─────────────────────────────────────┐ │
-│ │ TIMELINE                 │ AKCJE DOSTĘPNE                      │ │
-│ │                          │ [Przejdź do następnego etapu]       │ │
-│ │ 🟢 14:02 Zgłoszenie      │ [Eskaluj do managera]               │ │
-│ │    auto z czujnika       │ [Dodaj komentarz]                   │ │
-│ │                          │ [Załącz plik]                       │ │
-│ │ 🟢 14:03 Klasyfikacja    │                                     │ │
-│ │    Anna K. — kat: temp   │ POMIARY POWIĄZANE                   │ │
+│ │ TIMELINE                 │ AVAILABLE ACTIONS                   │ │
+│ │                          │ [Advance to next stage]             │ │
+│ │ 🟢 14:02 Reported        │ [Escalate to manager]               │ │
+│ │    auto from sensor      │ [Add comment]                       │ │
+│ │                          │ [Attach file]                       │ │
+│ │ 🟢 14:03 Classified      │                                     │ │
+│ │    Anna K. — cat: temp   │ RELATED MEASUREMENTS                │ │
 │ │                          │ • Temp 232°C @ 14:01:32             │ │
-│ │ 🔵 14:05 Analiza         │ • Temp 234°C @ 14:01:58             │ │
-│ │    Trwa... (Marek W.)    │ • Temp 230°C @ 14:02:15             │ │
+│ │ 🔵 14:05 Analysis        │ • Temp 234°C @ 14:01:58             │ │
+│ │    In progress (Marek W.)│ • Temp 230°C @ 14:02:15             │ │
 │ │                          │                                     │ │
-│ │ ⚪ Akcja korygująca      │ POWIĄZANY CCP: Temp pieca           │ │
-│ │ ⚪ Weryfikacja           │ Pomiar wymagany: TAK                │ │
-│ │ ⚪ Zamknięcie            │ Akcja korygująca: szablon dostępny  │ │
+│ │ ⚪ Corrective action     │ LINKED CCP: Oven temp               │ │
+│ │ ⚪ Verification          │ Measurement required: YES           │ │
+│ │ ⚪ Closure               │ Corrective action: template available│ │
 │ └──────────────────────────┴─────────────────────────────────────┘ │
 │                                                                    │
-│ KOMENTARZE                                                         │
+│ COMMENTS                                                           │
 │ ┌────────────────────────────────────────────────────────────────┐ │
-│ │ Anna K. (14:03): Klasyfikacja jako temperature_deviation       │ │
-│ │ Marek W. (14:05): Sprawdzam czujnik i kalibrację...            │ │
+│ │ Anna K. (14:03): Classified as temperature_deviation           │ │
+│ │ Marek W. (14:05): Checking sensor and calibration...           │ │
 │ └────────────────────────────────────────────────────────────────┘ │
-│ [Dodaj komentarz_______________________________________] [Wyślij]  │
+│ [Add comment_________________________________________] [Send]      │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.5. Wireframe — Konfiguracja pipeline
+### 5.5. Wireframe — Pipeline configuration
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ KONFIGURACJA PIPELINE — LINIA A          Wersja: 7 (draft)         │
+│ PIPELINE CONFIGURATION — LINE A          Version: 7 (draft)        │
 ├────────────────────────────────────────────────────────────────────┤
 │                                                                    │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │
-│  │ 1. WYKRYCIE  │→│2. KLASYFIK.  │→│ 3. ANALIZA   │→ ...           │
-│  │ Rola: Op.    │  │ Rola: QA     │  │ Rola: QA     │              │
+│  │ 1. DETECTION │→│ 2. CLASSIFY  │→│ 3. ANALYSIS  │→ ...           │
+│  │ Role: Op.    │  │ Role: QA     │  │ Role: QA     │              │
 │  │ SLA: 5 min   │  │ SLA: 15 min  │  │ SLA: 60 min  │              │
 │  │ ☐ CCP        │  │ ☐ CCP        │  │ ☑ CCP        │              │
-│  │ [✏ Edytuj]   │  │ [✏ Edytuj]   │  │ [✏ Edytuj]   │              │
-│  │ [🗑 Usuń]    │  │ [🗑 Usuń]    │  │ [🗑 Usuń]    │              │
+│  │ [✏ Edit]     │  │ [✏ Edit]     │  │ [✏ Edit]     │              │
+│  │ [🗑 Delete]  │  │ [🗑 Delete]  │  │ [🗑 Delete]  │              │
 │  └──────────────┘  └──────────────┘  └──────────────┘              │
 │        ⇅                ⇅                ⇅                          │
 │      drag                                                          │
 │                                                                    │
-│  [+ Dodaj etap]                                                    │
+│  [+ Add stage]                                                     │
 │                                                                    │
 │  ────────────────────────────────────────────────────────────────  │
-│  [Anuluj]   [Zapisz jako draft]   [Opublikuj wersję 7]             │
+│  [Cancel]   [Save as draft]   [Publish version 7]                  │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.6. Wireframe — Mobile (PWA, operator hali)
+### 5.6. Wireframe — Mobile (PWA, shop-floor operator)
 
 ```
 ┌──────────────────────┐
-│ 🇵🇱  QMS  LINIA A   │
+│ 🇬🇧  QMS  LINE A    │
 ├──────────────────────┤
 │                      │
-│  +  NOWE ZGŁOSZENIE  │
+│  +  NEW TICKET       │
 │ ┌──────────────────┐ │
-│ │  ️⚠️ ZGŁOŚ        │ │
-│ │     PROBLEM      │ │
+│ │  ️⚠️ REPORT      │ │
+│ │     A PROBLEM    │ │
 │ └──────────────────┘ │
 │                      │
-│  📋 CHECKLISTY DZIŚ  │
+│  📋 TODAY'S CHECKLISTS│
 │ ┌──────────────────┐ │
-│ │ Higiena   ✅     │ │
-│ │ Maszyny   ⚠️ 1/3 │ │
-│ │ Dostawy   ⏳     │ │
+│ │ Hygiene   ✅     │ │
+│ │ Machines  ⚠️ 1/3 │ │
+│ │ Goods in  ⏳     │ │
 │ └──────────────────┘ │
 │                      │
-│  📊 MOJE ZGŁOSZENIA  │
+│  📊 MY TICKETS       │
 │ ┌──────────────────┐ │
-│ │ 0042 🔴 Analiza  │ │
-│ │ 0038 🟡 Akcja    │ │
+│ │ 0042 🔴 Analysis │ │
+│ │ 0038 🟡 Action   │ │
 │ └──────────────────┘ │
 │                      │
-│  🌡️ POMIARY CCP      │
+│  🌡️ CCP MEASUREMENTS │
 │ ┌──────────────────┐ │
-│ │ Temp pieca 1     │ │
-│ │ [____] °C [Zapisz]│ │
+│ │ Oven 1 temp      │ │
+│ │ [____] °C [Save] │ │
 │ └──────────────────┘ │
 └──────────────────────┘
 ```
 
-### 5.7. Wireframe — Panel admina (definicja triggera)
+### 5.7. Wireframe — Admin panel (trigger definition)
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
-│ NOWY TRIGGER — Definicja                                           │
+│ NEW TRIGGER — Definition                                           │
 ├────────────────────────────────────────────────────────────────────┤
-│ Nazwa (PL): [Przegrzanie pieca 1                  ]                │
-│ Nazwa (EN): [Oven 1 overheating                   ]                │
+│ Name (PL): [Przegrzanie pieca 1                  ]                 │
+│ Name (EN): [Oven 1 overheating                   ]                 │
 │                                                                    │
-│ Zakres: [Linia A ▼]                                                │
+│ Scope: [Line A ▼]                                                  │
 │                                                                    │
-│ WARUNEK                                                            │
-│ Metryka:    [temperature ▼]                                        │
-│ Operator:   [>           ▼]                                        │
-│ Wartość:    [220     ] °C                                          │
-│ Czas trwania: [30   ] sekund                                       │
+│ CONDITION                                                          │
+│ Metric:    [temperature ▼]                                         │
+│ Operator:  [>           ▼]                                         │
+│ Value:     [220     ] °C                                           │
+│ Duration:  [30   ] seconds                                         │
 │                                                                    │
-│ PO SPEŁNIENIU                                                      │
-│ ☑ Utwórz zgłoszenie  (severity: [HIGH ▼], kategoria: [Temp ▼])    │
-│ ☑ Powiadom: [QA Manager, Line Manager A      ] (e-mail + SMS)      │
-│ ☐ Wstrzymaj linię                                                  │
+│ ON MATCH                                                           │
+│ ☑ Create ticket  (severity: [HIGH ▼], category: [Temp ▼])          │
+│ ☑ Notify: [QA Manager, Line Manager A      ] (email + SMS)         │
+│ ☐ Pause line                                                       │
 │                                                                    │
-│ [Anuluj]                            [Zapisz draft]   [Aktywuj]     │
+│ [Cancel]                            [Save draft]   [Activate]      │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 6. System uprawnień i ról
+## 6. Permissions and roles
 
-### 6.1. Role
+### 6.1. Roles
 
-| Rola | Skrót | Opis |
+| Role | Code | Description |
 |---|---|---|
-| **Operator produkcji** | `operator` | Pracownik hali — zgłasza problemy, wypełnia checklisty, wprowadza pomiary CCP |
-| **QA Specialist** | `qa` | Specjalista jakości — klasyfikuje, analizuje, weryfikuje akcje korygujące |
-| **Line Manager** | `line_manager` | Kierownik linii — zatwierdza akcje korygujące, eskalacje, batch hold/release |
-| **Compliance Officer** | `compliance` | Specjalista compliance — definiuje CCP, SALSA checklisty, eksportuje raporty FSA |
-| **Plant Manager** | `plant_manager` | Kierownik zakładu — przegląda KPI, raporty, ale nie modyfikuje konfiguracji technicznej |
-| **Administrator** | `admin` | Administrator systemu — pełna konfiguracja, zarządzanie użytkownikami, audyty |
+| **Production operator** | `operator` | Shop-floor worker — reports problems, fills checklists, enters CCP measurements |
+| **QA Specialist** | `qa` | Quality specialist — classifies, analyses, verifies corrective actions |
+| **Line Manager** | `line_manager` | Line supervisor — approves corrective actions, escalations, batch hold/release |
+| **Compliance Officer** | `compliance` | Compliance specialist — defines CCPs, SALSA checklists, exports FSA reports |
+| **Plant Manager** | `plant_manager` | Plant lead — reviews KPIs and reports, but does not modify technical configuration |
+| **Administrator** | `admin` | System administrator — full configuration, user management, audits |
 
-### 6.2. Macierz uprawnień (RBAC matrix)
+### 6.2. Permissions matrix (RBAC matrix)
 
-Legenda: ✅ pełen dostęp | 👁️ tylko odczyt | ✍️ ograniczony zapis | ❌ brak dostępu
+Legend: ✅ full access | 👁️ read-only | ✍️ limited write | ❌ no access
 
-| Funkcja                       | Operator | QA  | Line Mgr | Compl. | Plant Mgr | Admin |
+| Function                       | Operator | QA  | Line Mgr | Compl. | Plant Mgr | Admin |
 |---|---|---|---|---|---|---|
-| Tworzenie zgłoszeń            | ✅       | ✅  | ✅       | ✅     | ✅        | ✅    |
-| Klasyfikacja zgłoszeń         | ❌       | ✅  | ✅       | ✅     | ❌        | ✅    |
-| Akcja korygująca              | ❌       | ✅  | ✅       | ✅     | ❌        | ✅    |
-| Zatwierdzanie zamknięcia      | ❌       | ❌  | ✅       | ✅     | ❌        | ✅    |
-| Wprowadzanie pomiarów CCP     | ✅       | ✅  | ✅       | ✅     | ❌        | ✅    |
-| Definiowanie CCP              | ❌       | ❌  | ❌       | ✅     | ❌        | ✅    |
-| Wypełnianie checklist SALSA   | ✅       | ✅  | ✅       | ✅     | ❌        | ✅    |
-| Definiowanie checklist SALSA  | ❌       | ❌  | ❌       | ✅     | ❌        | ✅    |
-| Konfiguracja pipeline         | ❌       | ❌  | ✍️*      | ✅     | ❌        | ✅    |
-| Definiowanie triggerów        | ❌       | ✍️* | ✍️*      | ✅     | ❌        | ✅    |
-| Zarządzanie użytkownikami     | ❌       | ❌  | ❌       | ❌     | ❌        | ✅    |
-| Eksport audit trail           | ❌       | 👁️  | 👁️       | ✅     | 👁️        | ✅    |
-| Generowanie raportu FSA       | ❌       | ✍️  | ✍️       | ✅     | ✅        | ✅    |
-| Dashboard KPI                 | 👁️ (linia)| 👁️ | 👁️       | 👁️    | 👁️ (zakład)| 👁️   |
-| Konfiguracja systemu          | ❌       | ❌  | ❌       | ❌     | ❌        | ✅    |
-| Przeglądanie audit_log        | ❌       | 👁️* | 👁️*      | 👁️    | 👁️        | 👁️   |
+| Create tickets                 | ✅       | ✅  | ✅       | ✅     | ✅        | ✅    |
+| Classify tickets               | ❌       | ✅  | ✅       | ✅     | ❌        | ✅    |
+| Corrective action              | ❌       | ✅  | ✅       | ✅     | ❌        | ✅    |
+| Approve closure                | ❌       | ❌  | ✅       | ✅     | ❌        | ✅    |
+| Enter CCP measurements         | ✅       | ✅  | ✅       | ✅     | ❌        | ✅    |
+| Define CCPs                    | ❌       | ❌  | ❌       | ✅     | ❌        | ✅    |
+| Fill SALSA checklists          | ✅       | ✅  | ✅       | ✅     | ❌        | ✅    |
+| Define SALSA checklists        | ❌       | ❌  | ❌       | ✅     | ❌        | ✅    |
+| Configure pipeline             | ❌       | ❌  | ✍️*      | ✅     | ❌        | ✅    |
+| Define triggers                | ❌       | ✍️* | ✍️*      | ✅     | ❌        | ✅    |
+| User management                | ❌       | ❌  | ❌       | ❌     | ❌        | ✅    |
+| Export audit trail             | ❌       | 👁️  | 👁️       | ✅     | 👁️        | ✅    |
+| Generate FSA report            | ❌       | ✍️  | ✍️       | ✅     | ✅        | ✅    |
+| KPI dashboard                  | 👁️ (line)| 👁️ | 👁️       | 👁️    | 👁️ (plant)| 👁️   |
+| System configuration           | ❌       | ❌  | ❌       | ❌     | ❌        | ✅    |
+| Browse audit_log               | ❌       | 👁️* | 👁️*      | 👁️    | 👁️        | 👁️   |
 
-\* tylko swoje akcje / swoja linia.
+\* only own actions / own line.
 
-### 6.3. Kontrola konkurencji (multi-user)
+### 6.3. Concurrency control (multi-user)
 
-- **Optimistic locking** dla edycji ticketów (kolumna `version`, INC przy update). Próba zapisu starszej wersji → 409 Conflict + UI pyta „przejmij / odśwież".
-- **Pessimistic locking** dla CCP measurement w toku (Redis lock z TTL 5 min) — uniknięcie podwójnego zapisu pomiaru z dwóch tabletów.
-- **Server-Sent Events** dla aktualizacji listy zgłoszeń w czasie rzeczywistym — gdy QA klika ticket, lista u Line Managera odświeża się automatycznie.
+- **Optimistic locking** for ticket edits (column `version`, INC on update). Saving a stale version → 409 Conflict + UI asks "take over / refresh".
+- **Pessimistic locking** for in-flight CCP measurements (Redis lock with 5-min TTL) — prevents double-recording from two tablets.
+- **Server-Sent Events** for real-time ticket-list updates — when QA opens a ticket, the Line Manager's list refreshes automatically.
 
-### 6.4. Audyt dostępu
+### 6.4. Access auditing
 
-Każda autoryzacyjna decyzja (allow/deny) zapisywana w `audit_log` z `entity_type='access'`, `action='check'`. Pozwala wykryć próby eskalacji uprawnień.
+Every authorisation decision (allow/deny) is recorded in `audit_log` with `entity_type='access'`, `action='check'`. This makes privilege-escalation attempts detectable.
 
 ---
 
-## 7. Raportowanie i analityka
+## 7. Reporting and analytics
 
-### 7.1. KPI operacyjne (live)
+### 7.1. Operational KPIs (live)
 
-| KPI | Definicja | Cel |
+| KPI | Definition | Target |
 |---|---|---|
-| **First Pass Yield (FPY)** | (Partie bez NCR / Wszystkie partie) × 100% | ≥ 98% |
-| **NCR Rate** | Liczba zgłoszeń / 1000 partii | ≤ 5 |
-| **Mean Time To Resolve (MTTR)** | Średni czas od `NEW` do `CLOSED` | ≤ 4h dla high+ |
-| **SLA Compliance** | % ticketów zamkniętych w SLA | ≥ 95% |
-| **CCP Compliance** | % pomiarów w granicach krytycznych | ≥ 99.5% |
-| **SALSA Checklist Completion** | % wypełnionych checklist w terminie | 100% |
-| **Cost of Poor Quality (CoPQ)** | Σ utrata surowca + przestoje | śledzona, redukcja YoY |
+| **First Pass Yield (FPY)** | (Batches without NCR / All batches) × 100% | ≥ 98% |
+| **NCR Rate** | Tickets count / 1000 batches | ≤ 5 |
+| **Mean Time To Resolve (MTTR)** | Average time from `NEW` to `CLOSED` | ≤ 4h for high+ |
+| **SLA Compliance** | % tickets closed within SLA | ≥ 95% |
+| **CCP Compliance** | % readings within critical limits | ≥ 99.5% |
+| **SALSA Checklist Completion** | % checklists submitted on time | 100% |
+| **Cost of Poor Quality (CoPQ)** | Σ raw-material loss + downtime | tracked, YoY reduction |
 
-### 7.2. Raporty regulacyjne
+### 7.2. Regulatory reports
 
-#### Raport HACCP (miesięczny)
-- Lista wszystkich CCP definicji aktywnych w okresie
-- Lista pomiarów (data, wartość, w/poza limitem, operator)
-- Odchylenia + akcje korygujące + weryfikacje
-- Podpis cyfrowy Compliance Officera (TOTP-confirmed)
-- Format: PDF/A-2 (długoterminowa archiwizacja)
+#### HACCP report (monthly)
+- List of all CCP definitions active during the period
+- List of measurements (date, value, in/out of limit, operator)
+- Deviations + corrective actions + verifications
+- Digital signature by Compliance Officer (TOTP-confirmed)
+- Format: PDF/A-2 (long-term archival)
 
-#### Raport SALSA (kwartalny)
-- Wynik wszystkich checklist w okresie
-- Niezgodności + akcje
-- Trendy (% completion, % nonconformities)
+#### SALSA report (quarterly)
+- Outcome of every checklist in the period
+- Nonconformities + actions
+- Trends (% completion, % nonconformities)
 
-#### Raport FSA on-demand
-- Traceability per batch: skąd surowiec, kiedy, kto, jakie pomiary, jakie zgłoszenia
-- Wygenerowanie w < 60 sekund (wymóg FSA przy kontroli)
+#### FSA report on demand
+- Per-batch traceability: where the raw material came from, when, who, which measurements, which tickets
+- Generated in < 60 seconds (FSA requirement during inspections)
 
-### 7.3. Dashboard analityczny
+### 7.3. Analytics dashboard
 
-- Wykresy Chart.js — trendy 7/30/90 dni
-- Drill-down: klik w słupek → lista ticketów w okresie
-- Heatmap odchyleń CCP (godzina × dzień tygodnia)
-- Pareto najczęstszych kategorii NCR
+- Chart.js charts — 7/30/90-day trends
+- Drill-down: click a bar → list of tickets in the period
+- Heatmap of CCP deviations (hour × weekday)
+- Pareto of most frequent NCR categories
 
-### 7.4. Eksporty
+### 7.4. Exports
 
-| Format | Zawartość |
+| Format | Content |
 |---|---|
-| CSV | Tickety, pomiary CCP, checklisty SALSA — surowe dane do BI |
-| PDF | Raporty z podpisem |
-| JSON | API export dla integracji z BI/Power BI |
-| Audit Trail (CSV/PDF, podpisany) | Dla auditora zewnętrznego |
+| CSV | Tickets, CCP measurements, SALSA checklists — raw data for BI |
+| PDF | Signed reports |
+| JSON | API export for integration with BI/Power BI |
+| Audit Trail (CSV/PDF, signed) | For external auditors |
 
 ---
 
-## 8. Plan wdrożenia
+## 8. Rollout plan
 
-### 8.1. Fazy
+### 8.1. Phases
 
-#### Faza 0 — Discovery (4 tygodnie)
-- Wywiady z operatorami, QA, Line Managerami, Compliance Officerem
-- Inwentaryzacja urządzeń IoT (modele, protokoły)
-- Mapowanie istniejących procesów i dokumentów (papierowych)
-- Ustalenie pierwszej linii pilotażowej
-- **Deliverable:** Specyfikacja funkcjonalna v1.1
+#### Phase 0 — Discovery (4 weeks)
+- Interviews with operators, QA, Line Managers, Compliance Officer
+- IoT device inventory (models, protocols)
+- Mapping of existing processes and (paper) documents
+- Selection of pilot line
+- **Deliverable:** Functional spec v1.1
 
-#### Faza 1 — MVP (8 tygodni)
-- Setup infrastruktury (Docker Compose dev + staging)
-- Auth, RBAC, podstawowy CRUD ticketów
-- Statyczny pipeline (1 linia, 5 etapów hardcoded)
+#### Phase 1 — MVP (8 weeks)
+- Infrastructure setup (Docker Compose dev + staging)
+- Auth, RBAC, basic ticket CRUD
+- Static pipeline (1 line, 5 hardcoded stages)
 - Manual ticket entry (PWA)
 - Audit trail
-- i18n PL/EN
-- **Deliverable:** Działający system bez IoT, gotowy do testów wewnętrznych
+- PL/EN i18n
+- **Deliverable:** Working system without IoT, ready for internal testing
 
-#### Faza 2 — Pilot na 1 linii (6 tygodni)
-- Konfigurowalny pipeline + admin panel
-- HACCP/CCP — definicje + manualne pomiary
-- SALSA checklisty
-- Integracja MQTT — 2-3 czujniki pilotowe
-- Triggery i podstawowe respondery (notify_email, notify_in_app)
-- Raport HACCP (PDF)
-- **Deliverable:** Pilot na linii A; szkolenia operatorów
+#### Phase 2 — Pilot on 1 line (6 weeks)
+- Configurable pipeline + admin panel
+- HACCP/CCP — definitions + manual measurements
+- SALSA checklists
+- MQTT integration — 2-3 pilot sensors
+- Triggers and basic responders (notify_email, notify_in_app)
+- HACCP report (PDF)
+- **Deliverable:** Pilot on line A; operator training
 
-#### Faza 3 — Walidacja compliance (4 tygodnie)
-- Audyt wewnętrzny przez Compliance Officera
-- Pre-audit SALSA — symulacja audytu zewnętrznego
-- Test penetracyjny (OWASP Top 10)
-- Test obciążeniowy (Locust — 200 ticketów/min)
-- Recovery test (failover bazy, restart MQTT)
-- **Deliverable:** Certyfikat zgodności wewnętrznej; gotowość do auditu SALSA
+#### Phase 3 — Compliance validation (4 weeks)
+- Internal audit by Compliance Officer
+- Pre-audit SALSA — external-audit dry run
+- Penetration test (OWASP Top 10)
+- Load test (Locust — 200 tickets/min)
+- Recovery test (database failover, MQTT restart)
+- **Deliverable:** Internal compliance certificate; ready for SALSA audit
 
-#### Faza 4 — Rollout (8-12 tygodni)
-- Stopniowe przepinanie kolejnych linii (1 linia / 2 tygodnie)
-- Migracja danych historycznych (skany dokumentów papierowych)
-- Szkolenia dla wszystkich zmian (operator + line manager)
-- Hypercare 2 tygodnie po rolloucie każdej linii
-- **Deliverable:** Pełny zakład na QMS
+#### Phase 4 — Rollout (8-12 weeks)
+- Gradual cutover of remaining lines (1 line / 2 weeks)
+- Migration of historical data (scans of paper records)
+- Training for all shifts (operator + line manager)
+- 2-week hypercare after each line cutover
+- **Deliverable:** Full plant on the QMS
 
-#### Faza 5 — Optymalizacja (ciągle)
-- Tuning triggerów na podstawie 3 mc danych
-- Dodanie ML do predykcji odchyleń (opcjonalnie, po stabilizacji)
-- Integracja z ERP (zamówienia surowca, traceability)
-- Mobile app native (jeśli PWA niewystarczające)
+#### Phase 5 — Optimisation (ongoing)
+- Trigger tuning based on 3 months of data
+- Add ML for deviation prediction (optional, after stabilisation)
+- ERP integration (raw-material orders, traceability)
+- Native mobile app (if PWA proves insufficient)
 
-### 8.2. Zasoby
+### 8.2. Resourcing
 
-| Rola | FTE | Faza |
+| Role | FTE | Phase |
 |---|---|---|
-| Product Owner / Analityk biznesowy | 1.0 | 0–5 |
-| Architekt systemu | 0.5 | 0–2 |
+| Product Owner / Business Analyst | 1.0 | 0–5 |
+| System architect | 0.5 | 0–2 |
 | Backend dev (Python/Flask) | 2.0 | 1–4 |
 | Frontend dev (HTML/CSS/JS) | 1.0 | 1–4 |
 | DevOps / SRE | 0.5 | 0–5 |
 | QA Engineer | 1.0 | 1–4 |
 | UX Designer | 0.5 | 0–2 |
-| Specjalista Compliance (wewn.) | 0.3 | 0–5 |
-| **Razem (peak)** | **~6.8 FTE** | Faza 2 |
+| Compliance specialist (in-house) | 0.3 | 0–5 |
+| **Total (peak)** | **~6.8 FTE** | Phase 2 |
 
 ### 8.3. Timeline (overview)
 
 ```
 M1   M2   M3   M4   M5   M6   M7   M8   M9   M10  M11  M12
-├─F0─┤
-       ├──── Faza 1 (MVP) ────┤
-                              ├── Faza 2 (Pilot) ──┤
-                                                  ├─F3─┤
-                                                       ├── Faza 4 (Rollout) ─────┤
-                                                                                  ├ Faza 5 →
+├─P0─┤
+       ├──── Phase 1 (MVP) ────┤
+                              ├── Phase 2 (Pilot) ──┤
+                                                  ├─P3─┤
+                                                       ├── Phase 4 (Rollout) ────┤
+                                                                                  ├ Phase 5 →
 ```
 
-### 8.4. Kryteria akceptacji per faza (DoD)
+### 8.4. Per-phase acceptance criteria (DoD)
 
-- Wszystkie testy automatyczne zielone (≥ 80% coverage)
-- Test penetracyjny bez „Critical"/„High" findings
-- Audit trail kompletny dla wszystkich akcji
-- Dokumentacja użytkownika (PL+EN) zaktualizowana
-- Szkolenia dla użytkowników końcowych zrealizowane
-- Acceptance test z udziałem Plant Managera + Compliance Officera
+- All automated tests green (≥ 80% coverage)
+- Pen test with no Critical/High findings
+- Audit trail complete for all actions
+- User documentation (PL+EN) up to date
+- End-user training delivered
+- Acceptance test attended by Plant Manager + Compliance Officer
 
 ---
 
-## 9. Potencjalne zagrożenia i rozwiązania
+## 9. Risks and mitigations
 
-### 9.1. Ryzyka techniczne
+### 9.1. Technical risks
 
-| Ryzyko | Prawdopodobieństwo | Impact | Mitygacja |
+| Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| **Utrata połączenia MQTT** (sieć hali) | Średnie | Wysoki | Buffer w Redis Stream + retry; alarm po 60s offline; fallback ręczny pomiar |
-| **Awaria PostgreSQL** | Niskie | Krytyczny | Replikacja streaming (Patroni HA), backup co 4h, RPO ≤ 4h, RTO ≤ 1h |
-| **Wzrost objętości audit_log** | Pewne | Średni | Partycjonowanie miesięczne, archiwizacja do S3 Object Lock po 12 mc |
-| **Performance — wolne raporty** | Średnie | Średni | Read-replica, materialized views dla KPI, generowanie nocą |
-| **Niezgodne formaty IoT** | Wysokie | Średni | Warstwa adapterów per producent, walidacja schemy, DLQ dla niewspieranych |
-| **PWA cache stale** | Średnie | Niski | Service Worker z `network-first` dla danych krytycznych, force-refresh po deploy |
-| **SQL injection / XSS** | Niskie | Krytyczny | SQLAlchemy ORM (parametryzacja), Jinja2 autoescape, CSP headers, regularne SAST |
-| **Brak idempotencji API** | Średnie | Średni | Wymagany nagłówek `Idempotency-Key`, cache odpowiedzi 24h |
+| **Loss of MQTT connectivity** (shop-floor network) | Medium | High | Buffer in Redis Stream + retry; alert after 60s offline; manual fallback measurement |
+| **PostgreSQL outage** | Low | Critical | Streaming replication (Patroni HA), backup every 4h, RPO ≤ 4h, RTO ≤ 1h |
+| **Audit log volume growth** | Certain | Medium | Monthly partitioning, archival to S3 Object Lock after 12 months |
+| **Slow reports** | Medium | Medium | Read-replica, materialized views for KPIs, nightly generation |
+| **Inconsistent IoT formats** | High | Medium | Per-vendor adapter layer, schema validation, DLQ for unsupported payloads |
+| **Stale PWA cache** | Medium | Low | Service Worker with `network-first` for critical data, force-refresh after deploy |
+| **SQL injection / XSS** | Low | Critical | SQLAlchemy ORM (parameterisation), Jinja2 autoescape, CSP headers, regular SAST |
+| **Lack of API idempotency** | Medium | Medium | Required `Idempotency-Key` header, 24h response cache |
 
-### 9.2. Ryzyka regulacyjne
+### 9.2. Regulatory risks
 
-| Ryzyko | Mitygacja |
+| Risk | Mitigation |
 |---|---|
-| **Zmiana wymogów FSA** | Modułowa architektura raportów; subskrypcja newslettera FSA; review compliance kwartalny |
-| **Audyt SALSA z negatywnym wynikiem** | Pre-audit wewnętrzny przed Fazą 4; checklisty zgodne 1:1 ze standardem |
-| **GDPR — dane osobowe operatorów** | DPIA przed wdrożeniem; minimalizacja danych; retention policy; prawo do usunięcia (z wyłączeniem audit trail z uzasadnieniem prawnym) |
-| **Brak podpisu elektronicznego zgodnego z eIDAS** | TOTP + audit trail jako rozsądny zamiennik dla wewnętrznych procesów; dla raportów FSA — opcja eksportu i podpisu kwalifikowanego poza systemem |
+| **Change in FSA requirements** | Modular reporting architecture; FSA newsletter subscription; quarterly compliance review |
+| **Failed SALSA audit** | Internal pre-audit before Phase 4; checklists 1:1 aligned with the standard |
+| **GDPR — operator personal data** | DPIA before rollout; data minimisation; retention policy; right to erasure (excluding audit trail under legal basis) |
+| **No eIDAS-conformant electronic signature** | TOTP + audit trail as a reasonable substitute for internal processes; for FSA reports — option to export and apply qualified signature outside the system |
 
-### 9.3. Ryzyka operacyjne
+### 9.3. Operational risks
 
-| Ryzyko | Mitygacja |
+| Risk | Mitigation |
 |---|---|
-| **Opór pracowników (papier vs system)** | Champions program — 1 ambasador per zmiana; szkolenia w języku natywnym; UX testowany z prawdziwymi operatorami |
-| **Bariera językowa** | Pełne PL/EN; piktogramy + kolory dla najczęstszych akcji; instrukcja wideo |
-| **Operatorzy zgłaszają fałszywe alerty (gaming KPI)** | Audyt korelacji manual vs IoT; wymagane zdjęcie + podpis przy zgłoszeniu; review przez QA |
-| **Nieprawidłowo skonfigurowane triggery (false positives)** | Tryb „dry-run" przy aktywacji nowego triggera (logowanie bez akcji przez 7 dni); panel statystyk false-positive rate |
-| **Single point of failure — admin** | Min. 2 administratorzy; eskalacja do dostawcy w SLA; runbooks |
+| **Worker pushback (paper vs system)** | Champions programme — 1 ambassador per shift; native-language training; UX validated with real operators |
+| **Language barrier** | Full PL/EN; pictograms + colours for the most common actions; video manual |
+| **Operators raising false alerts (gaming KPIs)** | Audit correlation manual vs IoT; mandatory photo + signature on submission; QA review |
+| **Misconfigured triggers (false positives)** | "Dry-run" mode on activating a new trigger (logging only, no action, for 7 days); panel showing false-positive rate stats |
+| **Single point of failure — admin** | Min. 2 administrators; vendor escalation in SLA; runbooks |
 
-### 9.4. Ryzyka biznesowe
+### 9.4. Business risks
 
-| Ryzyko | Mitygacja |
+| Risk | Mitigation |
 |---|---|
-| **Przekroczenie budżetu** | Faza MVP z jasno ograniczonym scopem; review po każdej fazie; rezerwa 15% |
-| **Vendor lock-in** | Tylko open-source w core stacku (Flask, PostgreSQL, Redis, Mosquitto); dokumentacja architektury i runbooks |
-| **Odejście kluczowego dewelopera** | Pair programming, code review, wewnętrzna dokumentacja, brak „bus factor = 1" |
+| **Budget overrun** | MVP phase with tightly scoped goals; review after each phase; 15% reserve |
+| **Vendor lock-in** | Only open-source in the core stack (Flask, PostgreSQL, Redis, Mosquitto); architecture documentation and runbooks |
+| **Loss of a key developer** | Pair programming, code review, internal documentation, no "bus factor = 1" |
 
-### 9.5. Plan ciągłości działania (BCP)
+### 9.5. Business continuity plan (BCP)
 
-- **Backup:** PostgreSQL pg_basebackup co 4h + WAL archiving co 5 min → S3 z retention 90 dni.
-- **Disaster Recovery:** Restore tested co kwartał; RPO 5 min, RTO 1h.
-- **Tryb degradowany:** Jeśli baza niedostępna — operator może wypełnić papierowy formularz (wzór wydrukowany z systemu); manualny import po przywróceniu (z audit trail oznaczonym `recovery=true`).
+- **Backup:** PostgreSQL pg_basebackup every 4h + WAL archiving every 5 min → S3 with 90-day retention.
+- **Disaster Recovery:** Restore tested quarterly; RPO 5 min, RTO 1h.
+- **Degraded mode:** If the database is unavailable — operator can fill a paper form (template printed from the system); manual import after recovery (with audit trail flagged `recovery=true`).
 
 ---
 
-## Dodatek A — Słownik terminów
+## Appendix A — Glossary
 
-| Termin | Definicja |
+| Term | Definition |
 |---|---|
-| **CCP** | Critical Control Point — krytyczny punkt kontroli wg HACCP |
-| **HACCP** | Hazard Analysis and Critical Control Points — system bezpieczeństwa żywności |
-| **SALSA** | Safe And Local Supplier Approval — UK system certyfikacji małych dostawców żywności |
-| **FSA** | Food Standards Agency — brytyjski regulator żywności |
-| **NCR** | Non-Conformity Report — raport niezgodności |
-| **FPY** | First Pass Yield — % partii produkowanych poprawnie za pierwszym razem |
-| **MTTR** | Mean Time To Resolve — średni czas rozwiązania |
-| **SLA** | Service Level Agreement — umowa o poziomie usług / czas reakcji |
-| **PWA** | Progressive Web App — aplikacja webowa offline-capable |
-| **MQTT** | Message Queuing Telemetry Transport — protokół IoT |
-| **RBAC** | Role-Based Access Control — kontrola dostępu oparta o role |
-| **Pipeline** | Sekwencja etapów obsługi zgłoszenia |
-| **Trigger** | Reguła wykrywająca warunek w danych |
-| **Responder** | Akcja wykonywana w odpowiedzi na trigger |
+| **CCP** | Critical Control Point under HACCP |
+| **HACCP** | Hazard Analysis and Critical Control Points — food safety system |
+| **SALSA** | Safe And Local Supplier Approval — UK certification scheme for small food suppliers |
+| **FSA** | Food Standards Agency — UK food regulator |
+| **NCR** | Non-Conformity Report |
+| **FPY** | First Pass Yield — % of batches produced correctly first time |
+| **MTTR** | Mean Time To Resolve |
+| **SLA** | Service Level Agreement — agreed reaction time |
+| **PWA** | Progressive Web App — offline-capable web application |
+| **MQTT** | Message Queuing Telemetry Transport — IoT protocol |
+| **RBAC** | Role-Based Access Control |
+| **Pipeline** | Sequence of stages a ticket passes through |
+| **Trigger** | Rule detecting a condition in data |
+| **Responder** | Action executed in response to a trigger |
 
-## Dodatek B — Powiązane dokumenty
+## Appendix B — Related documents
 
-- `02-diagramy-architektury.md` — szczegółowe diagramy techniczne
-- `README.md` — punkt wejścia do dokumentacji
+- `02-diagramy-architektury.md` — detailed technical diagrams
+- `README.md` — documentation entry point
 
 ---
 
-*Dokument przygotowany przez zespół: Specjalista QMS, Python Developer, QA Specialist (UK Bakery), UX/UI Designer.*
+*Document prepared by the team: QMS Specialist, Python Developer, QA Specialist (UK Bakery), UX/UI Designer.*
