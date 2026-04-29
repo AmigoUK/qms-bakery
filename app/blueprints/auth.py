@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from flask import Blueprint, flash, make_response, redirect, render_template, request, session, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf import FlaskForm
@@ -15,6 +17,24 @@ from app.services import totp as totp_service
 from app.services.ratelimit import rate_limit
 
 bp = Blueprint("auth", __name__, template_folder="../templates")
+
+
+def _safe_next_url(candidate: str | None, fallback_endpoint: str = "dashboard.index") -> str:
+    """Filter the `?next=` parameter to local paths only.
+
+    A `next` URL with a scheme or netloc opens us to phishing redirects
+    (`/auth/login?next=https://evil.example/qms`). Limit it to relative
+    paths starting with `/` and not containing `//` (which Werkzeug treats
+    as a netloc).
+    """
+    if not candidate:
+        return url_for(fallback_endpoint)
+    parsed = urlparse(candidate)
+    if parsed.scheme or parsed.netloc:
+        return url_for(fallback_endpoint)
+    if not candidate.startswith("/") or candidate.startswith("//"):
+        return url_for(fallback_endpoint)
+    return candidate
 
 
 class LoginForm(FlaskForm):
@@ -39,11 +59,10 @@ def login():
             if user.totp_enabled:
                 # Stash pending login; complete after second factor.
                 session["pending_user_id"] = user.id
-                session["pending_next"] = request.args.get("next") or url_for("dashboard.index")
+                session["pending_next"] = _safe_next_url(request.args.get("next"))
                 return redirect(url_for("auth.login_2fa"))
             login_user(user)
-            next_url = request.args.get("next") or url_for("dashboard.index")
-            return redirect(next_url)
+            return redirect(_safe_next_url(request.args.get("next")))
         error = _("auth.login.invalid")
     return render_template("auth/login.html", form=form, error=error)
 
@@ -67,7 +86,7 @@ def login_2fa():
                 entity_type="user", entity_id=user.id, action="login_2fa_success", user_id=user.id
             )
             db.session.commit()
-            next_url = session.pop("pending_next", None) or url_for("dashboard.index")
+            next_url = _safe_next_url(session.pop("pending_next", None))
             session.pop("pending_user_id", None)
             return redirect(next_url)
         audit.record(
@@ -121,7 +140,13 @@ def set_language(code: str):
     if code not in supported:
         return ("invalid language", 400)
 
-    next_url = request.args.get("next") or request.referrer or url_for("dashboard.index")
+    candidate = request.args.get("next")
+    if not candidate and request.referrer:
+        # Strip referrer down to its path if it points at our own host.
+        ref = urlparse(request.referrer)
+        if ref.netloc == request.host:
+            candidate = ref.path or "/"
+    next_url = _safe_next_url(candidate)
     response = make_response(redirect(next_url))
     response.set_cookie("lang", code, max_age=60 * 60 * 24 * 365, samesite="Lax")
     if current_user.is_authenticated:

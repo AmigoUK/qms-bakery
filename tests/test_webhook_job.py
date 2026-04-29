@@ -1,4 +1,10 @@
-"""`app.jobs.webhook.post_webhook`: HMAC signing + raise-on-non-2xx."""
+"""`app.jobs.webhook.post_webhook`: HMAC signing + raise-on-non-2xx.
+
+These tests bypass the SSRF guard (`allow_private=True`) because they're
+stubbing `requests.post` with a fake — no real network call goes out, so
+the URL is never resolved. SSRF behaviour is covered separately in
+`tests/test_security_audit.py`.
+"""
 
 from __future__ import annotations
 
@@ -38,7 +44,9 @@ def test_post_webhook_sends_json_body(monkeypatch):
     monkeypatch.setattr(requests, "post", fake_post)
 
     result = webhook.post_webhook(
-        "https://example.test/hook", {"alert": "overheat", "value": 232.5}
+        "https://example.test/hook",
+        {"alert": "overheat", "value": 232.5},
+        allow_private=True,
     )
     assert result == {"status_code": 200, "body_size": 2}
     assert captured["url"] == "https://example.test/hook"
@@ -64,6 +72,7 @@ def test_post_webhook_signs_when_secret_provided(monkeypatch):
         "https://example.test/hook",
         {"x": 1},
         secret="super-secret-key",
+        allow_private=True,
     )
     body = captured["data"]
     expected_sig = hmac.new(
@@ -78,7 +87,7 @@ def test_post_webhook_raises_on_non_2xx(monkeypatch):
 
     monkeypatch.setattr(requests, "post", lambda *_a, **_k: _FakeResponse(503))
     with pytest.raises(requests.HTTPError):
-        webhook.post_webhook("https://example.test/hook", {})
+        webhook.post_webhook("https://example.test/hook", {}, allow_private=True)
 
 
 def test_post_webhook_propagates_transport_error(monkeypatch):
@@ -89,7 +98,7 @@ def test_post_webhook_propagates_transport_error(monkeypatch):
 
     monkeypatch.setattr(requests, "post", boom)
     with pytest.raises(requests.ConnectionError):
-        webhook.post_webhook("https://example.test/hook", {})
+        webhook.post_webhook("https://example.test/hook", {}, allow_private=True)
 
 
 def test_signature_is_deterministic_for_same_body(monkeypatch):
@@ -105,6 +114,6 @@ def test_signature_is_deterministic_for_same_body(monkeypatch):
 
     monkeypatch.setattr(requests, "post", fake_post)
 
-    webhook.post_webhook("https://x", {"a": 1, "b": 2}, secret="k")
-    webhook.post_webhook("https://x", {"b": 2, "a": 1}, secret="k")
+    webhook.post_webhook("https://x", {"a": 1, "b": 2}, secret="k", allow_private=True)
+    webhook.post_webhook("https://x", {"b": 2, "a": 1}, secret="k", allow_private=True)
     assert captured_bodies[0] == captured_bodies[1]

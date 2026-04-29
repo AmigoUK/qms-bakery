@@ -108,6 +108,17 @@ def _default_config() -> dict[str, Any]:
         "PERMANENT_SESSION_LIFETIME": 60 * 60 * int(
             os.environ.get("SESSION_LIFETIME_HOURS", "8")
         ),
+        # Cookie hardening. Secure defaults to True in prod; flip via
+        # SESSION_COOKIE_SECURE=0 in pure-HTTP dev. SameSite=Lax keeps
+        # the session cookie on top-level GET navigations (so the
+        # post-login redirect chain works) but blocks it on cross-site
+        # POSTs — which combined with our CSRF tokens stops CSRF cold.
+        "SESSION_COOKIE_HTTPONLY": True,
+        "SESSION_COOKIE_SAMESITE": "Lax",
+        "SESSION_COOKIE_SECURE": os.environ.get("SESSION_COOKIE_SECURE", "1") not in ("0", "false", "False"),
+        "REMEMBER_COOKIE_HTTPONLY": True,
+        "REMEMBER_COOKIE_SAMESITE": "Lax",
+        "REMEMBER_COOKIE_SECURE": os.environ.get("SESSION_COOKIE_SECURE", "1") not in ("0", "false", "False"),
         "BCRYPT_LOG_ROUNDS": int(os.environ.get("BCRYPT_LOG_ROUNDS", "12")),
         "LOCKOUT_THRESHOLD": int(os.environ.get("LOCKOUT_THRESHOLD", "5")),
         "LOCKOUT_MINUTES": int(os.environ.get("LOCKOUT_MINUTES", "15")),
