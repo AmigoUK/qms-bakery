@@ -19,8 +19,8 @@ Every ticket flows through a **configurable pipeline** of stages (detection → 
 
 | # | Document | Description |
 |---|---|---|
-| 1 | [`01-plan-architektoniczny-funkcjonalny.md`](./01-plan-architektoniczny-funkcjonalny.md) | Full system plan — architecture, modules, data model, UX, RBAC, rollout plan, risks |
-| 2 | [`02-diagramy-architektury.md`](./02-diagramy-architektury.md) | 5 technical Mermaid diagrams: layers, ticket flow, compliance, permissions, i18n |
+| 1 | [`01-architectural-functional-plan.md`](./01-architectural-functional-plan.md) | Full system plan — architecture, modules, data model, UX, RBAC, rollout plan, risks |
+| 2 | [`02-architecture-diagrams.md`](./02-architecture-diagrams.md) | 5 technical Mermaid diagrams: layers, ticket flow, compliance, permissions, i18n |
 
 ## Key features
 
@@ -72,7 +72,7 @@ For the full picture see documents `01-` and `02-`.
 - **69 pytest tests**, all green
 - Docker Compose (Postgres 16 + Redis + Mosquitto + app)
 
-⏳ **Planned for the next phases** (see `01-plan-...` section 8):
+⏳ **Planned for the next phases** (see `01-architectural-functional-plan.md` section 8):
 
 - Pipeline configurator (drag-and-drop UI)
 - MQTT Bridge runtime (paho-mqtt → Redis Stream → trigger evaluator)

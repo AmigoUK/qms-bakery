@@ -319,7 +319,7 @@ checksum CHAR(64)              -- SHA-256 of previous record (chain hashing)
 - `gettext_dynamic(field, lang)` function in Jinja2.
 - Reports exported in the recipient's language (`?lang=en` parameter).
 
-See: document **02-diagramy-architektury.md**, Diagram 5.
+See: document **02-architecture-diagrams.md**, Diagram 5.
 
 ### 2.12. `integrations` module — External integrations
 
@@ -386,7 +386,7 @@ Operator enters reading → validate against critical_limits
 
 ### 3.3. Diagrams
 
-Detailed sequence diagrams and flowcharts live in **02-diagramy-architektury.md**:
+Detailed sequence diagrams and flowcharts live in **02-architecture-diagrams.md**:
 - Diagram 1 — Layered architecture
 - Diagram 2 — Ticket flow
 - Diagram 3 — Compliance module integration
@@ -1042,7 +1042,7 @@ M1   M2   M3   M4   M5   M6   M7   M8   M9   M10  M11  M12
 
 ## Appendix B — Related documents
 
-- `02-diagramy-architektury.md` — detailed technical diagrams
+- `02-architecture-diagrams.md` — detailed technical diagrams
 - `README.md` — documentation entry point
 
 ---

@@ -2,7 +2,7 @@
 ## Quality Management System (QMS) — UK Bakery
 
 > **Document purpose:** Diagrams ready for direct implementation by the development team. Notation: Mermaid (renders natively in GitHub/GitLab/VS Code) + descriptive tables.
-> **Relation:** Companion to `01-plan-architektoniczny-funkcjonalny.md`.
+> **Relation:** Companion to `01-architectural-functional-plan.md`.
 > **Version:** 1.0 — 2026-04-28
 
 ---
@@ -715,7 +715,7 @@ def haccp_monthly_pdf():
 1. **Diagram validation** with the architect and Compliance Officer before Phase 1 starts.
 2. **MQTT scheme agreement** with the device vendor (topic taxonomy + payload schema).
 3. **Repository setup** including `pyproject.toml` (UV), `Dockerfile`, `docker-compose.yml`.
-4. **First Alembic migration** with the tables from section 4 of `01-plan-...`.
+4. **First Alembic migration** with the tables from section 4 of `01-architectural-functional-plan.md`.
 5. **Flask blueprint skeleton** matching the modules from section 2.
 
 ---
