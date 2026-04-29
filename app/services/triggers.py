@@ -7,11 +7,13 @@ from a request handler, an MQTT bridge, or a queued task.
 
 Conditions (JSONB shape):
     { "metric": "temperature", "operator": ">", "value": 220 }
+    { "metric": "temperature", "operator": ">", "value": 220, "duration_seconds": 30 }
     Operators: ==, !=, <, <=, >, >=
-    Duration handling (`duration_seconds`) is intentionally out of scope of
-    the sync evaluator - that requires a state store and belongs in the
-    Redis-Stream worker. We document the field but only use threshold logic
-    here, which is sufficient for unit tests and per-event triggers.
+    `duration_seconds` (optional, integer): when > 0, the trigger only
+    fires after the condition has been continuously True for that many
+    seconds across consecutive evaluations of the same scope. State is
+    held in Redis (`trigger_state:<id>:<scope>:first_true`); see
+    `app/services/trigger_state.py`.
 """
 
 from __future__ import annotations
@@ -129,7 +131,19 @@ def evaluate(payload: dict) -> list[TriggerExecution]:
     for trigger in triggers:
         if not _scope_matches(trigger.scope, payload_scope):
             continue
-        if not evaluate_condition(trigger.condition, payload):
+        condition_true = evaluate_condition(trigger.condition, payload)
+        duration = int(trigger.condition.get("duration_seconds") or 0)
+        if duration > 0:
+            from app.services import trigger_state
+
+            if not condition_true:
+                trigger_state.reset_duration_state(trigger.id, payload_scope)
+                continue
+            if not trigger_state.should_fire_with_duration(
+                trigger.id, payload_scope, duration
+            ):
+                continue
+        elif not condition_true:
             continue
         if trigger.dry_run:
             db.session.add(

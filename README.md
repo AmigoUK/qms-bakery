@@ -67,19 +67,19 @@ For the full picture see documents `01-` and `02-`.
 - **REST API** `/api/v1/measurements` with HMAC-SHA256 for IoT/ERP integrations
 - **MQTT bridge** (paho-mqtt) — subscribes to `factory/+/+/+`, parses readings, publishes to a Redis Stream; `flask mqtt-bridge` CLI + dedicated Compose service
 - **Redis-Stream buffer + trigger worker** — bridge `XADD`s parsed readings to `qms:readings` (bounded MAXLEN 100k, FIFO drop on overflow); a separate `flask trigger-worker` process consumes via `XREADGROUP qms-workers` and feeds the trigger engine. At-least-once delivery, scales horizontally, decouples MQTT from DB latency.
+- **Duration-window triggers** — a trigger condition with `duration_seconds: 30` only fires after the metric has continuously breached the threshold for 30s. First-true timestamps are kept in Redis (`trigger_state:<id>:<scope>:first_true`, TTL 3×duration), reset when the condition flips back to safe. Per-scope isolation, no spurious tickets from a single 1-second spike.
 - **Admin panel** — KPI overview, user CRUD, trigger toggle, audit_log viewer with chain-integrity verification
 - **Alembic migrations** (Flask-Migrate) — versioned schema, `flask db upgrade`/`downgrade`, baseline in `migrations/versions/`
 - Audit trail with SHA-256 chain-hashing + chain verification (tamper evidence)
 - PL/EN i18n via JSON message catalogs
 - HTML/CSS/JS frontend (Jinja2) — login (with 2FA), dashboard, tickets, HACCP, SALSA, admin
 - Seed data: 6 roles, 17 permissions, demo line with pipeline + 2 CCPs + 2 SALSA + trigger
-- **94 pytest tests**, all green
+- **104 pytest tests**, all green
 - Docker Compose (Postgres 16 + Redis + Mosquitto + app + mqtt-bridge + trigger-worker)
 
 ⏳ **Planned for the next phases** (see `01-architectural-functional-plan.md` section 8):
 
 - Pipeline configurator (drag-and-drop UI)
-- Duration-window triggers (`duration_seconds`) — first-true state in Redis on top of the stream worker
 - RQ worker (asynchronous responders, webhook retry)
 - PDF reports (HACCP monthly, FSA traceability) via WeasyPrint
 - Trigger form-builder (currently: enable/disable in admin, raw JSON edit in compliance panel)
@@ -162,7 +162,8 @@ app/
 │   ├── tickets.py         # create_ticket, transition, list_tickets
 │   ├── haccp.py           # record_measurement → auto-ticket on out-of-spec
 │   ├── salsa.py           # submit_response → auto-ticket on nonconformity
-│   ├── triggers.py        # evaluate(payload) + responder dispatcher
+│   ├── triggers.py        # evaluate(payload) + responder dispatcher (incl. duration_seconds gate)
+│   ├── trigger_state.py   # Redis-backed first-true state for duration-window triggers
 │   ├── stream.py          # Redis Stream helpers: publish_reading, consume (XREADGROUP+XACK)
 │   └── totp.py            # TOTP enroll/verify, role requirement matrix
 ├── blueprints/
@@ -183,7 +184,7 @@ app/
     ├── pl.json
     └── en.json
 
-tests/                     # pytest (94 tests, SQLite in-memory + fakeredis)
+tests/                     # pytest (104 tests, SQLite in-memory + fakeredis)
 ├── test_models.py
 ├── test_audit.py
 ├── test_auth.py
@@ -196,7 +197,8 @@ tests/                     # pytest (94 tests, SQLite in-memory + fakeredis)
 ├── test_i18n.py
 ├── test_mqtt_bridge.py    # parser + handle_message integration
 ├── test_stream.py         # Redis Stream publish + XREADGROUP/XACK (fakeredis)
-└── test_trigger_worker.py # bridge → stream → worker → trigger fires (fakeredis)
+├── test_trigger_worker.py # bridge → stream → worker → trigger fires (fakeredis)
+└── test_trigger_duration.py # duration-window gating + reset on flip-false (fakeredis + freezegun)
 ```
 
 ## Team
