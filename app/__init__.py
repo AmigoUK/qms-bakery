@@ -5,7 +5,7 @@ from typing import Any
 
 from flask import Flask, g, redirect, request, url_for
 
-from app.extensions import csrf, db, login_manager
+from app.extensions import csrf, db, login_manager, migrate
 from app.i18n import init_i18n
 
 
@@ -17,6 +17,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         app.config.update(config)
 
     db.init_app(app)
+    migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
     init_i18n(app)
@@ -49,10 +50,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
     @app.cli.command("init-db")
     def _init_db_cmd():
+        from flask_migrate import upgrade
+
         from app.seeds import seed_initial
 
         with app.app_context():
-            db.create_all()
+            upgrade()
             seed_initial()
 
     @app.context_processor
