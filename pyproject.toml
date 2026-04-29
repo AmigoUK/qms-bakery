@@ -22,6 +22,7 @@ dependencies = [
     "rq>=1.16.2",
     "pyotp>=2.9.0",
     "babel>=2.16.0",
+    "paho-mqtt>=2.1.0",
 ]
 
 [project.optional-dependencies]

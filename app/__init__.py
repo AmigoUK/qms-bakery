@@ -58,6 +58,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             upgrade()
             seed_initial()
 
+    @app.cli.command("mqtt-bridge")
+    def _mqtt_bridge_cmd():
+        from app.mqtt.bridge import run
+
+        run(app)
+
     @app.context_processor
     def _inject_globals():
         return {"current_lang": g.get("lang", app.config["DEFAULT_LANGUAGE"])}
@@ -90,4 +96,10 @@ def _default_config() -> dict[str, Any]:
         "AUTO_CREATE_TABLES": False,
         # API keys for external integrations: {key_id: secret}
         "API_KEYS": {},
+        "MQTT_BROKER_HOST": os.environ.get("MQTT_BROKER_HOST", "localhost"),
+        "MQTT_BROKER_PORT": int(os.environ.get("MQTT_BROKER_PORT", "1883")),
+        "MQTT_TOPIC_FILTER": os.environ.get("MQTT_TOPIC_FILTER", "factory/+/+/+"),
+        "MQTT_CLIENT_ID": os.environ.get("MQTT_CLIENT_ID", "qms-bridge"),
+        "MQTT_USERNAME": os.environ.get("MQTT_USERNAME"),
+        "MQTT_PASSWORD": os.environ.get("MQTT_PASSWORD"),
     }

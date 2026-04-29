@@ -48,5 +48,24 @@ services:
       - "8000:8000"
     command: sh -c "flask db upgrade && gunicorn -w 4 -b 0.0.0.0:8000 'app:create_app()'"
 
+  mqtt-bridge:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mosquitto:
+        condition: service_started
+      app:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      FLASK_APP: app:create_app
+      MQTT_BROKER_HOST: mosquitto
+      MQTT_BROKER_PORT: "1883"
+    restart: unless-stopped
+    command: flask mqtt-bridge
+
 volumes:
   pgdata:
