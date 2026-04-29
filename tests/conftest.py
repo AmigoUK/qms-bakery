@@ -39,6 +39,10 @@ def app(redis_client, redis_binary_client):
             "AUTO_CREATE_TABLES": True,
             "REDIS_CLIENT": redis_client,
             "REDIS_BINARY_CLIENT": redis_binary_client,
+            # Default off so existing tests aren't tripped by the
+            # token bucket. Tests that exercise rate limiting flip it
+            # on explicitly via app.config[...]= True.
+            "RATELIMIT_ENABLED": False,
         }
     )
     with application.app_context():

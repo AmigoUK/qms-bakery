@@ -18,6 +18,7 @@ from flask import Blueprint, current_app, jsonify, request
 
 from app.extensions import csrf, db
 from app.services import triggers as trigger_service
+from app.services.ratelimit import _ident_for_request, check as rate_check
 
 bp = Blueprint("api", __name__)
 csrf.exempt(bp)  # external clients can't carry CSRF tokens
@@ -36,7 +37,22 @@ def _verify_signature() -> bool:
 
 
 @bp.before_request
-def _auth():
+def _ratelimit_then_auth():
+    """Rate-limit FIRST so an attacker hammering bad keys gets throttled
+    before we waste cycles on signature checks. 600/min is comfortable
+    for legitimate sensors (10 req/sec) but cuts off floods."""
+    if current_app.config.get("RATELIMIT_ENABLED", True):
+        allowed, _remaining, retry_after = rate_check(
+            "api",
+            _ident_for_request(),
+            max_requests=current_app.config.get("RATELIMIT_API_MAX", 600),
+            window_seconds=60,
+        )
+        if not allowed:
+            resp = jsonify({"error": "rate_limited", "retry_after": retry_after})
+            resp.status_code = 429
+            resp.headers["Retry-After"] = str(retry_after)
+            return resp
     if not _verify_signature():
         return jsonify({"error": "unauthorized"}), 401
     return None

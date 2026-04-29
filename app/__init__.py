@@ -7,6 +7,7 @@ from flask import Flask, g, redirect, request, url_for
 
 from app.extensions import csrf, db, login_manager, migrate
 from app.i18n import init_i18n
+from app.security_headers import init_security_headers
 
 
 def create_app(config: dict[str, Any] | None = None) -> Flask:
@@ -21,6 +22,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     login_manager.init_app(app)
     csrf.init_app(app)
     init_i18n(app)
+    init_security_headers(app)
 
     from app.models import User
 
@@ -37,6 +39,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.dashboard import bp as dashboard_bp
     from app.blueprints.haccp import bp as haccp_bp
+    from app.blueprints.health import bp as health_bp
     from app.blueprints.reports import bp as reports_bp
     from app.blueprints.salsa import bp as salsa_bp
     from app.blueprints.tickets import bp as tickets_bp
@@ -49,6 +52,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(reports_bp, url_prefix="/reports")
+    app.register_blueprint(health_bp)
 
     @app.cli.command("init-db")
     def _init_db_cmd():
@@ -110,6 +114,9 @@ def _default_config() -> dict[str, Any]:
         "AUTO_CREATE_TABLES": False,
         # API keys for external integrations: {key_id: secret}
         "API_KEYS": {},
+        "SECURITY_HEADERS_ENABLED": True,
+        "RATELIMIT_ENABLED": os.environ.get("RATELIMIT_ENABLED", "1") not in ("0", "false", "False"),
+        "RATELIMIT_API_MAX": int(os.environ.get("RATELIMIT_API_MAX", "600")),
         "MQTT_BROKER_HOST": os.environ.get("MQTT_BROKER_HOST", "localhost"),
         "MQTT_BROKER_PORT": int(os.environ.get("MQTT_BROKER_PORT", "1883")),
         "MQTT_TOPIC_FILTER": os.environ.get("MQTT_TOPIC_FILTER", "factory/+/+/+"),

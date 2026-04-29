@@ -209,7 +209,13 @@ def test_evaluate_resets_state_when_condition_flips_false(app, redis_client):
         seeded = Trigger.query.filter_by(code="OVEN1_OVERHEAT").first()
         seeded.is_active = False
         db.session.flush()
+        key = f"trigger_state:{trigger.id}:line:LINE_A:first_true"
 
+        # NOTE: every redis read for the state key happens INSIDE the
+        # freeze_time block. fakeredis stores expire_at relative to the
+        # frozen clock at setex-time but uses the real wall-clock when
+        # checking expiry, so reads outside the freeze see ghost-expired
+        # keys when the frozen instant is older than real-now.
         with freeze_time("2026-04-29 12:00:00"):
             trigger_service.evaluate(
                 {
@@ -219,9 +225,7 @@ def test_evaluate_resets_state_when_condition_flips_false(app, redis_client):
                     "line_id": line.id,
                 }
             )
-        # State key should now be set
-        key = f"trigger_state:{trigger.id}:line:LINE_A:first_true"
-        assert redis_client.get(key) is not None
+            assert redis_client.get(key) is not None
 
         # Condition flips false → state must be cleared
         with freeze_time("2026-04-29 12:00:10"):
@@ -233,7 +237,7 @@ def test_evaluate_resets_state_when_condition_flips_false(app, redis_client):
                     "line_id": line.id,
                 }
             )
-        assert redis_client.get(key) is None
+            assert redis_client.get(key) is None
 
         # Now even a high reading 31s after the original first-true must NOT
         # fire — the timer restarted.

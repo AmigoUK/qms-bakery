@@ -12,6 +12,7 @@ from app.i18n import gettext as _
 from app.models import User
 from app.services import audit
 from app.services import totp as totp_service
+from app.services.ratelimit import rate_limit
 
 bp = Blueprint("auth", __name__, template_folder="../templates")
 
@@ -28,6 +29,7 @@ class TOTPForm(FlaskForm):
 
 
 @bp.route("/login", methods=["GET", "POST"])
+@rate_limit(bucket="login", max_requests=10, window_seconds=60)
 def login():
     form = LoginForm()
     error = None
