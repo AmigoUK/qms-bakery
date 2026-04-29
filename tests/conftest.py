@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fakeredis
 import pytest
 
 from app import create_app
@@ -8,7 +9,13 @@ from app.seeds import seed_initial
 
 
 @pytest.fixture()
-def app():
+def redis_client():
+    """Fresh in-memory Redis per test (so streams/groups don't leak)."""
+    return fakeredis.FakeRedis(decode_responses=True)
+
+
+@pytest.fixture()
+def app(redis_client):
     application = create_app(
         {
             "TESTING": True,
@@ -17,6 +24,7 @@ def app():
             "SECRET_KEY": "test",
             "BCRYPT_LOG_ROUNDS": 4,
             "AUTO_CREATE_TABLES": True,
+            "REDIS_CLIENT": redis_client,
         }
     )
     with application.app_context():

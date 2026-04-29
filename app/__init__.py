@@ -64,6 +64,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
         run(app)
 
+    @app.cli.command("trigger-worker")
+    def _trigger_worker_cmd():
+        from app.workers.trigger_worker import run as run_worker
+
+        run_worker(app)
+
     @app.context_processor
     def _inject_globals():
         return {"current_lang": g.get("lang", app.config["DEFAULT_LANGUAGE"])}
@@ -102,4 +108,9 @@ def _default_config() -> dict[str, Any]:
         "MQTT_CLIENT_ID": os.environ.get("MQTT_CLIENT_ID", "qms-bridge"),
         "MQTT_USERNAME": os.environ.get("MQTT_USERNAME"),
         "MQTT_PASSWORD": os.environ.get("MQTT_PASSWORD"),
+        "MQTT_USE_STREAM": os.environ.get("MQTT_USE_STREAM", "1") not in ("0", "false", "False"),
+        "REDIS_URL": os.environ.get("REDIS_URL", "redis://localhost:6379/0"),
+        # Tests inject `fakeredis.FakeRedis(decode_responses=True)` here so
+        # stream code paths run without a real broker.
+        "REDIS_CLIENT": None,
     }

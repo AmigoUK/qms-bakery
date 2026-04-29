@@ -53,6 +53,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       mosquitto:
         condition: service_started
       app:
@@ -66,6 +68,24 @@ services:
       MQTT_BROKER_PORT: "1883"
     restart: unless-stopped
     command: flask mqtt-bridge
+
+  trigger-worker:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      FLASK_APP: app:create_app
+      WORKER_NAME: trigger-worker-1
+    restart: unless-stopped
+    command: flask trigger-worker
 
 volumes:
   pgdata:

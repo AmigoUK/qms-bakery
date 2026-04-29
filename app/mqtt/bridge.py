@@ -76,15 +76,13 @@ def parse_message(topic: str, payload: bytes | str) -> dict[str, Any] | None:
     }
 
 
-def handle_message(app, topic: str, payload: bytes) -> int:
-    """Process one MQTT message inside the Flask app context.
+def _evaluate_in_context(app, parsed: dict[str, Any]) -> int:
+    """Apply a parsed reading to the trigger engine inside the app context.
 
-    Returns the number of triggers that fired (0 on parse failure or error).
+    Shared by the synchronous `handle_message` path and the worker that
+    reads from the Redis Stream. Returns the number of triggers that
+    fired; returns 0 on internal failure and rolls back the session.
     """
-    parsed = parse_message(topic, payload)
-    if parsed is None:
-        logger.warning("MQTT message dropped (unparseable): topic=%s", topic)
-        return 0
     with app.app_context():
         from app.models.production import ProductionLine
 
@@ -97,8 +95,46 @@ def handle_message(app, topic: str, payload: bytes) -> int:
             return len(fired)
         except Exception:
             db.session.rollback()
-            logger.exception("MQTT trigger evaluation failed: topic=%s", topic)
+            logger.exception(
+                "MQTT trigger evaluation failed: line_code=%s metric=%s",
+                parsed.get("line_code"),
+                parsed.get("metric"),
+            )
             return 0
+
+
+def handle_message(app, topic: str, payload: bytes) -> int:
+    """Synchronous in-process path: parse → evaluate.
+
+    Used by tests and as the no-Redis fallback. Production routes through
+    `enqueue_message` + the trigger worker instead.
+    """
+    parsed = parse_message(topic, payload)
+    if parsed is None:
+        logger.warning("MQTT message dropped (unparseable): topic=%s", topic)
+        return 0
+    return _evaluate_in_context(app, parsed)
+
+
+def enqueue_message(app, topic: str, payload: bytes) -> str | None:
+    """Async path: parse the MQTT message and XADD it to the Redis Stream.
+
+    Returns the stream entry ID, or None on parse failure or publish error.
+    The bridge does not block on trigger evaluation — that work happens in
+    the `flask trigger-worker` consumer.
+    """
+    parsed = parse_message(topic, payload)
+    if parsed is None:
+        logger.warning("MQTT message dropped (unparseable): topic=%s", topic)
+        return None
+    from app.services import stream as stream_service
+
+    try:
+        with app.app_context():
+            return stream_service.publish_reading(parsed, app=app)
+    except Exception:
+        logger.exception("Failed to publish MQTT reading to stream: topic=%s", topic)
+        return None
 
 
 def make_client(
@@ -128,8 +164,13 @@ def make_client(
         else:
             logger.error("MQTT connect failed: rc=%s", reason_code)
 
+    use_stream = bool(app.config.get("MQTT_USE_STREAM", True))
+
     def on_message(_c, _userdata, msg):
-        handle_message(app, msg.topic, msg.payload)
+        if use_stream:
+            enqueue_message(app, msg.topic, msg.payload)
+        else:
+            handle_message(app, msg.topic, msg.payload)
 
     client.on_connect = on_connect
     client.on_message = on_message
