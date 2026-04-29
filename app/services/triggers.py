@@ -240,6 +240,29 @@ def _dispatch_responder(responder: Responder, trigger: Trigger, payload: dict) -
         )
         return {"queued_webhook": url, "job_id": job.id}
 
+    if rtype is ResponderType.EMAIL:
+        to = cfg.get("to") or cfg.get("recipients") or []
+        if isinstance(to, str):
+            to = [to]
+        if not to:
+            raise TriggerError("email responder requires to (list or string)")
+        subject = _interpolate(
+            cfg.get("subject", f"[QMS] Trigger {trigger.code}"), payload, trigger
+        )
+        body_text = _interpolate(
+            cfg.get("body_text", cfg.get("body", "")), payload, trigger
+        )
+        body_html = _interpolate(cfg.get("body_html", ""), payload, trigger) or None
+        from app.services import queue as queue_service
+
+        job = queue_service.enqueue_email(
+            to=to,
+            subject=subject[:998],
+            body_text=body_text,
+            body_html=body_html,
+        )
+        return {"queued_email": to, "job_id": job.id}
+
     raise TriggerError(f"Unknown responder type: {responder.type}")
 
 

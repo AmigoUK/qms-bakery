@@ -76,15 +76,16 @@ For the full picture see documents `01-` and `02-`.
 - PL/EN i18n via JSON message catalogs
 - HTML/CSS/JS frontend (Jinja2) — login (with 2FA), dashboard, tickets, HACCP, SALSA, admin
 - Seed data: 6 roles, 17 permissions, demo line with pipeline + 2 CCPs + 2 SALSA + trigger
-- **130 pytest tests**, all green
+- **138 pytest tests**, all green
 - Docker Compose (Postgres 16 + Redis + Mosquitto + app + mqtt-bridge + trigger-worker + rq-worker)
+- E-mail responder via SMTP — same RQ infra (`qms:emails` queue, 3/9/27 min retry → DLQ)
 
 ⏳ **Planned for the next phases** (see `01-architectural-functional-plan.md` section 8):
 
 - Pipeline configurator (drag-and-drop UI)
 - Trigger form-builder (currently: enable/disable in admin, raw JSON edit in compliance panel)
 - DLQ inspection / replay UI (jobs land in RQ's failed registry today; needs a viewer + manual requeue)
-- E-mail / SMS responders (Flask-Mail / Twilio) — same RQ infra as webhooks
+- SMS responder (Twilio) — same RQ infra as webhooks/email
 
 ## Quick start (local, without Docker)
 

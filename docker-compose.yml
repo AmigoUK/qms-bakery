@@ -101,6 +101,12 @@ services:
       REDIS_URL: redis://redis:6379/0
       SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
       FLASK_APP: app:create_app
+      SMTP_HOST: ${SMTP_HOST:-localhost}
+      SMTP_PORT: ${SMTP_PORT:-25}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-0}
+      SMTP_FROM: ${SMTP_FROM:-qms@local}
     restart: unless-stopped
     command: flask rq-worker
 

@@ -123,4 +123,10 @@ def _default_config() -> dict[str, Any]:
         # code paths run without a real broker.
         "REDIS_CLIENT": None,
         "REDIS_BINARY_CLIENT": None,
+        "SMTP_HOST": os.environ.get("SMTP_HOST", "localhost"),
+        "SMTP_PORT": int(os.environ.get("SMTP_PORT", "25")),
+        "SMTP_USERNAME": os.environ.get("SMTP_USERNAME"),
+        "SMTP_PASSWORD": os.environ.get("SMTP_PASSWORD"),
+        "SMTP_USE_TLS": os.environ.get("SMTP_USE_TLS", "0") not in ("0", "false", "False"),
+        "SMTP_FROM": os.environ.get("SMTP_FROM", "qms@local"),
     }
