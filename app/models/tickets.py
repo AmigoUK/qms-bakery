@@ -46,6 +46,17 @@ class TicketSource(str, enum.Enum):
     API = "api"
 
 
+class TicketEventType(str, enum.Enum):
+    """Types of events recorded against a ticket. Mirror these strings
+    exactly when writing to TicketEvent.event_type — referencing the
+    enum directly is preferred."""
+
+    CREATED = "created"
+    STATUS_CHANGE = "status_change"
+    ASSIGNED = "assigned"
+    COMMENT = "comment"
+
+
 class TicketCategory(str, enum.Enum):
     TEMPERATURE_DEVIATION = "temperature_deviation"
     WEIGHT_OUT_OF_SPEC = "weight_out_of_spec"

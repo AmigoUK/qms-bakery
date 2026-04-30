@@ -7,6 +7,13 @@ from wtforms import FloatField, StringField, SubmitField
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 from app.auth import require_permission
+from app.constants import (
+    HACCP_RECENT_MEASUREMENTS_LIMIT,
+    MAX_DEVICE_ID_LENGTH,
+    MAX_NOTES_LENGTH,
+    MEASUREMENT_VALUE_MAX,
+    MEASUREMENT_VALUE_MIN,
+)
 from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
@@ -17,9 +24,19 @@ bp = Blueprint("haccp", __name__, template_folder="../templates")
 
 
 class MeasurementForm(FlaskForm):
-    value = FloatField("value", validators=[DataRequired(), NumberRange(min=-1000, max=10000)])
-    device_id = StringField("device_id", validators=[Optional(), Length(max=64)])
-    notes = StringField("notes", validators=[Optional(), Length(max=500)])
+    value = FloatField(
+        "value",
+        validators=[
+            DataRequired(),
+            NumberRange(min=MEASUREMENT_VALUE_MIN, max=MEASUREMENT_VALUE_MAX),
+        ],
+    )
+    device_id = StringField(
+        "device_id", validators=[Optional(), Length(max=MAX_DEVICE_ID_LENGTH)]
+    )
+    notes = StringField(
+        "notes", validators=[Optional(), Length(max=MAX_NOTES_LENGTH)]
+    )
     submit = SubmitField()
 
 
@@ -58,7 +75,9 @@ def detail(ccp_id: str):
             db.session.rollback()
             flash(str(exc), "danger")
 
-    measurements = haccp_service.recent_measurements(ccp.id, limit=25)
+    measurements = haccp_service.recent_measurements(
+        ccp.id, limit=HACCP_RECENT_MEASUREMENTS_LIMIT
+    )
     return render_template(
         "haccp/detail.html", ccp=ccp, form=form, measurements=measurements
     )

@@ -27,6 +27,16 @@ from wtforms import (
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 from app.auth import hash_password, require_permission
+from app.audit_actions import AuditAction
+from app.constants import (
+    ADMIN_RECENT_AUDIT_LIMIT,
+    MAX_CODE_LENGTH,
+    MAX_EMAIL_LENGTH,
+    MAX_FULL_NAME_LENGTH,
+    MAX_NAME_BILINGUAL_LENGTH,
+    MAX_PASSWORD_LENGTH,
+    TRIGGER_DURATION_MAX_SECONDS,
+)
 from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
@@ -63,7 +73,11 @@ def index():
         "audit_entries": AuditLog.query.count(),
     }
     recent_audit = (
-        db.session.execute(select(AuditLog).order_by(AuditLog.id.desc()).limit(20))
+        db.session.execute(
+            select(AuditLog)
+            .order_by(AuditLog.id.desc())
+            .limit(ADMIN_RECENT_AUDIT_LIMIT)
+        )
         .scalars()
         .all()
     )
@@ -74,12 +88,18 @@ def index():
 
 
 class UserForm(FlaskForm):
-    email = StringField("email", validators=[DataRequired(), Length(max=255)])
-    full_name = StringField("full_name", validators=[DataRequired(), Length(max=120)])
+    email = StringField(
+        "email", validators=[DataRequired(), Length(max=MAX_EMAIL_LENGTH)]
+    )
+    full_name = StringField(
+        "full_name", validators=[DataRequired(), Length(max=MAX_FULL_NAME_LENGTH)]
+    )
     role_code = SelectField("role_code", validators=[DataRequired()])
     # Choices populated at request time from SUPPORTED_LANGUAGES.
     language = SelectField("language")
-    password = StringField("password", validators=[Length(min=0, max=128)])
+    password = StringField(
+        "password", validators=[Length(min=0, max=MAX_PASSWORD_LENGTH)]
+    )
     is_active = BooleanField("is_active", default=True)
     submit = SubmitField()
 
@@ -129,7 +149,7 @@ def users_new():
             audit.record(
                 entity_type="user",
                 entity_id=user.id,
-                action="create",
+                action=AuditAction.CREATE,
                 diff={"email": user.email, "role": role.code},
             )
             db.session.commit()
@@ -170,7 +190,7 @@ def users_edit(user_id: str):
         audit.record(
             entity_type="user",
             entity_id=user.id,
-            action="update",
+            action=AuditAction.UPDATE,
             diff={
                 "before": prev,
                 "after": {"email": user.email, "role": user.role.code, "is_active": user.is_active_flag},
@@ -204,7 +224,7 @@ def trigger_toggle(trigger_id: str):
     audit.record(
         entity_type="trigger",
         entity_id=trigger.id,
-        action="toggle_active",
+        action=AuditAction.TOGGLE_ACTIVE,
         diff={"is_active": trigger.is_active},
     )
     db.session.commit()
@@ -242,14 +262,22 @@ TRIGGER_SEVERITY_CHOICES: list[tuple[str, str]] = [
 
 
 class TriggerForm(FlaskForm):
-    code = StringField("code", validators=[DataRequired(), Length(max=64)])
-    name_pl = StringField("name_pl", validators=[DataRequired(), Length(max=200)])
-    name_en = StringField("name_en", validators=[DataRequired(), Length(max=200)])
+    code = StringField("code", validators=[DataRequired(), Length(max=MAX_CODE_LENGTH)])
+    name_pl = StringField(
+        "name_pl",
+        validators=[DataRequired(), Length(max=MAX_NAME_BILINGUAL_LENGTH)],
+    )
+    name_en = StringField(
+        "name_en",
+        validators=[DataRequired(), Length(max=MAX_NAME_BILINGUAL_LENGTH)],
+    )
     scope = SelectField("scope", validators=[Optional()])
     metric = SelectField(
         "metric", choices=TRIGGER_METRIC_CHOICES, validators=[DataRequired()]
     )
-    metric_other = StringField("metric_other", validators=[Optional(), Length(max=64)])
+    metric_other = StringField(
+        "metric_other", validators=[Optional(), Length(max=MAX_CODE_LENGTH)]
+    )
     operator = SelectField(
         "operator", choices=TRIGGER_OPERATOR_CHOICES, validators=[DataRequired()]
     )
@@ -257,7 +285,7 @@ class TriggerForm(FlaskForm):
     duration_seconds = IntegerField(
         "duration_seconds",
         default=0,
-        validators=[Optional(), NumberRange(min=0, max=3600)],
+        validators=[Optional(), NumberRange(min=0, max=TRIGGER_DURATION_MAX_SECONDS)],
     )
     severity = SelectField(
         "severity", choices=TRIGGER_SEVERITY_CHOICES, validators=[DataRequired()]
@@ -370,7 +398,7 @@ def triggers_new():
             audit.record(
                 entity_type="trigger",
                 entity_id=trigger.id,
-                action="create",
+                action=AuditAction.CREATE,
                 diff={
                     "code": trigger.code,
                     "scope": trigger.scope,
@@ -414,7 +442,7 @@ def triggers_edit(trigger_id: str):
             audit.record(
                 entity_type="trigger",
                 entity_id=trigger.id,
-                action="update",
+                action=AuditAction.UPDATE,
                 diff={
                     "before": before,
                     "after": {
@@ -621,7 +649,7 @@ def pipelines_edit(line_id: str):
         audit.record(
             entity_type="pipeline",
             entity_id=new_pipeline.id,
-            action="create_version",
+            action=AuditAction.CREATE_VERSION,
             diff={
                 "line_code": line.code,
                 "version": next_version,
@@ -692,7 +720,7 @@ def dlq_requeue(job_id: str):
     audit.record(
         entity_type="rq_job",
         entity_id=job_id,
-        action="dlq_requeue",
+        action=AuditAction.DLQ_REQUEUE,
         diff={"queue": queue_name},
     )
     db.session.commit()
@@ -715,7 +743,7 @@ def dlq_discard(job_id: str):
     audit.record(
         entity_type="rq_job",
         entity_id=job_id,
-        action="dlq_discard",
+        action=AuditAction.DLQ_DISCARD,
         diff={"queue": queue_name},
     )
     db.session.commit()

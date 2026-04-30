@@ -12,6 +12,7 @@ from app.models.salsa import SalsaChecklist, SalsaResponse
 from app.models.tickets import TicketCategory, TicketSeverity, TicketSource
 from app.services import audit
 from app.services import tickets as ticket_service
+from app.audit_actions import AuditAction
 
 
 class SalsaError(Exception):
@@ -67,7 +68,7 @@ def submit_response(
     audit.record(
         entity_type="salsa_response",
         entity_id=response.id,
-        action="submit",
+        action=AuditAction.SUBMIT,
         diff={
             "checklist_code": checklist.code,
             "nonconformities": len(failures),

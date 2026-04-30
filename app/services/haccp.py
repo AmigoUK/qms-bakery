@@ -12,6 +12,7 @@ from app.models.haccp import CCPDefinition, CCPMeasurement
 from app.models.tickets import TicketCategory, TicketSeverity, TicketSource
 from app.services import audit
 from app.services import tickets as ticket_service
+from app.audit_actions import AuditAction
 
 
 class HACCPError(Exception):
@@ -48,7 +49,7 @@ def record_measurement(
     audit.record(
         entity_type="ccp_measurement",
         entity_id=measurement.id,
-        action="record",
+        action=AuditAction.RECORD,
         diff={
             "ccp_code": ccp.code,
             "value": float(value),

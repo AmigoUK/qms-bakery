@@ -14,6 +14,7 @@ from app.extensions import db
 from app.models._base import utcnow
 from app.models.auth import User
 from app.services import audit
+from app.audit_actions import AuditAction
 
 
 def hash_password(plain: str) -> str:
@@ -46,7 +47,7 @@ def authenticate(email: str, password: str) -> User | None:
             audit.record(
                 entity_type="user",
                 entity_id=user.id,
-                action="account_locked",
+                action=AuditAction.ACCOUNT_LOCKED,
                 diff={"failed_attempts": user.failed_attempts},
                 user_id=user.id,
             )
@@ -57,7 +58,7 @@ def authenticate(email: str, password: str) -> User | None:
     user.locked_until = None
     user.last_login_at = utcnow()
     audit.record(
-        entity_type="user", entity_id=user.id, action="login_success", user_id=user.id
+        entity_type="user", entity_id=user.id, action=AuditAction.LOGIN_SUCCESS, user_id=user.id
     )
     db.session.commit()
     return user
@@ -72,7 +73,7 @@ def require_permission(code: str) -> Callable:
             if not current_user.has_permission(code):
                 audit.record(
                     entity_type="access",
-                    action="denied",
+                    action=AuditAction.DENIED,
                     diff={"required": code, "path": request.path},
                 )
                 db.session.commit()

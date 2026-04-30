@@ -15,6 +15,7 @@ from app.models import User
 from app.services import audit
 from app.services import totp as totp_service
 from app.services.ratelimit import rate_limit
+from app.audit_actions import AuditAction
 
 bp = Blueprint("auth", __name__, template_folder="../templates")
 
@@ -89,14 +90,14 @@ def login_2fa():
         if totp_service.verify_code(user, form.code.data):
             login_user(user)
             audit.record(
-                entity_type="user", entity_id=user.id, action="login_2fa_success", user_id=user.id
+                entity_type="user", entity_id=user.id, action=AuditAction.LOGIN_2FA_SUCCESS, user_id=user.id
             )
             db.session.commit()
             next_url = _safe_next_url(session.pop("pending_next", None))
             session.pop("pending_user_id", None)
             return redirect(next_url)
         audit.record(
-            entity_type="user", entity_id=user.id, action="login_2fa_failure", user_id=user.id
+            entity_type="user", entity_id=user.id, action=AuditAction.LOGIN_2FA_FAILURE, user_id=user.id
         )
         db.session.commit()
         error = _("auth.2fa.invalid")
@@ -111,7 +112,7 @@ def totp_enroll():
         code = (request.form.get("code") or "").strip()
         if totp_service.complete_enrollment(user, code):
             audit.record(
-                entity_type="user", entity_id=user.id, action="totp_enrolled", user_id=user.id
+                entity_type="user", entity_id=user.id, action=AuditAction.TOTP_ENROLLED, user_id=user.id
             )
             db.session.commit()
             flash(_("auth.2fa.enrolled"), "success")
@@ -130,7 +131,7 @@ def totp_enroll():
 def logout():
     from flask_login import current_user
 
-    audit.record(entity_type="user", entity_id=current_user.id, action="logout")
+    audit.record(entity_type="user", entity_id=current_user.id, action=AuditAction.LOGOUT)
     db.session.commit()
     logout_user()
     flash(_("auth.logout.success"), "info")

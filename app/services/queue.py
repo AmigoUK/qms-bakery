@@ -26,7 +26,17 @@ _REDIS_KEY_PREFIX = os.environ.get("REDIS_KEY_PREFIX", "qms")
 QUEUE_NAME = f"{_REDIS_KEY_PREFIX}:webhooks"
 EMAIL_QUEUE_NAME = f"{_REDIS_KEY_PREFIX}:emails"
 SMS_QUEUE_NAME = f"{_REDIS_KEY_PREFIX}:sms"
-RETRY_INTERVALS_SECONDS = [180, 540, 1620]  # 3, 9, 27 minutes
+
+# Retry envelope and TTLs are operational knobs. Tuning down the retry
+# tail (e.g. for transient SaaS endpoints) shouldn't require a deploy.
+# Comma-separated seconds list, e.g. "180,540,1620" for 3/9/27 min.
+RETRY_INTERVALS_SECONDS: list[int] = [
+    int(x) for x in os.environ.get("WEBHOOK_RETRY_INTERVALS", "180,540,1620").split(",")
+]
+RESULT_TTL_SECONDS = int(os.environ.get("JOB_RESULT_TTL_SECONDS", str(86400)))
+FAILURE_TTL_SECONDS = int(
+    os.environ.get("JOB_FAILURE_TTL_SECONDS", str(86400 * 7))
+)
 
 
 def _get_binary_redis(app: Flask | None = None):
@@ -66,8 +76,8 @@ def enqueue_webhook(
         retry=Retry(
             max=len(RETRY_INTERVALS_SECONDS), interval=RETRY_INTERVALS_SECONDS
         ),
-        result_ttl=86400,
-        failure_ttl=86400 * 7,
+        result_ttl=RESULT_TTL_SECONDS,
+        failure_ttl=FAILURE_TTL_SECONDS,
     )
 
 
@@ -113,8 +123,8 @@ def enqueue_email(
         retry=Retry(
             max=len(RETRY_INTERVALS_SECONDS), interval=RETRY_INTERVALS_SECONDS
         ),
-        result_ttl=86400,
-        failure_ttl=86400 * 7,
+        result_ttl=RESULT_TTL_SECONDS,
+        failure_ttl=FAILURE_TTL_SECONDS,
     )
 
 
@@ -157,6 +167,6 @@ def enqueue_sms(
         retry=Retry(
             max=len(RETRY_INTERVALS_SECONDS), interval=RETRY_INTERVALS_SECONDS
         ),
-        result_ttl=86400,
-        failure_ttl=86400 * 7,
+        result_ttl=RESULT_TTL_SECONDS,
+        failure_ttl=FAILURE_TTL_SECONDS,
     )

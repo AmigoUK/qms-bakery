@@ -34,6 +34,7 @@ from app.models.triggers import (
 )
 from app.services import audit
 from app.services import tickets as ticket_service
+from app.audit_actions import AuditAction
 
 
 _OPERATORS: dict[str, Any] = {
@@ -104,7 +105,7 @@ def fire(trigger: Trigger, payload: dict) -> TriggerExecution:
     audit.record(
         entity_type="trigger",
         entity_id=trigger.id,
-        action="fire",
+        action=AuditAction.FIRE,
         diff={
             "trigger_code": trigger.code,
             "payload": payload,
@@ -158,7 +159,7 @@ def evaluate(payload: dict) -> list[TriggerExecution]:
             audit.record(
                 entity_type="trigger",
                 entity_id=trigger.id,
-                action="fire_dry_run",
+                action=AuditAction.FIRE_DRY_RUN,
                 diff={"payload": payload},
             )
             db.session.flush()

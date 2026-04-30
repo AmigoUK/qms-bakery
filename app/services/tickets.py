@@ -15,11 +15,13 @@ from app.models.tickets import (
     Ticket,
     TicketCategory,
     TicketEvent,
+    TicketEventType,
     TicketSeverity,
     TicketSource,
     TicketStatus,
 )
 from app.services import audit
+from app.audit_actions import AuditAction
 
 
 class TicketError(Exception):
@@ -89,7 +91,7 @@ def create_ticket(
     db.session.add(
         TicketEvent(
             ticket_id=ticket.id,
-            event_type="created",
+            event_type=TicketEventType.CREATED.value,
             from_status=None,
             to_status=ticket.status,
             user_id=created_by_user_id,
@@ -100,7 +102,7 @@ def create_ticket(
     audit.record(
         entity_type="ticket",
         entity_id=ticket.id,
-        action="create",
+        action=AuditAction.CREATE,
         diff={
             "ticket_number": ticket.ticket_number,
             "title": ticket.title,
@@ -135,7 +137,7 @@ def transition(
     db.session.add(
         TicketEvent(
             ticket_id=ticket.id,
-            event_type="status_change",
+            event_type=TicketEventType.STATUS_CHANGE.value,
             from_status=current.value,
             to_status=new_status.value,
             user_id=user_id,
@@ -146,7 +148,7 @@ def transition(
     audit.record(
         entity_type="ticket",
         entity_id=ticket.id,
-        action="status_change",
+        action=AuditAction.STATUS_CHANGE,
         diff={"from": current.value, "to": new_status.value, "comment": comment},
         user_id=user_id,
     )
@@ -162,7 +164,7 @@ def assign_to(ticket: Ticket, user_id: str, *, by_user_id: str | None = None) ->
     db.session.add(
         TicketEvent(
             ticket_id=ticket.id,
-            event_type="assigned",
+            event_type=TicketEventType.ASSIGNED.value,
             user_id=by_user_id,
             occurred_at=utcnow(),
             payload={"from": prev_assignee, "to": user_id},
@@ -171,7 +173,7 @@ def assign_to(ticket: Ticket, user_id: str, *, by_user_id: str | None = None) ->
     audit.record(
         entity_type="ticket",
         entity_id=ticket.id,
-        action="assigned",
+        action=AuditAction.ASSIGNED,
         diff={"from": prev_assignee, "to": user_id},
         user_id=by_user_id,
     )
@@ -182,7 +184,7 @@ def assign_to(ticket: Ticket, user_id: str, *, by_user_id: str | None = None) ->
 def add_comment(ticket: Ticket, *, user_id: str, comment: str) -> TicketEvent:
     event = TicketEvent(
         ticket_id=ticket.id,
-        event_type="comment",
+        event_type=TicketEventType.COMMENT.value,
         user_id=user_id,
         occurred_at=utcnow(),
         comment=comment.strip()[:5000],
@@ -191,7 +193,7 @@ def add_comment(ticket: Ticket, *, user_id: str, comment: str) -> TicketEvent:
     audit.record(
         entity_type="ticket",
         entity_id=ticket.id,
-        action="comment",
+        action=AuditAction.COMMENT,
         diff={"length": len(comment)},
         user_id=user_id,
     )
