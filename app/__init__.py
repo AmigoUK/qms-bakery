@@ -50,6 +50,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     from app.blueprints.reports import bp as reports_bp
     from app.blueprints.salsa import bp as salsa_bp
     from app.blueprints.tickets import bp as tickets_bp
+    from app.blueprints.training import bp as training_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(dashboard_bp, url_prefix="/")
@@ -61,6 +62,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(reports_bp, url_prefix="/reports")
     app.register_blueprint(health_bp)
     app.register_blueprint(pwa_bp)
+    app.register_blueprint(training_bp)
 
     @app.cli.command("init-db")
     def _init_db_cmd():

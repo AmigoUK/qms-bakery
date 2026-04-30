@@ -1,0 +1,27 @@
+{% extends "training_base.html" %}
+{% block title_suffix %} · {{ _('training.result.title') }}{% endblock %}
+{% block content %}
+<div class="card">
+  {% if attempt.passed %}
+    <h1>{{ _('training.result.passed_title') }}</h1>
+    <p class="result-summary">
+      {{ _('training.result.score') }}: <strong>{{ '%.0f'|format(attempt.score * 100) }}%</strong>
+    </p>
+    {% if cert %}
+      <p>{{ _('training.result.cert_valid_until') }} <strong>{{ cert.valid_until.strftime('%Y-%m-%d') }}</strong>.</p>
+      <a class="btn btn-primary"
+         href="{{ url_for('training.certificate', token=enrolment.magic_token) }}"
+         target="_blank" rel="noopener">
+        {{ _('training.result.download_cert') }}
+      </a>
+    {% endif %}
+  {% else %}
+    <h1>{{ _('training.result.failed_title') }}</h1>
+    <p class="result-summary">
+      {{ _('training.result.score') }}: <strong>{{ '%.0f'|format(attempt.score * 100) }}%</strong>
+      ({{ _('training.result.threshold') }}: {{ '%.0f'|format(version.pass_threshold * 100) }}%)
+    </p>
+    <p>{{ _('training.result.failed_explainer') }}</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "training_base.html" %}
+{% block title_suffix %} · {{ _('training.exam.title') }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ _('training.exam.title') }}</h1>
+  <p>{{ _('training.exam.intro') }}</p>
+  <form method="post" action="{{ url_for('training.submit_exam', token=enrolment.magic_token) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    {% for q in questions %}
+      <fieldset class="exam-question">
+        <legend>{{ loop.index }}. {{ q.prompt.get(trainee_lang) or q.prompt.get('en') }}</legend>
+        {% for opt in q.options %}
+          <label class="exam-option">
+            <input type="{{ 'checkbox' if q.kind == 'multi_choice' else 'radio' }}"
+                   name="q-{{ q.id }}"
+                   value="{{ opt.id }}"
+                   required>
+            <span>{{ opt.label.get(trainee_lang) or opt.label.get('en') }}</span>
+          </label>
+        {% endfor %}
+      </fieldset>
+    {% endfor %}
+    <button class="btn btn-primary" type="submit">{{ _('training.exam.submit') }}</button>
+  </form>
+</div>
+{% endblock %}

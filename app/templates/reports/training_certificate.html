@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Training Certificate · {{ trainee.full_name }}</title>
+  <style>
+    @page { size: A4; margin: 25mm; }
+    body { font-family: Helvetica, Arial, sans-serif; color: #1a1a1a; }
+    h1 { color: #0b3d2e; margin-bottom: 0; }
+    .tag { color: #555; }
+    .frame { border: 2px solid #0b3d2e; padding: 30mm 20mm; margin-top: 15mm; text-align: center; }
+    .name { font-size: 24pt; font-weight: 700; margin: 10mm 0; color: #0b3d2e; }
+    .course { font-size: 18pt; margin: 6mm 0; }
+    .meta-row { margin: 4mm 0; font-size: 11pt; color: #333; }
+    .signatures { margin-top: 25mm; display: flex; justify-content: space-between; }
+    .sig-block { width: 45%; border-top: 1px solid #000; padding-top: 4mm; font-size: 10pt; text-align: center; }
+    .footer-id { margin-top: 30mm; font-size: 8pt; color: #888; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>QMS</h1>
+    <div class="tag">UK food production · HACCP / SALSA / FSA</div>
+  </header>
+
+  <div class="frame">
+    <div>This is to certify that</div>
+    <div class="name">{{ trainee.full_name }}</div>
+    <div>has successfully completed and passed the training course</div>
+    <div class="course">
+      {{ version.title.get('en') or course.code }}
+    </div>
+    <div class="meta-row">
+      Score: <strong>{{ '%.0f'|format(attempt.score * 100) }}%</strong>
+      &nbsp;·&nbsp;
+      Pass threshold: {{ '%.0f'|format(version.pass_threshold * 100) }}%
+    </div>
+    <div class="meta-row">
+      Course version: v{{ version.version }} &nbsp;·&nbsp;
+      Role: {{ trainee.role_code }}
+    </div>
+    <div class="meta-row">
+      Valid from <strong>{{ cert.valid_from.strftime('%Y-%m-%d') }}</strong>
+      until <strong>{{ cert.valid_until.strftime('%Y-%m-%d') }}</strong>
+    </div>
+
+    <div class="signatures">
+      <div class="sig-block">
+        Trainee signature on file<br>
+        <small>Captured electronically {{ attempt.submitted_at.strftime('%Y-%m-%d %H:%M UTC') }}</small>
+      </div>
+      <div class="sig-block">
+        Compliance officer (countersign)<br>
+        <small>&nbsp;</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-id">
+    Certificate ID: {{ cert.id }} · Attempt: {{ attempt.id }}
+  </div>
+</body>
+</html>

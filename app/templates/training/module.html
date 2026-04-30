@@ -1,0 +1,17 @@
+{% extends "training_base.html" %}
+{% block title_suffix %} · {{ module.title.get(trainee_lang) or module.title.get('en') }}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="module-progress">{{ _('training.module.progress') }} {{ index + 1 }} / {{ total }}</div>
+  <h1>{{ module.title.get(trainee_lang) or module.title.get('en') }}</h1>
+  <article class="module-body">
+    {{ (module.body_md.get(trainee_lang) or module.body_md.get('en') or '') | safe }}
+  </article>
+  <form method="post" action="{{ url_for('training.next_module', token=enrolment.magic_token) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <button class="btn btn-primary" type="submit">
+      {% if index + 1 < total %}{{ _('training.module.next') }}{% else %}{{ _('training.module.to_exam') }}{% endif %}
+    </button>
+  </form>
+</div>
+{% endblock %}

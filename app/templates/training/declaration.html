@@ -1,0 +1,43 @@
+{% extends "training_base.html" %}
+{% block title_suffix %} · {{ _('training.declaration.title') }}{% endblock %}
+{% block head_extra %}
+  <script src="{{ url_for('static', filename='vendor/signature-pad-4.2.0.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/training.js') }}" defer></script>
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ _('training.declaration.title') }}</h1>
+  <p class="result-summary">
+    {{ _('training.result.score') }}: <strong>{{ '%.0f'|format(attempt.score * 100) }}%</strong>
+    — {{ _('training.result.passed') }}
+  </p>
+  <article class="declaration-text">
+    {{ declaration_text }}
+  </article>
+  <form method="post" action="{{ url_for('training.declare', token=enrolment.magic_token) }}"
+        id="declaration-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="hidden" name="declaration_text" value="{{ declaration_text }}"/>
+    <input type="hidden" name="signature_data_url" id="signature-data" value=""/>
+    <label>
+      <span>{{ _('training.declaration.typed_name') }}</span>
+      <input type="text" name="typed_name" required minlength="2" maxlength="120"
+             autocomplete="name">
+    </label>
+    <div class="signature-pad-wrap">
+      <span>{{ _('training.declaration.draw_signature') }}</span>
+      <canvas id="signature-pad" class="signature-pad" width="600" height="200"></canvas>
+      <button type="button" class="btn btn-ghost" id="signature-clear">
+        {{ _('training.declaration.clear') }}
+      </button>
+    </div>
+    <label class="exam-option">
+      <input type="checkbox" name="agree" value="1" required>
+      <span>{{ _('training.declaration.agree') }}</span>
+    </label>
+    <button class="btn btn-primary" type="submit" id="declaration-submit">
+      {{ _('training.declaration.submit') }}
+    </button>
+  </form>
+</div>
+{% endblock %}
