@@ -18,6 +18,19 @@ from flask import Flask, current_app, g, request
 
 TRANSLATIONS_DIR = Path(__file__).parent / "translations"
 
+# Display labels for the language switcher / role admin form. Keys must
+# be a superset of every language code that can appear in
+# SUPPORTED_LANGUAGES; missing entries fall back to the bare code.
+LANGUAGE_DISPLAY_NAMES: dict[str, str] = {
+    "pl": "Polski",
+    "en": "English",
+}
+
+
+def language_choices(supported: tuple[str, ...]) -> list[tuple[str, str]]:
+    """`(code, display)` pairs for the languages currently configured."""
+    return [(code, LANGUAGE_DISPLAY_NAMES.get(code, code)) for code in supported]
+
 
 @lru_cache(maxsize=8)
 def _load_catalog(lang: str) -> dict[str, str]:
@@ -47,7 +60,7 @@ def i18n_field(jsonb_field: dict | None, lang: str | None = None) -> str:
     """Resolve a multi-language JSON field {pl, en} for current language."""
     if not jsonb_field:
         return ""
-    lang = lang or getattr(g, "lang", None) or "en"
+    lang = lang or getattr(g, "lang", None) or current_app.config["DEFAULT_LANGUAGE"]
     return (
         jsonb_field.get(lang)
         or jsonb_field.get("en")

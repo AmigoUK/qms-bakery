@@ -152,6 +152,8 @@ def _default_config() -> dict[str, Any]:
         "SECURITY_HEADERS_ENABLED": True,
         "RATELIMIT_ENABLED": os.environ.get("RATELIMIT_ENABLED", "1") not in ("0", "false", "False"),
         "RATELIMIT_API_MAX": int(os.environ.get("RATELIMIT_API_MAX", "600")),
+        "RATELIMIT_LOGIN_MAX": int(os.environ.get("RATELIMIT_LOGIN_MAX", "10")),
+        "RATELIMIT_LOGIN_WINDOW": int(os.environ.get("RATELIMIT_LOGIN_WINDOW", "60")),
         "MQTT_BROKER_HOST": os.environ.get("MQTT_BROKER_HOST", "localhost"),
         "MQTT_BROKER_PORT": int(os.environ.get("MQTT_BROKER_PORT", "1883")),
         "MQTT_TOPIC_FILTER": os.environ.get("MQTT_TOPIC_FILTER", "factory/+/+/+"),

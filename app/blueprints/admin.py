@@ -30,6 +30,7 @@ from app.auth import hash_password, require_permission
 from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
+from app.i18n import language_choices
 from app.models import (
     AuditLog,
     CCPDefinition,
@@ -76,7 +77,8 @@ class UserForm(FlaskForm):
     email = StringField("email", validators=[DataRequired(), Length(max=255)])
     full_name = StringField("full_name", validators=[DataRequired(), Length(max=120)])
     role_code = SelectField("role_code", validators=[DataRequired()])
-    language = SelectField("language", choices=[("en", "English"), ("pl", "Polski")], default="en")
+    # Choices populated at request time from SUPPORTED_LANGUAGES.
+    language = SelectField("language")
     password = StringField("password", validators=[Length(min=0, max=128)])
     is_active = BooleanField("is_active", default=True)
     submit = SubmitField()
@@ -84,6 +86,12 @@ class UserForm(FlaskForm):
 
 def _role_choices() -> list[tuple[str, str]]:
     return [(r.code, r.code) for r in Role.query.order_by(Role.code)]
+
+
+def _language_choices() -> list[tuple[str, str]]:
+    from flask import current_app
+
+    return language_choices(tuple(current_app.config["SUPPORTED_LANGUAGES"]))
 
 
 @bp.route("/users")
@@ -100,6 +108,7 @@ def users_index():
 def users_new():
     form = UserForm()
     form.role_code.choices = _role_choices()
+    form.language.choices = _language_choices()
     if form.validate_on_submit():
         if not form.password.data or len(form.password.data) < 8:
             flash(_("admin.users.password_min"), "danger")
@@ -138,6 +147,7 @@ def users_edit(user_id: str):
         abort(404)
     form = UserForm(obj=None)
     form.role_code.choices = _role_choices()
+    form.language.choices = _language_choices()
     if request.method == "GET":
         form.email.data = user.email
         form.full_name.data = user.full_name
@@ -222,11 +232,12 @@ TRIGGER_OPERATOR_CHOICES: list[tuple[str, str]] = [
     ("!=", "!="),
 ]
 
+# Derive severity choices from the canonical TicketSeverity enum so a
+# new severity drops in here automatically.
+from app.models.tickets import TicketSeverity
+
 TRIGGER_SEVERITY_CHOICES: list[tuple[str, str]] = [
-    ("low", "low"),
-    ("medium", "medium"),
-    ("high", "high"),
-    ("critical", "critical"),
+    (s.value, s.value) for s in TicketSeverity
 ]
 
 

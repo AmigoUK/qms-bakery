@@ -93,21 +93,43 @@ def check(
 
 
 def rate_limit(
-    *, bucket: str, max_requests: int, window_seconds: int = 60
+    *,
+    bucket: str,
+    max_requests: int,
+    window_seconds: int = 60,
+    config_max_key: str | None = None,
+    config_window_key: str | None = None,
 ) -> Callable:
     """View decorator. No-op when `RATELIMIT_ENABLED` is False (default
-    True in production, override in tests)."""
+    True in production, override in tests).
+
+    The literal `max_requests` / `window_seconds` are used unless
+    `config_max_key` / `config_window_key` are given; if they are, the
+    runtime config is consulted on every request and the literal serves
+    only as a fallback. Lets ops tune a single endpoint's threshold via
+    env without touching code.
+    """
 
     def _decorator(view: Callable) -> Callable:
         @functools.wraps(view)
         def _wrapped(*args, **kwargs):
             if not current_app.config.get("RATELIMIT_ENABLED", True):
                 return view(*args, **kwargs)
+            effective_max = (
+                current_app.config.get(config_max_key, max_requests)
+                if config_max_key
+                else max_requests
+            )
+            effective_window = (
+                current_app.config.get(config_window_key, window_seconds)
+                if config_window_key
+                else window_seconds
+            )
             allowed, remaining, retry_after = check(
                 bucket,
                 _ident_for_request(),
-                max_requests=max_requests,
-                window_seconds=window_seconds,
+                max_requests=effective_max,
+                window_seconds=effective_window,
             )
             if not allowed:
                 resp = jsonify(

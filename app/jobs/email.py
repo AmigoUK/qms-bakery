@@ -48,7 +48,11 @@ def send_email(
     msg["From"] = sender
     msg["To"] = ", ".join(to)
     msg["Subject"] = subject
-    msg["Message-ID"] = make_msgid(domain="qms.local")
+    # Derive Message-ID domain from the sender so it aligns with
+    # SPF/DKIM. A mismatch (e.g. sender qms@example.com, Message-ID
+    # @qms.local) is a textbook spam-filter trigger.
+    sender_domain = sender.split("@", 1)[-1].strip("> ").strip() or "localhost"
+    msg["Message-ID"] = make_msgid(domain=sender_domain)
     msg.set_content(body_text or "")
     if body_html:
         msg.add_alternative(body_html, subtype="html")

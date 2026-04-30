@@ -49,7 +49,13 @@ class TOTPForm(FlaskForm):
 
 
 @bp.route("/login", methods=["GET", "POST"])
-@rate_limit(bucket="login", max_requests=10, window_seconds=60)
+@rate_limit(
+    bucket="login",
+    max_requests=10,
+    window_seconds=60,
+    config_max_key="RATELIMIT_LOGIN_MAX",
+    config_window_key="RATELIMIT_LOGIN_WINDOW",
+)
 def login():
     form = LoginForm()
     error = None
