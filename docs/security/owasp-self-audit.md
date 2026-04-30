@@ -318,3 +318,12 @@ admin/user-controlled configuration.
 PYTHONPATH=. .venv/bin/python -m pytest tests/test_security_audit.py -v
 # 27 passed
 ```
+
+## Backlog status (post-audit follow-ups)
+
+| # | Item | Status |
+|---|---|---|
+| 1 | pip-audit on dependency-update job (A06) | done — `.github/workflows/security.yml` |
+| 2 | Container hardening (A05) | done — non-root user, runtime-only deps, HEALTHCHECK |
+| 3 | TOTP secret encryption-at-rest (A02) | done — Fernet + multi-key rotation via `flask totp-rotate-keys` |
+| 4 | External pen-test before production rollout | pending — see [pen-test-brief.md](./pen-test-brief.md) |
