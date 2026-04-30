@@ -139,10 +139,21 @@ docker compose exec mosquitto \
 
 ```bash
 PYTHONPATH=. python3 -m pytest -v
-# 83 passed in ~6s
+# 300 passed
 ```
 
 Tests use SQLite in-memory for speed; production runs on PostgreSQL 16 (see `docker-compose.yml`).
+
+## Security audits
+
+`pip-audit` runs in CI on every push to `main`, every PR that touches `pyproject.toml`, and weekly on Monday 06:00 UTC (`.github/workflows/security.yml`). Run it locally:
+
+```bash
+./.venv/bin/pip-audit --strict
+# expect: "No known vulnerabilities found"
+```
+
+The weekly schedule is the most valuable mode — it catches CVEs published *after* a dependency was already merged, which `--strict` would otherwise miss until someone bumps the version.
 
 ## Project structure
 
