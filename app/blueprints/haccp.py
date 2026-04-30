@@ -7,6 +7,7 @@ from wtforms import FloatField, StringField, SubmitField
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 from app.auth import require_permission
+from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
 from app.models.haccp import CCPDefinition
@@ -24,7 +25,7 @@ class MeasurementForm(FlaskForm):
 
 @bp.route("/")
 @login_required
-@require_permission("ccp.measure")
+@require_permission(Perm.CCP_MEASURE)
 def index():
     ccps = haccp_service.list_definitions()
     return render_template("haccp/list.html", ccps=ccps)
@@ -32,7 +33,7 @@ def index():
 
 @bp.route("/<ccp_id>", methods=["GET", "POST"])
 @login_required
-@require_permission("ccp.measure")
+@require_permission(Perm.CCP_MEASURE)
 def detail(ccp_id: str):
     ccp = db.session.get(CCPDefinition, ccp_id)
     if ccp is None:

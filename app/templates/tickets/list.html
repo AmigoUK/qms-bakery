@@ -3,7 +3,7 @@
 {% block content %}
 <header class="page-head">
   <h1>{{ _('tickets.list.title') }}</h1>
-  {% if current_user.has_permission('tickets.create') %}
+  {% if current_user.has_permission(Perm.TICKETS_CREATE) %}
     <a class="btn btn-primary" href="{{ url_for('tickets.create') }}">+ {{ _('tickets.create.title') }}</a>
   {% endif %}
 </header>

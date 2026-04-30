@@ -17,25 +17,25 @@
   <section class="card">
     <h2>{{ _('admin.quick_links') }}</h2>
     <ul>
-      {% if current_user.has_permission('users.manage') %}
+      {% if current_user.has_permission(Perm.USERS_MANAGE) %}
         <li><a href="{{ url_for('admin.users_index') }}">{{ _('admin.users') }}</a></li>
       {% endif %}
-      {% if current_user.has_permission('triggers.define') %}
+      {% if current_user.has_permission(Perm.TRIGGERS_DEFINE) %}
         <li><a href="{{ url_for('admin.triggers_index') }}">{{ _('admin.triggers') }}</a></li>
       {% endif %}
-      {% if current_user.has_permission('pipeline.configure') %}
+      {% if current_user.has_permission(Perm.PIPELINE_CONFIGURE) %}
         <li><a href="{{ url_for('admin.pipelines_index') }}">{{ _('admin.pipelines') }}</a></li>
       {% endif %}
-      {% if current_user.has_permission('audit.view') %}
+      {% if current_user.has_permission(Perm.AUDIT_VIEW) %}
         <li><a href="{{ url_for('admin.audit_index') }}">{{ _('admin.audit') }}</a></li>
       {% endif %}
-      {% if current_user.has_permission('dlq.manage') %}
+      {% if current_user.has_permission(Perm.DLQ_MANAGE) %}
         <li><a href="{{ url_for('admin.dlq_index') }}">{{ _('admin.dlq.title') }}</a></li>
       {% endif %}
-      {% if current_user.has_permission('ccp.measure') %}
+      {% if current_user.has_permission(Perm.CCP_MEASURE) %}
         <li><a href="{{ url_for('haccp.index') }}">HACCP / CCP</a></li>
       {% endif %}
-      {% if current_user.has_permission('salsa.respond') %}
+      {% if current_user.has_permission(Perm.SALSA_RESPOND) %}
         <li><a href="{{ url_for('salsa.index') }}">SALSA</a></li>
       {% endif %}
     </ul>

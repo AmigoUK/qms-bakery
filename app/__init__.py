@@ -100,7 +100,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
     @app.context_processor
     def _inject_globals():
-        return {"current_lang": g.get("lang", app.config["DEFAULT_LANGUAGE"])}
+        from app.permissions import Perm
+
+        return {
+            "current_lang": g.get("lang", app.config["DEFAULT_LANGUAGE"]),
+            "Perm": Perm,
+        }
 
     if app.config.get("AUTO_CREATE_TABLES"):
         with app.app_context():

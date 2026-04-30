@@ -47,7 +47,7 @@
   </section>
 </div>
 
-{% if current_user.has_permission('tickets.classify') %}
+{% if current_user.has_permission(Perm.TICKETS_CLASSIFY) %}
 <section class="card">
   <h2>{{ _('tickets.action.add_comment') }}</h2>
   <form method="post">
@@ -67,7 +67,7 @@
       <button class="btn btn-secondary" type="submit" name="status" value="in_progress">→ {{ _('tickets.status.in_progress') }}</button>
     {% elif ticket.status == 'in_progress' %}
       <button class="btn btn-secondary" type="submit" name="status" value="awaiting_verification">→ {{ _('tickets.status.awaiting_verification') }}</button>
-    {% elif ticket.status == 'awaiting_verification' and current_user.has_permission('tickets.close') %}
+    {% elif ticket.status == 'awaiting_verification' and current_user.has_permission(Perm.TICKETS_CLOSE) %}
       <button class="btn btn-primary" type="submit" name="status" value="closed">{{ _('tickets.action.close') }}</button>
     {% endif %}
   </form>

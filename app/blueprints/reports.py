@@ -14,6 +14,7 @@ from flask import Blueprint, Response, abort, request
 from flask_login import login_required
 
 from app.auth import require_permission
+from app.permissions import Perm
 from app.services import reports as reports_service
 
 bp = Blueprint("reports", __name__, template_folder="../templates")
@@ -46,7 +47,7 @@ def _parse_date(value: Any, *, name: str) -> date:
 
 @bp.route("/haccp/monthly")
 @login_required
-@require_permission("reports.generate")
+@require_permission(Perm.REPORTS_GENERATE)
 def haccp_monthly() -> Response:
     today = date.today()
     year = _parse_int(request.args.get("year", today.year), name="year")
@@ -62,7 +63,7 @@ def haccp_monthly() -> Response:
 
 @bp.route("/fsa/traceability")
 @login_required
-@require_permission("reports.generate")
+@require_permission(Perm.REPORTS_GENERATE)
 def fsa_traceability() -> Response:
     date_from = _parse_date(request.args.get("from"), name="from")
     date_to = _parse_date(request.args.get("to"), name="to")

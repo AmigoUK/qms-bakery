@@ -4,6 +4,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 
 from app.auth import require_permission
+from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
 from app.models.salsa import SalsaChecklist
@@ -14,7 +15,7 @@ bp = Blueprint("salsa", __name__, template_folder="../templates")
 
 @bp.route("/")
 @login_required
-@require_permission("salsa.respond")
+@require_permission(Perm.SALSA_RESPOND)
 def index():
     checklists = salsa_service.list_checklists()
     return render_template("salsa/list.html", checklists=checklists)
@@ -22,7 +23,7 @@ def index():
 
 @bp.route("/<checklist_id>", methods=["GET", "POST"])
 @login_required
-@require_permission("salsa.respond")
+@require_permission(Perm.SALSA_RESPOND)
 def fill(checklist_id: str):
     checklist = db.session.get(SalsaChecklist, checklist_id)
     if checklist is None or not checklist.is_active:

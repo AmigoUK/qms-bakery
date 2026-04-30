@@ -7,6 +7,7 @@ from wtforms import SelectField, StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Length
 
 from app.auth import require_permission
+from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
 from app.models import Ticket, TicketCategory, TicketSeverity, TicketStatus
@@ -47,7 +48,7 @@ class CommentForm(FlaskForm):
 
 @bp.route("/", methods=["GET"])
 @login_required
-@require_permission("tickets.view")
+@require_permission(Perm.TICKETS_VIEW)
 def index():
     open_only = request.args.get("open") == "1"
     severity = request.args.get("severity") or None
@@ -60,7 +61,7 @@ def index():
 
 @bp.route("/new", methods=["GET", "POST"])
 @login_required
-@require_permission("tickets.create")
+@require_permission(Perm.TICKETS_CREATE)
 def create():
     form = CreateTicketForm()
     form.line_id.choices = _line_choices()
@@ -86,14 +87,14 @@ def create():
 
 @bp.route("/<ticket_id>", methods=["GET", "POST"])
 @login_required
-@require_permission("tickets.view")
+@require_permission(Perm.TICKETS_VIEW)
 def detail(ticket_id: str):
     ticket = db.session.get(Ticket, ticket_id)
     if ticket is None:
         abort(404)
     comment_form = CommentForm()
     if comment_form.validate_on_submit():
-        if not current_user.has_permission("tickets.classify"):
+        if not current_user.has_permission(Perm.TICKETS_CLASSIFY):
             abort(403)
         ticket_service.add_comment(
             ticket, user_id=current_user.id, comment=comment_form.comment.data
@@ -106,7 +107,7 @@ def detail(ticket_id: str):
 
 @bp.route("/<ticket_id>/transition", methods=["POST"])
 @login_required
-@require_permission("tickets.classify")
+@require_permission(Perm.TICKETS_CLASSIFY)
 def transition(ticket_id: str):
     ticket = db.session.get(Ticket, ticket_id)
     if ticket is None:
@@ -117,7 +118,7 @@ def transition(ticket_id: str):
     except ValueError:
         abort(400)
 
-    if new_status == TicketStatus.CLOSED and not current_user.has_permission("tickets.close"):
+    if new_status == TicketStatus.CLOSED and not current_user.has_permission(Perm.TICKETS_CLOSE):
         abort(403)
 
     try:

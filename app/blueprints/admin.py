@@ -27,6 +27,7 @@ from wtforms import (
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 from app.auth import hash_password, require_permission
+from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
 from app.models import (
@@ -49,7 +50,7 @@ bp = Blueprint("admin", __name__, template_folder="../templates")
 
 @bp.route("/")
 @login_required
-@require_permission("system.configure")
+@require_permission(Perm.SYSTEM_CONFIGURE)
 def index():
     counts = {
         "users": User.query.count(),
@@ -87,7 +88,7 @@ def _role_choices() -> list[tuple[str, str]]:
 
 @bp.route("/users")
 @login_required
-@require_permission("users.manage")
+@require_permission(Perm.USERS_MANAGE)
 def users_index():
     rows = User.query.order_by(User.email).all()
     return render_template("admin/users_list.html", users=rows)
@@ -95,7 +96,7 @@ def users_index():
 
 @bp.route("/users/new", methods=["GET", "POST"])
 @login_required
-@require_permission("users.manage")
+@require_permission(Perm.USERS_MANAGE)
 def users_new():
     form = UserForm()
     form.role_code.choices = _role_choices()
@@ -130,7 +131,7 @@ def users_new():
 
 @bp.route("/users/<user_id>", methods=["GET", "POST"])
 @login_required
-@require_permission("users.manage")
+@require_permission(Perm.USERS_MANAGE)
 def users_edit(user_id: str):
     user = db.session.get(User, user_id)
     if user is None:
@@ -176,7 +177,7 @@ def users_edit(user_id: str):
 
 @bp.route("/triggers")
 @login_required
-@require_permission("triggers.define")
+@require_permission(Perm.TRIGGERS_DEFINE)
 def triggers_index():
     rows = Trigger.query.order_by(Trigger.code).all()
     return render_template("admin/triggers_list.html", triggers=rows)
@@ -184,7 +185,7 @@ def triggers_index():
 
 @bp.route("/triggers/<trigger_id>/toggle", methods=["POST"])
 @login_required
-@require_permission("triggers.define")
+@require_permission(Perm.TRIGGERS_DEFINE)
 def trigger_toggle(trigger_id: str):
     trigger = db.session.get(Trigger, trigger_id)
     if trigger is None:
@@ -340,7 +341,7 @@ def _sync_trigger_responders(trigger: Trigger, responder_ids: list[str]) -> None
 
 @bp.route("/triggers/new", methods=["GET", "POST"])
 @login_required
-@require_permission("triggers.define")
+@require_permission(Perm.TRIGGERS_DEFINE)
 def triggers_new():
     form = TriggerForm()
     _populate_trigger_form_choices(form)
@@ -373,7 +374,7 @@ def triggers_new():
 
 @bp.route("/triggers/<trigger_id>/edit", methods=["GET", "POST"])
 @login_required
-@require_permission("triggers.define")
+@require_permission(Perm.TRIGGERS_DEFINE)
 def triggers_edit(trigger_id: str):
     trigger = db.session.get(Trigger, trigger_id)
     if trigger is None:
@@ -428,7 +429,7 @@ def triggers_edit(trigger_id: str):
 
 @bp.route("/audit")
 @login_required
-@require_permission("audit.view")
+@require_permission(Perm.AUDIT_VIEW)
 def audit_index():
     page_size = 100
     page = max(int(request.args.get("page", 1)), 1)
@@ -533,7 +534,7 @@ def _validate_stages_payload(payload) -> tuple[list[dict] | None, str | None]:
 
 @bp.route("/pipelines")
 @login_required
-@require_permission("pipeline.configure")
+@require_permission(Perm.PIPELINE_CONFIGURE)
 def pipelines_index():
     lines = ProductionLine.query.order_by(ProductionLine.code).all()
     rows = []
@@ -549,7 +550,7 @@ def pipelines_index():
 
 @bp.route("/pipelines/<line_id>/edit", methods=["GET", "POST"])
 @login_required
-@require_permission("pipeline.configure")
+@require_permission(Perm.PIPELINE_CONFIGURE)
 def pipelines_edit(line_id: str):
     line = db.session.get(ProductionLine, line_id)
     if line is None:
@@ -636,7 +637,7 @@ def pipelines_edit(line_id: str):
 
 @bp.route("/dlq")
 @login_required
-@require_permission("dlq.manage")
+@require_permission(Perm.DLQ_MANAGE)
 def dlq_index():
     from app.services import dlq as dlq_service
 
@@ -647,7 +648,7 @@ def dlq_index():
 
 @bp.route("/dlq/<job_id>")
 @login_required
-@require_permission("dlq.manage")
+@require_permission(Perm.DLQ_MANAGE)
 def dlq_detail(job_id: str):
     from rq.exceptions import NoSuchJobError
 
@@ -666,7 +667,7 @@ def dlq_detail(job_id: str):
 
 @bp.route("/dlq/<job_id>/requeue", methods=["POST"])
 @login_required
-@require_permission("dlq.manage")
+@require_permission(Perm.DLQ_MANAGE)
 def dlq_requeue(job_id: str):
     from rq.exceptions import NoSuchJobError
 
@@ -690,7 +691,7 @@ def dlq_requeue(job_id: str):
 
 @bp.route("/dlq/<job_id>/discard", methods=["POST"])
 @login_required
-@require_permission("dlq.manage")
+@require_permission(Perm.DLQ_MANAGE)
 def dlq_discard(job_id: str):
     from rq.exceptions import NoSuchJobError
 
