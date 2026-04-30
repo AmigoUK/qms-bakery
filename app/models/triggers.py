@@ -39,6 +39,7 @@ class ResponderType(str, enum.Enum):
     WEBHOOK = "webhook"
     EMAIL = "email"
     SMS = "sms"
+    SEND_TRAINING_LINK = "send_training_link"
 
 
 class Trigger(UUIDPKMixin, TimestampMixin, db.Model):

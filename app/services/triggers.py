@@ -278,6 +278,45 @@ def _dispatch_responder(responder: Responder, trigger: Trigger, payload: dict) -
         job = queue_service.enqueue_sms(to=to, body=body)
         return {"queued_sms": to, "job_id": job.id}
 
+    if rtype is ResponderType.SEND_TRAINING_LINK:
+        # Issue a training enrolment to every trainee matching the
+        # configured audience filter, scoping the trainee set by the
+        # firing trigger's payload (typically {line_id: ...}).
+        course_code = cfg.get("course_code")
+        if not course_code:
+            raise TriggerError("send_training_link responder requires course_code")
+        from app.models import Trainee
+        from app.services import training as training_service
+
+        course = training_service.get_course_by_code(course_code)
+        if course is None:
+            raise TriggerError(f"course {course_code} not found")
+
+        audience = cfg.get("audience") or {}
+        role_filter = audience.get("role_code")
+        line_scoped = bool(audience.get("line_scoped"))
+        line_id = payload.get("line_id") if line_scoped else None
+
+        q = Trainee.query.filter_by(is_active=True)
+        if role_filter:
+            q = q.filter_by(role_code=role_filter)
+        if line_scoped and line_id:
+            q = q.filter_by(line_id=line_id)
+        candidates = q.all()
+
+        issued = 0
+        for trainee in candidates:
+            if training_service.has_open_enrolment(trainee.id, course.id):
+                continue
+            training_service.enrol(
+                trainee=trainee,
+                course=course,
+                source="trigger",
+                source_ref=trigger.id,
+            )
+            issued += 1
+        return {"trainees_issued": issued, "course_code": course_code}
+
     raise TriggerError(f"Unknown responder type: {responder.type}")
 
 

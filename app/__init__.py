@@ -102,6 +102,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
         run_rq(app)
 
+    @app.cli.command("training-scheduler")
+    def _training_scheduler_cmd():
+        from app.workers.training_scheduler import run as run_sched
+
+        run_sched(app)
+
     @app.context_processor
     def _inject_globals():
         from app.permissions import Perm

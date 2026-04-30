@@ -123,5 +123,29 @@ services:
     restart: unless-stopped
     command: flask rq-worker
 
+  training-scheduler:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      app:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      FLASK_APP: app:create_app
+      TRAINING_LINK_SIGNING_KEY: ${TRAINING_LINK_SIGNING_KEY:-}
+      TRAINING_BASE_URL: ${TRAINING_BASE_URL:-}
+      TRAINING_SCHEDULER_POLL_SECONDS: ${TRAINING_SCHEDULER_POLL_SECONDS:-60}
+      CLICKSEND_USERNAME: ${CLICKSEND_USERNAME:-}
+      CLICKSEND_API_KEY: ${CLICKSEND_API_KEY:-}
+      CLICKSEND_SOURCE: ${CLICKSEND_SOURCE:-QMS}
+      CLICKSEND_BASE_URL: ${CLICKSEND_BASE_URL:-https://rest.clicksend.com/v3}
+    restart: unless-stopped
+    command: flask training-scheduler
+
 volumes:
   pgdata:
