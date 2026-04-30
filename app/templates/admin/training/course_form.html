@@ -57,6 +57,18 @@
   </form>
 </div>
 
+<div class="card">
+  <h2>{{ _('admin.training.course.content') }}</h2>
+  <p>
+    <a class="btn btn-secondary" href="{{ url_for('admin_training.modules_index', course_id=course.id) }}">
+      {{ _('admin.training.modules') }} ({{ course.active_version.modules|length if course.active_version else 0 }})
+    </a>
+    <a class="btn btn-secondary" href="{{ url_for('admin_training.questions_index', course_id=course.id) }}">
+      {{ _('admin.training.questions') }} ({{ course.active_version.questions|length if course.active_version else 0 }})
+    </a>
+  </p>
+</div>
+
 {% if versions %}
 <div class="card">
   <h2>{{ _('admin.training.course.history') }}</h2>

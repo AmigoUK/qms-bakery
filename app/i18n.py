@@ -100,6 +100,9 @@ def init_i18n(app: Flask) -> None:
     def _set_lang():
         g.lang = detect_language()
 
+    from app.services.markdown import render as markdown_render
+
     app.jinja_env.globals["_"] = gettext
     app.jinja_env.globals["gettext"] = gettext
     app.jinja_env.filters["i18n"] = i18n_field
+    app.jinja_env.filters["markdown_safe"] = markdown_render

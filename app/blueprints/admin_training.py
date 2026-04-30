@@ -44,12 +44,16 @@ from app.i18n import language_choices
 from app.models import (
     EnrolmentStatus,
     ProductionLine,
+    QuestionKind,
+    TrainingAnswerOption,
     TrainingAssignment,
     TrainingAttempt,
     TrainingCertification,
     TrainingCourse,
     TrainingCourseVersion,
     TrainingEnrolment,
+    TrainingModule,
+    TrainingQuestion,
     Trainee,
 )
 from app.permissions import Perm
@@ -114,6 +118,70 @@ class CourseVersionForm(FlaskForm):
         default=7,
     )
     submit = SubmitField()
+
+
+class ModuleForm(FlaskForm):
+    title_pl = StringField(
+        "title_pl",
+        validators=[DataRequired(), Length(max=MAX_NAME_BILINGUAL_LENGTH)],
+    )
+    title_en = StringField(
+        "title_en",
+        validators=[DataRequired(), Length(max=MAX_NAME_BILINGUAL_LENGTH)],
+    )
+    body_pl = TextAreaField("body_pl", validators=[DataRequired(), Length(max=20000)])
+    body_en = TextAreaField("body_en", validators=[DataRequired(), Length(max=20000)])
+    submit = SubmitField()
+
+
+class QuestionForm(FlaskForm):
+    """4 fixed answer-option slots — empty rows are skipped on save.
+    Covers single_choice / multi_choice / true_false (use 2 slots)."""
+
+    prompt_pl = TextAreaField(
+        "prompt_pl",
+        validators=[DataRequired(), Length(max=2000)],
+    )
+    prompt_en = TextAreaField(
+        "prompt_en",
+        validators=[DataRequired(), Length(max=2000)],
+    )
+    kind = SelectField(
+        "kind",
+        choices=[(k.value, k.value) for k in QuestionKind],
+        default=QuestionKind.SINGLE_CHOICE.value,
+    )
+    opt1_pl = StringField("opt1_pl", validators=[Optional(), Length(max=500)])
+    opt1_en = StringField("opt1_en", validators=[Optional(), Length(max=500)])
+    opt1_correct = BooleanField("opt1_correct", default=False)
+    opt2_pl = StringField("opt2_pl", validators=[Optional(), Length(max=500)])
+    opt2_en = StringField("opt2_en", validators=[Optional(), Length(max=500)])
+    opt2_correct = BooleanField("opt2_correct", default=False)
+    opt3_pl = StringField("opt3_pl", validators=[Optional(), Length(max=500)])
+    opt3_en = StringField("opt3_en", validators=[Optional(), Length(max=500)])
+    opt3_correct = BooleanField("opt3_correct", default=False)
+    opt4_pl = StringField("opt4_pl", validators=[Optional(), Length(max=500)])
+    opt4_en = StringField("opt4_en", validators=[Optional(), Length(max=500)])
+    opt4_correct = BooleanField("opt4_correct", default=False)
+    submit = SubmitField()
+
+    def options_payload(self) -> list[tuple[dict, bool]]:
+        """Squash the 4 fixed slots down to a list of (label, is_correct).
+        Skip slots with no PL or no EN text."""
+        slots = [
+            (self.opt1_pl.data, self.opt1_en.data, bool(self.opt1_correct.data)),
+            (self.opt2_pl.data, self.opt2_en.data, bool(self.opt2_correct.data)),
+            (self.opt3_pl.data, self.opt3_en.data, bool(self.opt3_correct.data)),
+            (self.opt4_pl.data, self.opt4_en.data, bool(self.opt4_correct.data)),
+        ]
+        out: list[tuple[dict, bool]] = []
+        for pl, en, correct in slots:
+            pl = (pl or "").strip()
+            en = (en or "").strip()
+            if not pl and not en:
+                continue
+            out.append(({"pl": pl, "en": en}, correct))
+        return out
 
 
 class AssignmentForm(FlaskForm):
@@ -342,6 +410,285 @@ def courses_edit(course_id: str):
         versions=versions,
         edit=True,
     )
+
+
+# ─── Modules ────────────────────────────────────────────────────────
+
+
+def _resolve_active_version(course_id: str) -> tuple[TrainingCourse, TrainingCourseVersion]:
+    course = db.session.get(TrainingCourse, course_id)
+    if course is None:
+        abort(404)
+    version = course.active_version
+    if version is None:
+        flash(_("admin.training.course.no_active_version"), "danger")
+        abort(404)
+    return course, version
+
+
+@bp.route("/courses/<course_id>/modules")
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def modules_index(course_id: str):
+    course, version = _resolve_active_version(course_id)
+    return render_template(
+        "admin/training/modules_list.html",
+        course=course,
+        version=version,
+        modules=version.modules,
+    )
+
+
+@bp.route("/courses/<course_id>/modules/new", methods=["GET", "POST"])
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def modules_new(course_id: str):
+    course, version = _resolve_active_version(course_id)
+    form = ModuleForm()
+    if form.validate_on_submit():
+        next_idx = 1 + max(
+            (m.order_index for m in version.modules), default=-1
+        )
+        mod = TrainingModule(
+            course_version_id=version.id,
+            order_index=next_idx,
+            title={"pl": form.title_pl.data.strip(), "en": form.title_en.data.strip()},
+            body_md={"pl": form.body_pl.data, "en": form.body_en.data},
+        )
+        db.session.add(mod)
+        audit.record(
+            entity_type="training_module",
+            entity_id=mod.id,
+            action=AuditAction.CREATE,
+            diff={"course_version_id": version.id, "order_index": next_idx},
+        )
+        db.session.commit()
+        flash(_("admin.training.module.created"), "success")
+        return redirect(url_for("admin_training.modules_index", course_id=course.id))
+    return render_template(
+        "admin/training/module_form.html",
+        course=course,
+        version=version,
+        form=form,
+        edit=False,
+    )
+
+
+@bp.route(
+    "/courses/<course_id>/modules/<module_id>", methods=["GET", "POST"]
+)
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def modules_edit(course_id: str, module_id: str):
+    course, version = _resolve_active_version(course_id)
+    mod = db.session.get(TrainingModule, module_id)
+    if mod is None or mod.course_version_id != version.id:
+        abort(404)
+    form = ModuleForm()
+    if request.method == "GET":
+        form.title_pl.data = (mod.title or {}).get("pl", "")
+        form.title_en.data = (mod.title or {}).get("en", "")
+        form.body_pl.data = (mod.body_md or {}).get("pl", "")
+        form.body_en.data = (mod.body_md or {}).get("en", "")
+    if form.validate_on_submit():
+        mod.title = {
+            "pl": form.title_pl.data.strip(),
+            "en": form.title_en.data.strip(),
+        }
+        mod.body_md = {
+            "pl": form.body_pl.data,
+            "en": form.body_en.data,
+        }
+        audit.record(
+            entity_type="training_module",
+            entity_id=mod.id,
+            action=AuditAction.UPDATE,
+        )
+        db.session.commit()
+        flash(_("admin.training.module.updated"), "success")
+        return redirect(url_for("admin_training.modules_index", course_id=course.id))
+    return render_template(
+        "admin/training/module_form.html",
+        course=course,
+        version=version,
+        form=form,
+        module=mod,
+        edit=True,
+    )
+
+
+@bp.route(
+    "/courses/<course_id>/modules/<module_id>/delete", methods=["POST"]
+)
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def modules_delete(course_id: str, module_id: str):
+    course, version = _resolve_active_version(course_id)
+    mod = db.session.get(TrainingModule, module_id)
+    if mod is None or mod.course_version_id != version.id:
+        abort(404)
+    audit.record(
+        entity_type="training_module",
+        entity_id=mod.id,
+        action="delete",
+    )
+    db.session.delete(mod)
+    db.session.commit()
+    flash(_("admin.training.module.deleted"), "success")
+    return redirect(url_for("admin_training.modules_index", course_id=course.id))
+
+
+# ─── Questions ──────────────────────────────────────────────────────
+
+
+@bp.route("/courses/<course_id>/questions")
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def questions_index(course_id: str):
+    course, version = _resolve_active_version(course_id)
+    return render_template(
+        "admin/training/questions_list.html",
+        course=course,
+        version=version,
+        questions=version.questions,
+    )
+
+
+def _save_options(question: TrainingQuestion, payload: list[tuple[dict, bool]]) -> None:
+    """Replace the question's options atomically with `payload`."""
+    for old in list(question.options):
+        db.session.delete(old)
+    db.session.flush()
+    for idx, (label, is_correct) in enumerate(payload):
+        db.session.add(
+            TrainingAnswerOption(
+                question_id=question.id,
+                order_index=idx,
+                label=label,
+                is_correct=is_correct,
+            )
+        )
+
+
+@bp.route("/courses/<course_id>/questions/new", methods=["GET", "POST"])
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def questions_new(course_id: str):
+    course, version = _resolve_active_version(course_id)
+    form = QuestionForm()
+    if form.validate_on_submit():
+        opts = form.options_payload()
+        if len(opts) < 2:
+            flash(_("admin.training.question.need_two_options"), "danger")
+        elif not any(c for _, c in opts):
+            flash(_("admin.training.question.need_correct"), "danger")
+        else:
+            next_idx = 1 + max(
+                (q.order_index for q in version.questions), default=-1
+            )
+            q = TrainingQuestion(
+                course_version_id=version.id,
+                order_index=next_idx,
+                prompt={
+                    "pl": form.prompt_pl.data.strip(),
+                    "en": form.prompt_en.data.strip(),
+                },
+                kind=form.kind.data,
+            )
+            db.session.add(q)
+            db.session.flush()
+            _save_options(q, opts)
+            audit.record(
+                entity_type="training_question",
+                entity_id=q.id,
+                action=AuditAction.CREATE,
+                diff={"course_version_id": version.id, "n_options": len(opts)},
+            )
+            db.session.commit()
+            flash(_("admin.training.question.created"), "success")
+            return redirect(
+                url_for("admin_training.questions_index", course_id=course.id)
+            )
+    return render_template(
+        "admin/training/question_form.html",
+        course=course,
+        version=version,
+        form=form,
+        edit=False,
+    )
+
+
+@bp.route(
+    "/courses/<course_id>/questions/<question_id>", methods=["GET", "POST"]
+)
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def questions_edit(course_id: str, question_id: str):
+    course, version = _resolve_active_version(course_id)
+    q = db.session.get(TrainingQuestion, question_id)
+    if q is None or q.course_version_id != version.id:
+        abort(404)
+    form = QuestionForm()
+    if request.method == "GET":
+        form.prompt_pl.data = (q.prompt or {}).get("pl", "")
+        form.prompt_en.data = (q.prompt or {}).get("en", "")
+        form.kind.data = q.kind
+        for slot, opt in zip((1, 2, 3, 4), q.options):
+            getattr(form, f"opt{slot}_pl").data = (opt.label or {}).get("pl", "")
+            getattr(form, f"opt{slot}_en").data = (opt.label or {}).get("en", "")
+            getattr(form, f"opt{slot}_correct").data = bool(opt.is_correct)
+    if form.validate_on_submit():
+        opts = form.options_payload()
+        if len(opts) < 2:
+            flash(_("admin.training.question.need_two_options"), "danger")
+        elif not any(c for _, c in opts):
+            flash(_("admin.training.question.need_correct"), "danger")
+        else:
+            q.prompt = {
+                "pl": form.prompt_pl.data.strip(),
+                "en": form.prompt_en.data.strip(),
+            }
+            q.kind = form.kind.data
+            _save_options(q, opts)
+            audit.record(
+                entity_type="training_question",
+                entity_id=q.id,
+                action=AuditAction.UPDATE,
+            )
+            db.session.commit()
+            flash(_("admin.training.question.updated"), "success")
+            return redirect(
+                url_for("admin_training.questions_index", course_id=course.id)
+            )
+    return render_template(
+        "admin/training/question_form.html",
+        course=course,
+        version=version,
+        form=form,
+        question=q,
+        edit=True,
+    )
+
+
+@bp.route(
+    "/courses/<course_id>/questions/<question_id>/delete", methods=["POST"]
+)
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def questions_delete(course_id: str, question_id: str):
+    course, version = _resolve_active_version(course_id)
+    q = db.session.get(TrainingQuestion, question_id)
+    if q is None or q.course_version_id != version.id:
+        abort(404)
+    audit.record(
+        entity_type="training_question",
+        entity_id=q.id,
+        action="delete",
+    )
+    db.session.delete(q)
+    db.session.commit()
+    flash(_("admin.training.question.deleted"), "success")
+    return redirect(url_for("admin_training.questions_index", course_id=course.id))
 
 
 # ─── Dashboard ──────────────────────────────────────────────────────

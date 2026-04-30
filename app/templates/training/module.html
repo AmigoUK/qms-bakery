@@ -5,7 +5,7 @@
   <div class="module-progress">{{ _('training.module.progress') }} {{ index + 1 }} / {{ total }}</div>
   <h1>{{ module.title.get(trainee_lang) or module.title.get('en') }}</h1>
   <article class="module-body">
-    {{ (module.body_md.get(trainee_lang) or module.body_md.get('en') or '') | safe }}
+    {{ (module.body_md.get(trainee_lang) or module.body_md.get('en') or '') | markdown_safe }}
   </article>
   <form method="post" action="{{ url_for('training.next_module', token=enrolment.magic_token) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>

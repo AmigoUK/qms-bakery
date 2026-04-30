@@ -44,7 +44,7 @@ def _make_trainee(phone: str = "+447700000001"):
 
 
 def _make_course_with_one_version() -> TrainingCourseVersion:
-    course = TrainingCourse(code="HACCP-REFRESHER")
+    course = TrainingCourse(code="HACCP-MODELS")
     db.session.add(course)
     db.session.flush()
     v1 = TrainingCourseVersion(

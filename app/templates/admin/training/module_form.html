@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ course.code }} {{ _('admin.training.modules') }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>
+    {% if edit %}{{ _('admin.training.module.edit') }}{% else %}{{ _('admin.training.modules.new') }}{% endif %}
+    <small>— {{ course.code }} v{{ version.version }}</small>
+  </h1>
+  <p class="meta-line">{{ _('admin.training.module.markdown_hint') }}</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('admin.training.module.title_pl') }}</span>
+      {{ form.title_pl(required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.module.title_en') }}</span>
+      {{ form.title_en(required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.module.body_pl') }}</span>
+      {{ form.body_pl(rows=12, required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.module.body_en') }}</span>
+      {{ form.body_en(rows=12, required=True) }}
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _('common.save') }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.modules_index', course_id=course.id) }}">
+      {{ _('common.cancel') }}
+    </a>
+  </form>
+</div>
+{% endblock %}

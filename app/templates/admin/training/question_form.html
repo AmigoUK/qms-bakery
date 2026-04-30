@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ course.code }} {{ _('admin.training.questions') }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>
+    {% if edit %}{{ _('admin.training.question.edit') }}{% else %}{{ _('admin.training.questions.new') }}{% endif %}
+    <small>— {{ course.code }} v{{ version.version }}</small>
+  </h1>
+  <p class="meta-line">{{ _('admin.training.question.hint') }}</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('admin.training.question.prompt_pl') }}</span>
+      {{ form.prompt_pl(rows=2, required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.question.prompt_en') }}</span>
+      {{ form.prompt_en(rows=2, required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.question.kind') }}</span>
+      {{ form.kind() }}
+    </label>
+
+    <h2>{{ _('admin.training.question.options') }}</h2>
+    {% for slot in [1, 2, 3, 4] %}
+      <fieldset class="option-slot">
+        <legend>{{ _('admin.training.question.option') }} {{ slot }}</legend>
+        <label>
+          <span>{{ _('admin.training.question.option_pl') }}</span>
+          {{ form['opt' ~ slot ~ '_pl']() }}
+        </label>
+        <label>
+          <span>{{ _('admin.training.question.option_en') }}</span>
+          {{ form['opt' ~ slot ~ '_en']() }}
+        </label>
+        <label class="exam-option">
+          {{ form['opt' ~ slot ~ '_correct']() }}
+          <span>{{ _('admin.training.question.option_correct') }}</span>
+        </label>
+      </fieldset>
+    {% endfor %}
+
+    <button class="btn btn-primary" type="submit">{{ _('common.save') }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.questions_index', course_id=course.id) }}">
+      {{ _('common.cancel') }}
+    </a>
+  </form>
+</div>
+{% endblock %}

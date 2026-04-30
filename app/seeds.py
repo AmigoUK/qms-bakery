@@ -8,6 +8,14 @@ from app.models.auth import Permission, Role, User, UserRoleEnum
 from app.models.haccp import CCPDefinition
 from app.models.production import Pipeline, PipelineStage, ProductionLine
 from app.models.salsa import ChecklistFrequency, SalsaChecklist
+from app.models.training import (
+    TrainingAnswerOption,
+    TrainingAssignment,
+    TrainingCourse,
+    TrainingCourseVersion,
+    TrainingModule,
+    TrainingQuestion,
+)
 from app.models.triggers import Responder, ResponderType, Trigger, trigger_responders
 from app.permissions import PERMISSIONS, Perm
 
@@ -102,7 +110,308 @@ def seed_initial(*, admin_email: str, admin_password: str) -> None:
     _seed_demo_ccps()
     _seed_demo_salsa()
     _seed_demo_triggers()
+    _seed_demo_training()
     db.session.commit()
+
+
+_DEMO_COURSE_CODE = "HACCP-REFRESHER"
+
+_DEMO_MODULES: list[tuple[dict, dict]] = [
+    (
+        {"pl": "Wprowadzenie do HACCP", "en": "Introduction to HACCP"},
+        {
+            "pl": (
+                "## Czym jest HACCP?\n\n"
+                "HACCP (Hazard Analysis and Critical Control Points) to systematyczne "
+                "podejście do bezpieczeństwa żywności. Jako pracownik produkcji "
+                "**masz osobistą odpowiedzialność** za przestrzeganie procedur "
+                "krytycznych punktów kontrolnych (CCP) na swojej linii.\n\n"
+                "### Twoje obowiązki\n\n"
+                "- Wykonuj pomiary CCP w wyznaczonych odstępach czasu\n"
+                "- Natychmiast zgłaszaj odchylenia od limitów krytycznych\n"
+                "- Stosuj procedury higieny osobistej i higieny maszyn\n"
+                "- Nie podejmuj samodzielnych decyzji w razie wątpliwości — "
+                "skonsultuj się z kierownikiem linii lub QA"
+            ),
+            "en": (
+                "## What is HACCP?\n\n"
+                "HACCP (Hazard Analysis and Critical Control Points) is a "
+                "systematic approach to food safety. As a production worker you "
+                "**personally own** the discipline at critical control points "
+                "(CCPs) on your line.\n\n"
+                "### Your responsibilities\n\n"
+                "- Take CCP measurements at the prescribed intervals\n"
+                "- Report deviations from critical limits immediately\n"
+                "- Follow personal hygiene and machine hygiene procedures\n"
+                "- Never improvise when in doubt — escalate to your line "
+                "manager or QA"
+            ),
+        },
+    ),
+    (
+        {"pl": "Krytyczne limity i pomiary", "en": "Critical limits and measurements"},
+        {
+            "pl": (
+                "## Limity krytyczne\n\n"
+                "Każdy CCP ma zdefiniowany **limit krytyczny** — wartość, której "
+                "przekroczenie oznacza utratę kontroli nad zagrożeniem. Limity "
+                "są ustalane na podstawie wymagań prawnych, danych naukowych i "
+                "wytycznych retailerów (SALSA, BRC, M&S, Tesco).\n\n"
+                "### Procedura pomiaru\n\n"
+                "1. Sprawdź, czy urządzenie jest skalibrowane\n"
+                "2. Wprowadź wynik do aplikacji QMS na tablecie\n"
+                "3. Jeżeli system zgłasza odchylenie, **wstrzymaj produkcję** "
+                "i zastosuj akcję korygującą zdefiniowaną dla danego CCP\n"
+                "4. Każdy pomiar — w limicie czy poza nim — jest zapisany w "
+                "dzienniku audytu (chain-hashed)"
+            ),
+            "en": (
+                "## Critical limits\n\n"
+                "Each CCP has a defined **critical limit** — the value beyond "
+                "which the hazard is no longer controlled. Limits come from "
+                "legal requirements, scientific data, and retailer standards "
+                "(SALSA, BRC, M&S, Tesco).\n\n"
+                "### Measurement procedure\n\n"
+                "1. Confirm the device is calibrated\n"
+                "2. Enter the reading into the QMS app on the tablet\n"
+                "3. If the system reports a deviation, **halt production** "
+                "and apply the corrective action defined for that CCP\n"
+                "4. Every measurement — within limits or out — is written to "
+                "the chain-hashed audit log"
+            ),
+        },
+    ),
+    (
+        {"pl": "Higiena i identyfikowalność", "en": "Hygiene and traceability"},
+        {
+            "pl": (
+                "## Higiena osobista\n\n"
+                "- Czyste rękawice, siatki na włosy, brak biżuterii\n"
+                "- Codzienne checklisty SALSA wypełniane na początku zmiany\n"
+                "- Zgłaszanie objawów chorobowych przed rozpoczęciem pracy\n\n"
+                "## Identyfikowalność\n\n"
+                "Każda partia, każdy pomiar i każdy podpis muszą być "
+                "powiązane z numerem zgłoszenia (ticketu) w systemie. "
+                "Audyt FSA / EHO oczekuje pełnej ścieżki od surowca do "
+                "wysyłki w mniej niż 4 godziny."
+            ),
+            "en": (
+                "## Personal hygiene\n\n"
+                "- Clean gloves, hairnets, no jewellery\n"
+                "- Daily SALSA checklists at the start of every shift\n"
+                "- Report illness symptoms before starting work\n\n"
+                "## Traceability\n\n"
+                "Every batch, every measurement, and every signature must be "
+                "linked to a ticket number in the system. FSA / EHO audits "
+                "expect a complete trail from raw material to dispatch in "
+                "under 4 hours."
+            ),
+        },
+    ),
+]
+
+_DEMO_QUESTIONS: list[tuple[dict, list[tuple[dict, bool]]]] = [
+    (
+        {
+            "pl": "Co oznacza skrót HACCP?",
+            "en": "What does HACCP stand for?",
+        },
+        [
+            (
+                {
+                    "pl": "Hazard Analysis and Critical Control Points",
+                    "en": "Hazard Analysis and Critical Control Points",
+                },
+                True,
+            ),
+            (
+                {
+                    "pl": "Hygiene Audit and Compliance Certification Procedure",
+                    "en": "Hygiene Audit and Compliance Certification Procedure",
+                },
+                False,
+            ),
+            (
+                {
+                    "pl": "High Altitude Cooking and Cooling Practice",
+                    "en": "High Altitude Cooking and Cooling Practice",
+                },
+                False,
+            ),
+        ],
+    ),
+    (
+        {
+            "pl": "Co należy zrobić w pierwszej kolejności po wykryciu odchylenia od limitu krytycznego?",
+            "en": "What should you do first after detecting a deviation from a critical limit?",
+        },
+        [
+            (
+                {
+                    "pl": "Wstrzymać produkcję i zastosować akcję korygującą",
+                    "en": "Halt production and apply the corrective action",
+                },
+                True,
+            ),
+            (
+                {
+                    "pl": "Kontynuować produkcję i zgłosić to po zmianie",
+                    "en": "Keep producing and report it after the shift",
+                },
+                False,
+            ),
+            (
+                {
+                    "pl": "Skorygować wynik ręcznie w dzienniku",
+                    "en": "Manually correct the reading in the log",
+                },
+                False,
+            ),
+        ],
+    ),
+    (
+        {
+            "pl": "Czy każdy pomiar CCP jest zapisywany w dzienniku audytu?",
+            "en": "Is every CCP measurement written to the audit log?",
+        },
+        [
+            (
+                {
+                    "pl": "Tak — wszystkie, niezależnie od wyniku",
+                    "en": "Yes — every reading, regardless of outcome",
+                },
+                True,
+            ),
+            (
+                {
+                    "pl": "Tylko te poza limitami",
+                    "en": "Only out-of-limit ones",
+                },
+                False,
+            ),
+        ],
+    ),
+    (
+        {
+            "pl": "Jakie są wymagania higieny osobistej na linii?",
+            "en": "What are the personal hygiene requirements on the line?",
+        },
+        [
+            (
+                {
+                    "pl": "Czyste rękawice, siatki na włosy, brak biżuterii",
+                    "en": "Clean gloves, hairnets, no jewellery",
+                },
+                True,
+            ),
+            (
+                {
+                    "pl": "Tylko czyste ubranie robocze",
+                    "en": "Just clean work clothing",
+                },
+                False,
+            ),
+            (
+                {
+                    "pl": "Tylko siatki na włosy w piekarni",
+                    "en": "Only hairnets in the bakery",
+                },
+                False,
+            ),
+        ],
+    ),
+    (
+        {
+            "pl": "Jaka jest oczekiwana czas pełnej identyfikowalności partii dla audytu FSA?",
+            "en": "What is the expected traceability turnaround for an FSA audit?",
+        },
+        [
+            (
+                {
+                    "pl": "Mniej niż 4 godziny",
+                    "en": "Under 4 hours",
+                },
+                True,
+            ),
+            (
+                {
+                    "pl": "Mniej niż 24 godziny",
+                    "en": "Under 24 hours",
+                },
+                False,
+            ),
+            (
+                {
+                    "pl": "Następnego dnia roboczego",
+                    "en": "Next business day",
+                },
+                False,
+            ),
+        ],
+    ),
+]
+
+
+def _seed_demo_training() -> None:
+    if TrainingCourse.query.filter_by(code=_DEMO_COURSE_CODE).first():
+        return
+    course = TrainingCourse(
+        code=_DEMO_COURSE_CODE,
+        description="Annual HACCP knowledge refresher for floor operators.",
+    )
+    db.session.add(course)
+    db.session.flush()
+    version = TrainingCourseVersion(
+        course_id=course.id,
+        version=1,
+        is_active=True,
+        title={"pl": "Odświeżenie HACCP", "en": "HACCP Refresher"},
+        summary={
+            "pl": "10-minutowy kurs odświeżający kluczowe zasady HACCP.",
+            "en": "A 10-minute refresher of the key HACCP principles.",
+        },
+        pass_threshold=0.7,
+        validity_months=12,
+        link_ttl_days=7,
+    )
+    db.session.add(version)
+    db.session.flush()
+    for idx, (title, body) in enumerate(_DEMO_MODULES):
+        db.session.add(
+            TrainingModule(
+                course_version_id=version.id,
+                order_index=idx,
+                title=title,
+                body_md=body,
+            )
+        )
+    for idx, (prompt, options) in enumerate(_DEMO_QUESTIONS):
+        question = TrainingQuestion(
+            course_version_id=version.id,
+            order_index=idx,
+            prompt=prompt,
+            kind="single_choice",
+        )
+        db.session.add(question)
+        db.session.flush()
+        for opt_idx, (label, is_correct) in enumerate(options):
+            db.session.add(
+                TrainingAnswerOption(
+                    question_id=question.id,
+                    order_index=opt_idx,
+                    label=label,
+                    is_correct=is_correct,
+                )
+            )
+    # Default audience: every operator, annual recurrence.
+    db.session.add(
+        TrainingAssignment(
+            course_id=course.id,
+            role_code="operator",
+            recurrence_months=12,
+        )
+    )
+    db.session.flush()
 
 
 def _seed_demo_triggers() -> None:

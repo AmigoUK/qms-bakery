@@ -25,6 +25,8 @@ dependencies = [
     "paho-mqtt>=2.1.0",
     "weasyprint>=62",
     "requests>=2.32",
+    "markdown>=3.6",
+    "bleach>=6.1",
 ]
 
 [project.optional-dependencies]

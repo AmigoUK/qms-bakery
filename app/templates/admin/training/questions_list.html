@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ course.code }} {{ _('admin.training.questions') }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ course.code }} v{{ version.version }} — {{ _('admin.training.questions') }}</h1>
+  <a class="btn btn-primary" href="{{ url_for('admin_training.questions_new', course_id=course.id) }}">
+    {{ _('admin.training.questions.new') }}
+  </a>
+</div>
+
+<p>
+  <a href="{{ url_for('admin_training.courses_edit', course_id=course.id) }}">← {{ _('admin.training.course') }}</a>
+  &nbsp;·&nbsp;
+  <a href="{{ url_for('admin_training.modules_index', course_id=course.id) }}">{{ _('admin.training.modules') }}</a>
+</p>
+
+{% if questions %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>{{ _('admin.training.question.prompt') }}</th>
+      <th>{{ _('admin.training.question.kind') }}</th>
+      <th>{{ _('admin.training.question.options') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for q in questions %}
+    <tr>
+      <td data-label="#">{{ q.order_index + 1 }}</td>
+      <td data-label="Prompt">{{ q.prompt.get('en') }}</td>
+      <td data-label="Kind">{{ q.kind }}</td>
+      <td data-label="Options">{{ q.options|length }}</td>
+      <td data-label="">
+        <a href="{{ url_for('admin_training.questions_edit', course_id=course.id, question_id=q.id) }}">
+          {{ _('admin.users.edit') }}
+        </a>
+        <form method="post" action="{{ url_for('admin_training.questions_delete', course_id=course.id, question_id=q.id) }}"
+              style="display:inline" onsubmit="return confirm('{{ _('admin.training.question.confirm_delete') }}')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          <button class="btn btn-ghost" type="submit">{{ _('admin.training.delete') }}</button>
+        </form>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">{{ _('admin.training.questions.empty') }}</p>
+{% endif %}
+{% endblock %}

@@ -67,7 +67,7 @@ def test_scheduler_issues_for_due_trainee(app):
         db.session.add(
             TrainingAssignment(course_id=course.id, role_code="operator")
         )
-        training_service.create_trainee(
+        trainee = training_service.create_trainee(
             phone="+447700100001",
             full_name="Sched User",
             role_code="operator",
@@ -75,11 +75,20 @@ def test_scheduler_issues_for_due_trainee(app):
         db.session.commit()
 
         summary = training_scheduler.run_once(app)
-        assert summary["issued"] == 1
+        # Trainee is operator → matches both HACCP-SCHED (this test) AND
+        # HACCP-REFRESHER (seeded). Count enrolments specifically for
+        # the test's own course rather than the global total.
+        for_test_course = [
+            i for i in summary["items"] if i["course_code"] == course.code
+        ]
+        assert len(for_test_course) == 1
 
-        # Idempotent: second tick is a no-op (open enrolment exists)
+        # Idempotent: second tick is a no-op for this course
         summary = training_scheduler.run_once(app)
-        assert summary["issued"] == 0
+        for_test_course = [
+            i for i in summary["items"] if i["course_code"] == course.code
+        ]
+        assert len(for_test_course) == 0
 
 
 def test_scheduler_skips_qa_when_assignment_is_operator_only(app):
