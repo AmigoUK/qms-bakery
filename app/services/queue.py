@@ -13,14 +13,19 @@ Redis connection.
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from flask import Flask, current_app
 from rq import Queue, Retry
 
-QUEUE_NAME = "qms:webhooks"
-EMAIL_QUEUE_NAME = "qms:emails"
-SMS_QUEUE_NAME = "qms:sms"
+# See app/services/stream.py for the rationale behind reading the prefix
+# at import time. Same env var, same constraints.
+_REDIS_KEY_PREFIX = os.environ.get("REDIS_KEY_PREFIX", "qms")
+
+QUEUE_NAME = f"{_REDIS_KEY_PREFIX}:webhooks"
+EMAIL_QUEUE_NAME = f"{_REDIS_KEY_PREFIX}:emails"
+SMS_QUEUE_NAME = f"{_REDIS_KEY_PREFIX}:sms"
 RETRY_INTERVALS_SECONDS = [180, 540, 1620]  # 3, 9, 27 minutes
 
 

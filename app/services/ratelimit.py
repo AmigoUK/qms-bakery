@@ -26,12 +26,15 @@ from __future__ import annotations
 
 import functools
 import logging
+import os
 import time
 from typing import Callable
 
 from flask import current_app, jsonify, make_response, request
 
 from app.services.stream import get_redis
+
+_REDIS_KEY_PREFIX = os.environ.get("REDIS_KEY_PREFIX", "qms")
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +72,7 @@ def check(
         r = get_redis()
         now = int(time.time())
         window_index = now // window_seconds
-        key = f"ratelimit:{bucket}:{ident}:{window_index}"
+        key = f"{_REDIS_KEY_PREFIX}:ratelimit:{bucket}:{ident}:{window_index}"
         count = r.incr(key)
         if count == 1:
             # First request in this window — set the TTL so the key

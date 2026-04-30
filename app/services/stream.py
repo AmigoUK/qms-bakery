@@ -14,14 +14,22 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any, Callable
 
 from flask import Flask, current_app
 
 logger = logging.getLogger(__name__)
 
-STREAM_NAME = "qms:readings"
-CONSUMER_GROUP = "qms-workers"
+# Redis key prefix; set per-deployment so two stacks (e.g. staging + prod)
+# can share one Redis without colliding on stream names, queue names, or
+# rate-limit keys. Read at import time because these identifiers are
+# baked into RQ Queue objects and stream consumer groups — they are not
+# meant to change at runtime.
+_REDIS_KEY_PREFIX = os.environ.get("REDIS_KEY_PREFIX", "qms")
+
+STREAM_NAME = f"{_REDIS_KEY_PREFIX}:readings"
+CONSUMER_GROUP = f"{_REDIS_KEY_PREFIX}-workers"
 MAX_LEN = 100_000
 DEFAULT_BLOCK_MS = 5_000
 DEFAULT_BATCH = 16
