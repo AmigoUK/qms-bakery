@@ -109,6 +109,51 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
         run_sched(app)
 
+    @app.cli.command("totp-rotate-keys")
+    @click.option(
+        "--dry-run/--apply", default=True,
+        help="--dry-run reports counts only (default); --apply writes back.",
+    )
+    def _totp_rotate_keys_cmd(dry_run: bool):
+        """Re-encrypt every users.totp_secret under the current primary key.
+
+        Run after promoting a new TOTP_ENC_KEY (and listing the old one in
+        TOTP_ENC_KEYS_OLD). Once this completes, every row is on the
+        primary key and TOTP_ENC_KEYS_OLD can be dropped from the env.
+        """
+        from app.extensions import db
+        from app.models import User
+        from app.services import totp_crypto
+
+        with app.app_context():
+            rows = User.query.filter(User.totp_secret.isnot(None)).all()
+            stale = []
+            for user in rows:
+                if not totp_crypto.is_on_primary_key(user.totp_secret):
+                    stale.append(user)
+            click.echo(
+                f"Total TOTP-enrolled users: {len(rows)}; "
+                f"on primary key: {len(rows) - len(stale)}; "
+                f"to rotate: {len(stale)}"
+            )
+            if not stale:
+                return
+            if dry_run:
+                click.echo("DRY RUN — re-run with --apply to rotate.")
+                return
+            for user in stale:
+                try:
+                    plaintext = totp_crypto.decrypt(user.totp_secret)
+                except totp_crypto.TOTPCryptoError as exc:
+                    click.echo(
+                        f"  SKIP user={user.id} ({user.email}): "
+                        f"undecryptable under any configured key ({exc})"
+                    )
+                    continue
+                user.totp_secret = totp_crypto.encrypt(plaintext)
+            db.session.commit()
+            click.echo(f"Rotated {len(stale)} row(s).")
+
     @app.cli.command("training-issue-link")
     @click.option("--phone", required=True, help="E.164 phone number, e.g. +447700000000")
     @click.option("--course", "course_code", default="HACCP-REFRESHER", show_default=True)
@@ -280,6 +325,11 @@ def _default_config() -> dict[str, Any]:
         # TOTP-protected roles actually enrol; missing key is flagged at
         # startup and refused at first encrypt/decrypt attempt.
         "TOTP_ENC_KEY": os.environ.get("TOTP_ENC_KEY"),
+        # Comma-separated list of historical TOTP encryption keys. During
+        # rotation, move the previous TOTP_ENC_KEY here so existing rows
+        # keep decrypting; run `flask totp-rotate-keys` to bulk-re-encrypt
+        # under the new primary, then drop the old keys from the env.
+        "TOTP_ENC_KEYS_OLD": os.environ.get("TOTP_ENC_KEYS_OLD", ""),
         "LOCKOUT_THRESHOLD": int(os.environ.get("LOCKOUT_THRESHOLD", "5")),
         "LOCKOUT_MINUTES": int(os.environ.get("LOCKOUT_MINUTES", "15")),
         "AUTO_CREATE_TABLES": False,

@@ -176,6 +176,33 @@ is short-circuited to permanent failure (see `app/jobs/sms.py`) and lands in the
 DLQ at `/admin/dlq` rather than retrying. Fix the env, drop the DLQ entry, and
 re-issue.
 
+## TOTP key rotation
+
+`users.totp_secret` is encrypted with `TOTP_ENC_KEY` (Fernet, AES-128 + HMAC).
+To rotate without breaking already-enrolled users:
+
+```bash
+# 1. Generate a new key
+NEW=$(python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())")
+
+# 2. Demote the current key to OLD, install the new one as primary
+sed -i "s|^TOTP_ENC_KEY=.*|TOTP_ENC_KEY=$NEW|" .env
+echo "TOTP_ENC_KEYS_OLD=$OLD_KEY" >> .env  # OLD_KEY = the value being retired
+
+# 3. Restart the app — every existing row decrypts via the OLD key,
+#    every new enrolment writes under the NEW key.
+
+# 4. Bulk-rotate existing rows onto the NEW key
+flask totp-rotate-keys --apply
+# expect: "Rotated N row(s)."
+
+# 5. Drop OLD from the env once the rotation report shows "to rotate: 0"
+sed -i 's|^TOTP_ENC_KEYS_OLD=.*|TOTP_ENC_KEYS_OLD=|' .env
+```
+
+`TOTP_ENC_KEYS_OLD` is comma-separated, so multiple historical keys can be
+carried during a multi-step rotation.
+
 ## Security audits
 
 `pip-audit` runs in CI on every push to `main`, every PR that touches `pyproject.toml`, and weekly on Monday 06:00 UTC (`.github/workflows/security.yml`). Run it locally:
