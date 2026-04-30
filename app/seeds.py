@@ -102,8 +102,15 @@ ROLE_LABELS: dict[str, tuple[str, str]] = {
 }
 
 
-def seed_initial(admin_email: str = "admin@local", admin_password: str = "ChangeMe123!") -> None:
-    """Idempotent seeding - safe to call multiple times."""
+def seed_initial(*, admin_email: str, admin_password: str) -> None:
+    """Idempotent seeding - safe to call multiple times.
+
+    Admin credentials are required arguments — never embed them as
+    defaults so a misconfigured first-run can't silently provision a
+    well-known account.
+    """
+    if not admin_email or not admin_password:
+        raise ValueError("admin_email and admin_password are required for seeding")
     _seed_permissions()
     _seed_roles()
     _seed_admin(admin_email, admin_password)

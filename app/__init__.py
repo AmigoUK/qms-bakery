@@ -17,6 +17,12 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     if config:
         app.config.update(config)
 
+    if not app.config.get("SECRET_KEY"):
+        raise RuntimeError(
+            "SECRET_KEY is required. Set the SECRET_KEY environment variable "
+            "(generate one with: python -c \"import secrets; print(secrets.token_hex(32))\")"
+        )
+
     db.init_app(app)
     migrate.init_app(app, db)
     login_manager.init_app(app)
@@ -62,9 +68,17 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
         from app.seeds import seed_initial
 
+        admin_email = os.environ.get("INITIAL_ADMIN_EMAIL")
+        admin_password = os.environ.get("INITIAL_ADMIN_PASSWORD")
+        if not admin_email or not admin_password:
+            raise RuntimeError(
+                "INITIAL_ADMIN_EMAIL and INITIAL_ADMIN_PASSWORD must be set "
+                "before running `flask init-db` — refusing to seed a default admin."
+            )
+
         with app.app_context():
             upgrade()
-            seed_initial()
+            seed_initial(admin_email=admin_email, admin_password=admin_password)
 
     @app.cli.command("mqtt-bridge")
     def _mqtt_bridge_cmd():
@@ -98,7 +112,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 def _default_config() -> dict[str, Any]:
     db_url = os.environ.get("DATABASE_URL", "sqlite:///qms.db")
     return {
-        "SECRET_KEY": os.environ.get("SECRET_KEY", "dev-secret-change-me"),
+        "SECRET_KEY": os.environ.get("SECRET_KEY"),
         "SQLALCHEMY_DATABASE_URI": db_url,
         "SQLALCHEMY_TRACK_MODIFICATIONS": False,
         "DEFAULT_LANGUAGE": os.environ.get("DEFAULT_LANGUAGE", "en"),
