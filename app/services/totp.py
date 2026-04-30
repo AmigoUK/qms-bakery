@@ -13,6 +13,7 @@ KMS, and never expose the secret via any API or template after enrollment.
 from __future__ import annotations
 
 import pyotp
+from flask import current_app
 
 from app.models._base import utcnow
 from app.models.auth import User, UserRoleEnum
@@ -26,7 +27,13 @@ ROLES_REQUIRING_2FA: frozenset[str] = frozenset(
     }
 )
 
-ISSUER = "QMS-Bakery"
+
+def _issuer() -> str:
+    """The label that appears in the user's authenticator app. Read from
+    config so multi-tenant or rebranded deployments don't need a code
+    change (and can keep already-enrolled users working — TOTP itself
+    only depends on the secret, not the issuer)."""
+    return current_app.config["TOTP_ISSUER"]
 
 
 def role_requires_totp(role_code: str | None) -> bool:
@@ -42,7 +49,7 @@ def begin_enrollment(user: User) -> tuple[str, str]:
     secret = pyotp.random_base32()
     user.totp_secret = secret
     user.totp_enrolled_at = None
-    uri = pyotp.totp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=ISSUER)
+    uri = pyotp.totp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=_issuer())
     return secret, uri
 
 

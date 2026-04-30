@@ -141,6 +141,9 @@ def _default_config() -> dict[str, Any]:
         "REMEMBER_COOKIE_SAMESITE": "Lax",
         "REMEMBER_COOKIE_SECURE": os.environ.get("SESSION_COOKIE_SECURE", "1") not in ("0", "false", "False"),
         "BCRYPT_LOG_ROUNDS": int(os.environ.get("BCRYPT_LOG_ROUNDS", "12")),
+        # Label shown by Authenticator apps. Doesn't affect verification
+        # — already-enrolled users still work after a rebrand.
+        "TOTP_ISSUER": os.environ.get("TOTP_ISSUER", "QMS"),
         "LOCKOUT_THRESHOLD": int(os.environ.get("LOCKOUT_THRESHOLD", "5")),
         "LOCKOUT_MINUTES": int(os.environ.get("LOCKOUT_MINUTES", "15")),
         "AUTO_CREATE_TABLES": False,

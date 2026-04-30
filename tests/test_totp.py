@@ -28,7 +28,8 @@ def test_begin_and_complete_enrollment(app):
         assert user.totp_secret == secret
         assert user.totp_enrolled_at is None
         assert "otpauth://totp/" in uri
-        assert "QMS-Bakery" in uri
+        # Issuer is configurable via TOTP_ISSUER; default in tests is "QMS"
+        assert f"issuer={app.config['TOTP_ISSUER']}" in uri
 
         # Wrong code rejected.
         assert totp_service.complete_enrollment(user, "000000") is False

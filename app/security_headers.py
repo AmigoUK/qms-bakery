@@ -2,15 +2,13 @@
 
 Set as an `@app.after_request` hook so every response carries:
 
-  * Content-Security-Policy — `'self'` for everything, allowing the
-    SortableJS CDN under script-src. No `'unsafe-inline'` or
-    `'unsafe-eval'` — inline event handlers and inline `<script>` blocks
-    have been moved to static files (see `static/js/`). When a future
-    template needs an inline script, prefer extracting it; only relax
-    the policy as a last resort.
-  * Strict-Transport-Security — only when the request is HTTPS, so dev
-    HTTP doesn't fail browser HSTS pre-load checks. 1-year max-age,
-    includeSubDomains, preload-eligible.
+  * Content-Security-Policy — `'self'` for everything. Vendor JS (e.g.
+    SortableJS) is self-hosted under /static/vendor/ rather than pulled
+    from a CDN, so the policy stays a strict `'self'` allow-list with
+    no `'unsafe-inline'` or `'unsafe-eval'`. When a future template
+    needs an inline script, prefer extracting it.
+  * Strict-Transport-Security — only when the request is HTTPS. Max-age
+    is configurable via HSTS_MAX_AGE_SECONDS.
   * X-Frame-Options DENY — defence in depth alongside CSP frame-ancestors;
     clickjacking protection on every page.
   * X-Content-Type-Options nosniff — browsers stop guessing MIME types.
@@ -27,7 +25,7 @@ from __future__ import annotations
 
 from flask import Flask
 
-DEFAULT_SCRIPT_SRC = ("'self'", "https://cdn.jsdelivr.net")
+DEFAULT_SCRIPT_SRC = ("'self'",)
 DEFAULT_STYLE_SRC = ("'self'",)
 DEFAULT_IMG_SRC = ("'self'", "data:")
 DEFAULT_CONNECT_SRC = ("'self'",)

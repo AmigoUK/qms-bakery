@@ -21,12 +21,15 @@ def test_csp_present_on_html_response(client):
     assert "'unsafe-eval'" not in csp
 
 
-def test_csp_allows_jsdelivr_for_sortablejs(client):
-    """The pipeline editor's SortableJS lives on jsdelivr — without this
-    the editor would silently break under the tightened CSP."""
+def test_csp_script_src_is_self_only(client):
+    """SortableJS is now self-hosted under /static/vendor/, so the CSP
+    should not whitelist any external CDN. If a future template adds
+    one, it must arrive with a corresponding CSP_EXTRA_SCRIPT_SRC entry
+    rather than a silent CDN dependency."""
     resp = client.get("/healthz")
     csp = resp.headers.get("Content-Security-Policy", "")
-    assert "https://cdn.jsdelivr.net" in csp
+    assert "script-src 'self'" in csp
+    assert "cdn.jsdelivr.net" not in csp
 
 
 def test_x_frame_options_deny(client):
