@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
+import click
 from flask import Flask, g, redirect, request, url_for
 
 from app.extensions import csrf, db, login_manager, migrate
@@ -107,6 +108,93 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         from app.workers.training_scheduler import run as run_sched
 
         run_sched(app)
+
+    @app.cli.command("training-issue-link")
+    @click.option("--phone", required=True, help="E.164 phone number, e.g. +447700000000")
+    @click.option("--course", "course_code", default="HACCP-REFRESHER", show_default=True)
+    @click.option("--name", default="Smoke Test User", show_default=True)
+    @click.option(
+        "--role", "role_code", default="operator", show_default=True,
+        help="Trainee role code; only matters if you're then exercising recurrence.",
+    )
+    @click.option(
+        "--dry-run/--send", default=False,
+        help="--dry-run prints the link without queueing the SMS (default --send).",
+    )
+    def _training_issue_link_cmd(
+        phone: str, course_code: str, name: str, role_code: str, dry_run: bool
+    ):
+        """Live-SMS smoke helper: create-or-reuse a trainee with the given
+        phone, issue an enrolment, print the magic-link URL, and queue
+        the SMS via the existing ClickSend infra. Use --dry-run to skip
+        the actual SMS enqueue (useful when validating URL shape before
+        burning ClickSend credit)."""
+        from app.extensions import db
+        from app.models import Trainee
+        from app.services import training as training_service
+
+        with app.app_context():
+            course = training_service.get_course_by_code(course_code)
+            if course is None:
+                raise click.ClickException(f"Course {course_code!r} not found.")
+
+            trainee = Trainee.query.filter_by(phone=phone).first()
+            if trainee is None:
+                trainee = training_service.create_trainee(
+                    phone=phone,
+                    full_name=name,
+                    role_code=role_code,
+                )
+                click.echo(f"Created trainee {trainee.id} ({phone}, role={role_code})")
+            else:
+                click.echo(f"Reusing trainee {trainee.id} ({phone})")
+
+            if dry_run:
+                # Build the link without enqueuing the SMS.
+                from datetime import datetime, timedelta, timezone
+                from app.models import TrainingEnrolment
+                from app.services import training_links
+
+                version = course.active_version
+                if version is None:
+                    raise click.ClickException(f"Course {course_code} has no active version.")
+                issued_at = datetime.now(timezone.utc)
+                expires_at = issued_at + timedelta(days=version.link_ttl_days)
+                enrolment = TrainingEnrolment(
+                    trainee_id=trainee.id,
+                    course_version_id=version.id,
+                    magic_token="",
+                    issued_at=issued_at,
+                    expires_at=expires_at,
+                    source="manual",
+                    source_ref="cli-dry-run",
+                )
+                db.session.add(enrolment)
+                db.session.flush()
+                enrolment.magic_token = training_links.issue_token(
+                    enrolment.id, expires_at
+                )
+                db.session.commit()
+                base = app.config.get("TRAINING_BASE_URL", "")
+                url = f"{base.rstrip('/')}/training/take/{enrolment.magic_token}"
+                click.echo(f"DRY RUN — would send SMS to {phone}")
+                click.echo(f"  URL: {url}")
+                click.echo(f"  expires: {expires_at:%Y-%m-%d %H:%M UTC}")
+                return
+
+            enrolment = training_service.enrol(
+                trainee=trainee, course=course, source="manual", source_ref="cli"
+            )
+            db.session.commit()
+            base = app.config.get("TRAINING_BASE_URL", "")
+            url = f"{base.rstrip('/')}/training/take/{enrolment.magic_token}"
+            click.echo(f"Enrolment {enrolment.id} created.")
+            click.echo(f"  URL:     {url}")
+            click.echo(f"  expires: {enrolment.expires_at:%Y-%m-%d %H:%M UTC}")
+            click.echo(
+                "  SMS queued on the qms:sms RQ queue — "
+                "run `flask rq-worker` to deliver it (or check the worker container's log)."
+            )
 
     @app.context_processor
     def _inject_globals():

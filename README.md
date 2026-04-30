@@ -144,6 +144,38 @@ PYTHONPATH=. python3 -m pytest -v
 
 Tests use SQLite in-memory for speed; production runs on PostgreSQL 16 (see `docker-compose.yml`).
 
+## Live SMS smoke
+
+Validate the training feature end-to-end against a real phone before going live:
+
+```bash
+# 0. Pre-flight: confirm credentials and base URL are set
+set -a && source .env && set +a
+echo "$CLICKSEND_USERNAME / $TRAINING_BASE_URL"
+
+# 1. Dry-run first — no SMS, just verify the URL renders on a phone
+flask training-issue-link --phone "+447XXXXXXXXX" --dry-run
+# Open the URL on the phone; landing page should show "HACCP Refresher".
+
+# 2. Real send — queues an SMS on the qms:sms RQ queue
+flask training-issue-link --phone "+447XXXXXXXXX"
+
+# 3. Watch the worker drain the queue
+flask rq-worker
+# Look for: "sms sent: to=['+447...'] status=200" or a ClickSend error.
+
+# 4. On the phone: tap the link → walk through modules → take exam
+#    → sign declaration → result + cert PDF.
+
+# 5. Verify the audit trail is intact
+flask shell -c "from app.services.audit import verify_chain; print(verify_chain())"
+```
+
+If step 3 logs a ClickSend 4xx, the credentials or sender ID are wrong; the job
+is short-circuited to permanent failure (see `app/jobs/sms.py`) and lands in the
+DLQ at `/admin/dlq` rather than retrying. Fix the env, drop the DLQ entry, and
+re-issue.
+
 ## Security audits
 
 `pip-audit` runs in CI on every push to `main`, every PR that touches `pyproject.toml`, and weekly on Monday 06:00 UTC (`.github/workflows/security.yml`). Run it locally:
