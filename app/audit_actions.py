@@ -39,3 +39,12 @@ class AuditAction:
     # Ops
     DLQ_REQUEUE = "dlq_requeue"
     DLQ_DISCARD = "dlq_discard"
+
+    # Training
+    TRAINING_ENROLLED = "training_enrolled"
+    TRAINING_LINK_SENT = "training_link_sent"
+    TRAINING_ATTEMPT_STARTED = "training_attempt_started"
+    TRAINING_ATTEMPT_SUBMITTED = "training_attempt_submitted"
+    TRAINING_DECLARED = "training_declared"
+    TRAINING_CERTIFIED = "training_certified"
+    TRAINING_LINK_EXPIRED = "training_link_expired"

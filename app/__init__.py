@@ -207,4 +207,17 @@ def _default_config() -> dict[str, Any]:
         "CLICKSEND_BASE_URL": os.environ.get(
             "CLICKSEND_BASE_URL", "https://rest.clicksend.com/v3"
         ),
+        # Training feature config
+        "TRAINING_DEFAULT_LINK_TTL_DAYS": int(
+            os.environ.get("TRAINING_DEFAULT_LINK_TTL_DAYS", "7")
+        ),
+        "TRAINING_DEFAULT_PASS_THRESHOLD": float(
+            os.environ.get("TRAINING_DEFAULT_PASS_THRESHOLD", "0.7")
+        ),
+        # Distinct from SECRET_KEY so it can be rotated independently
+        # to invalidate every outstanding magic link without disturbing
+        # web sessions. Falls back to SECRET_KEY for dev convenience.
+        "TRAINING_LINK_SIGNING_KEY": os.environ.get("TRAINING_LINK_SIGNING_KEY"),
+        # Public base URL embedded in SMS bodies (e.g. "https://qms.example.com")
+        "TRAINING_BASE_URL": os.environ.get("TRAINING_BASE_URL", ""),
     }

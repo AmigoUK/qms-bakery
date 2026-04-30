@@ -99,10 +99,14 @@ class TrainingCourse(UUIDPKMixin, TimestampMixin, db.Model):
 
     @property
     def active_version(self) -> "TrainingCourseVersion | None":
-        for v in self.versions:
-            if v.is_active:
-                return v
-        return None
+        # Direct query rather than walking self.versions — the relationship
+        # cache can be stale when a fresh version was just added in the
+        # same session but a flush hasn't refreshed the back-population.
+        return (
+            TrainingCourseVersion.query.filter_by(course_id=self.id, is_active=True)
+            .order_by(TrainingCourseVersion.version.desc())
+            .first()
+        )
 
     def __repr__(self) -> str:
         return f"<TrainingCourse {self.code}>"
