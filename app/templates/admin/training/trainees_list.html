@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.trainees') }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ _('admin.training.trainees') }}</h1>
+  <a class="btn btn-primary" href="{{ url_for('admin_training.trainees_new') }}">
+    {{ _('admin.training.trainees.new') }}
+  </a>
+</div>
+{% if trainees %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('admin.training.trainee.name') }}</th>
+      <th>{{ _('admin.training.trainee.phone') }}</th>
+      <th>{{ _('admin.training.trainee.role') }}</th>
+      <th>{{ _('admin.users.active') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for t in trainees %}
+    <tr>
+      <td data-label="Name">{{ t.full_name }}</td>
+      <td data-label="Phone">{{ t.phone }}</td>
+      <td data-label="Role">{{ t.role_code }}</td>
+      <td data-label="Active">{% if t.is_active %}{{ _('common.yes') }}{% else %}{{ _('common.no') }}{% endif %}</td>
+      <td data-label="">
+        <a href="{{ url_for('admin_training.trainees_edit', trainee_id=t.id) }}">{{ _('admin.users.edit') }}</a>
+        ·
+        <a href="{{ url_for('admin_training.trainees_issue', trainee_id=t.id) }}">{{ _('admin.training.issue_link') }}</a>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">{{ _('admin.training.trainees.empty') }}</p>
+{% endif %}
+{% endblock %}

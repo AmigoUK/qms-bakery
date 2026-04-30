@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.trainees') }}{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>
+    {% if edit %}{{ _('admin.training.trainee.edit') }}{% else %}{{ _('admin.training.trainees.new') }}{% endif %}
+  </h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('admin.training.trainee.phone') }}</span>
+      {{ form.phone(required=True, autocomplete="tel", placeholder="+447700000000") }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.trainee.name') }}</span>
+      {{ form.full_name(required=True, autocomplete="name") }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.trainee.role') }}</span>
+      {{ form.role_code(required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.trainee.line') }}</span>
+      {{ form.line_code() }}
+    </label>
+    <label>
+      <span>{{ _('admin.users.language') }}</span>
+      {{ form.language() }}
+    </label>
+    <label class="exam-option">
+      {{ form.is_active() }}
+      <span>{{ _('admin.users.active') }}</span>
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _('common.save') }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_index') }}">{{ _('common.cancel') }}</a>
+  </form>
+</div>
+{% endblock %}

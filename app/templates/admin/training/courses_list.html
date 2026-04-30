@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.courses') }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ _('admin.training.courses') }}</h1>
+  <a class="btn btn-primary" href="{{ url_for('admin_training.courses_new') }}">
+    {{ _('admin.training.courses.new') }}
+  </a>
+</div>
+{% if courses %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('admin.code') }}</th>
+      <th>{{ _('admin.training.course.versions') }}</th>
+      <th>{{ _('admin.users.active') }}</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for c in courses %}
+    <tr>
+      <td data-label="Code">{{ c.code }}</td>
+      <td data-label="Versions">v{{ (c.active_version.version if c.active_version else 0) }} ({{ c.versions|length }})</td>
+      <td data-label="Active">{% if c.is_active %}{{ _('common.yes') }}{% else %}{{ _('common.no') }}{% endif %}</td>
+      <td data-label=""><a href="{{ url_for('admin_training.courses_edit', course_id=c.id) }}">{{ _('admin.users.edit') }}</a></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">{{ _('admin.training.courses.empty') }}</p>
+{% endif %}
+{% endblock %}

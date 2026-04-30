@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.courses') }}{% endblock %}
+{% block content %}
+{% if not edit %}
+<div class="card card-narrow">
+  <h1>{{ _('admin.training.courses.new') }}</h1>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('admin.code') }}</span>
+      {{ form.code(required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.course.description') }}</span>
+      {{ form.description(rows=3) }}
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _('common.save') }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.courses_index') }}">{{ _('common.cancel') }}</a>
+  </form>
+</div>
+{% else %}
+<div class="card">
+  <h1>{{ course.code }}</h1>
+  <p>{{ _('admin.training.course.edit_intro') }}</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('admin.training.course.title_pl') }}</span>
+      {{ form.title_pl(required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.course.title_en') }}</span>
+      {{ form.title_en(required=True) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.course.summary_pl') }}</span>
+      {{ form.summary_pl(rows=3) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.course.summary_en') }}</span>
+      {{ form.summary_en(rows=3) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.course.pass_threshold') }}</span>
+      {{ form.pass_threshold(type='number', step='0.01', min='0', max='1') }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.course.validity_months') }}</span>
+      {{ form.validity_months(type='number', min='1', max='120') }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.course.link_ttl_days') }}</span>
+      {{ form.link_ttl_days(type='number', min='1', max='90') }}
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _('admin.training.course.save_as_new_version') }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.courses_index') }}">{{ _('common.cancel') }}</a>
+  </form>
+</div>
+
+{% if versions %}
+<div class="card">
+  <h2>{{ _('admin.training.course.history') }}</h2>
+  <table class="data">
+    <thead><tr><th>v</th><th>{{ _('admin.users.active') }}</th><th>{{ _('admin.training.course.title') }}</th></tr></thead>
+    <tbody>
+    {% for v in versions %}
+      <tr>
+        <td data-label="v">v{{ v.version }}</td>
+        <td data-label="Active">{% if v.is_active %}{{ _('common.yes') }}{% else %}{{ _('common.no') }}{% endif %}</td>
+        <td data-label="Title">{{ v.title.get('en') }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

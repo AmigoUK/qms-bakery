@@ -41,6 +41,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         return redirect(url_for("auth.login", next=request.path))
 
     from app.blueprints.admin import bp as admin_bp
+    from app.blueprints.admin_training import bp as admin_training_bp
     from app.blueprints.api import bp as api_bp
     from app.blueprints.auth import bp as auth_bp
     from app.blueprints.dashboard import bp as dashboard_bp
@@ -58,6 +59,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(haccp_bp, url_prefix="/haccp")
     app.register_blueprint(salsa_bp, url_prefix="/salsa")
     app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(admin_training_bp)
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(reports_bp, url_prefix="/reports")
     app.register_blueprint(health_bp)

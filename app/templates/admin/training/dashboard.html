@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.dashboard') }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ _('admin.training.dashboard') }}</h1>
+</div>
+
+{% if rows %}
+<table class="data">
+  <thead>
+    <tr>
+      <th>{{ _('admin.training.trainee.name') }}</th>
+      {% for c in courses %}<th>{{ c.code }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+  {% for row in rows %}
+    <tr>
+      <td data-label="Trainee">
+        <strong>{{ row.trainee.full_name }}</strong>
+        <small>{{ row.trainee.role_code }}</small>
+      </td>
+      {% for cell in row.cells %}
+        <td data-label="{{ cell.course.code }}">
+          {% if cell.cert %}
+            <span class="status status-ok">✓ {{ cell.cert.valid_until.strftime('%Y-%m-%d') }}</span>
+          {% elif cell.due %}
+            <span class="status status-danger">{{ _('admin.training.due') }}</span>
+          {% else %}
+            <span class="status">—</span>
+          {% endif %}
+        </td>
+      {% endfor %}
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="empty">{{ _('admin.training.trainees.empty') }}</p>
+{% endif %}
+
+<div class="card">
+  <h2>{{ _('admin.training.open_enrolments') }}</h2>
+  {% if open_enrolments %}
+    <table class="data">
+      <thead><tr>
+        <th>{{ _('admin.training.trainee.name') }}</th>
+        <th>{{ _('admin.training.course') }}</th>
+        <th>{{ _('admin.training.status') }}</th>
+        <th>{{ _('admin.training.expires') }}</th>
+      </tr></thead>
+      <tbody>
+      {% for e in open_enrolments %}
+        <tr>
+          <td data-label="Trainee">{{ e.trainee.full_name }}</td>
+          <td data-label="Course">{{ e.course_version.course.code }} v{{ e.course_version.version }}</td>
+          <td data-label="Status">{{ e.status }}</td>
+          <td data-label="Expires">{{ e.expires_at.strftime('%Y-%m-%d') }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">{{ _('admin.training.open_enrolments.empty') }}</p>
+  {% endif %}
+</div>
+{% endblock %}

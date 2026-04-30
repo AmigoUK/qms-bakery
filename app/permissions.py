@@ -42,6 +42,10 @@ class Perm:
     SYSTEM_CONFIGURE = "system.configure"
     DLQ_MANAGE = "dlq.manage"
 
+    TRAINING_AUTHOR = "training.author"
+    TRAINING_REVIEW = "training.review"
+    TRAINING_SEND = "training.send"
+
 
 PERMISSIONS: list[tuple[str, str]] = [
     (Perm.TICKETS_CREATE, "Create tickets"),
@@ -62,4 +66,7 @@ PERMISSIONS: list[tuple[str, str]] = [
     (Perm.DASHBOARD_VIEW, "View dashboards"),
     (Perm.SYSTEM_CONFIGURE, "Configure system"),
     (Perm.DLQ_MANAGE, "View and replay failed responder jobs"),
+    (Perm.TRAINING_AUTHOR, "Author training courses"),
+    (Perm.TRAINING_REVIEW, "Review training results and dashboard"),
+    (Perm.TRAINING_SEND, "Manage trainees and issue training links"),
 ]

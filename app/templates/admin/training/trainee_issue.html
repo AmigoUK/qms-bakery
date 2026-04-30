@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.issue_link') }}{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>{{ _('admin.training.issue_link') }}</h1>
+  <p>{{ _('admin.training.issue_link.intro') }} <strong>{{ trainee.full_name }}</strong> ({{ trainee.phone }}).</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('admin.training.course') }}</span>
+      {{ form.course_code(required=True) }}
+    </label>
+    <button class="btn btn-primary" type="submit">{{ _('admin.training.issue_link.submit') }}</button>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_index') }}">{{ _('common.cancel') }}</a>
+  </form>
+</div>
+{% endblock %}

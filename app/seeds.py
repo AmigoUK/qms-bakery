@@ -60,12 +60,17 @@ ROLE_PERMISSIONS: dict[str, list[str]] = {
         Perm.REPORTS_GENERATE,
         Perm.DASHBOARD_VIEW,
         Perm.DLQ_MANAGE,
+        Perm.TRAINING_AUTHOR,
+        Perm.TRAINING_REVIEW,
+        Perm.TRAINING_SEND,
     ],
     UserRoleEnum.PLANT_MANAGER.value: [
         Perm.TICKETS_VIEW,
         Perm.DASHBOARD_VIEW,
         Perm.REPORTS_GENERATE,
         Perm.AUDIT_VIEW,
+        Perm.TRAINING_REVIEW,
+        Perm.TRAINING_SEND,
     ],
     UserRoleEnum.ADMIN.value: [code for code, _ in PERMISSIONS],
 }
