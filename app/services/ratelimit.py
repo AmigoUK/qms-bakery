@@ -25,12 +25,15 @@ otherwise the wrapped view runs normally. Tests bypass via the
 from __future__ import annotations
 
 import functools
+import logging
 import time
 from typing import Callable
 
 from flask import current_app, jsonify, make_response, request
 
 from app.services.stream import get_redis
+
+logger = logging.getLogger(__name__)
 
 
 def _ident_for_request() -> str:
@@ -56,22 +59,34 @@ def check(
     """Increment the counter for `(bucket, ident)` in the current window.
 
     Returns `(allowed, remaining, retry_after_seconds)`.
+
+    Fails open when Redis is unreachable. Rate limiting is defence-in-
+    depth — preferable to log-and-allow than to 500 the login page when
+    Redis goes down. The `/readyz` probe still returns degraded so the
+    orchestrator can take the instance out of rotation.
     """
-    r = get_redis()
-    now = int(time.time())
-    window_index = now // window_seconds
-    key = f"ratelimit:{bucket}:{ident}:{window_index}"
-    count = r.incr(key)
-    if count == 1:
-        # First request in this window — set the TTL so the key cleans
-        # itself up. Doing this even if `count != 1` would refresh the
-        # TTL on every hit and let an attacker keep a key alive forever.
-        r.expire(key, window_seconds)
-    allowed = count <= max_requests
-    remaining = max(0, max_requests - count)
-    # Time until the *next* window starts, where the counter resets.
-    retry_after = (window_index + 1) * window_seconds - now
-    return allowed, remaining, retry_after
+    try:
+        r = get_redis()
+        now = int(time.time())
+        window_index = now // window_seconds
+        key = f"ratelimit:{bucket}:{ident}:{window_index}"
+        count = r.incr(key)
+        if count == 1:
+            # First request in this window — set the TTL so the key
+            # cleans itself up. Refreshing on every hit would let an
+            # attacker keep a key alive forever.
+            r.expire(key, window_seconds)
+        allowed = count <= max_requests
+        remaining = max(0, max_requests - count)
+        retry_after = (window_index + 1) * window_seconds - now
+        return allowed, remaining, retry_after
+    except Exception as exc:
+        logger.warning(
+            "rate-limit backend unavailable (bucket=%s): %s — failing open",
+            bucket,
+            exc,
+        )
+        return True, max_requests, window_seconds
 
 
 def rate_limit(

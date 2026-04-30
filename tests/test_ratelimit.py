@@ -104,3 +104,23 @@ def test_ratelimit_disabled_by_default_in_tests(app, client):
     for _ in range(50):
         resp = client.get("/auth/login")
         assert resp.status_code == 200
+
+
+def test_ratelimit_fails_open_when_redis_unreachable(app, client, monkeypatch):
+    """Redis going down must NOT 500 the login page. The limiter logs a
+    warning and lets the request through; orchestration takes the
+    instance out of rotation via /readyz."""
+    _enable_ratelimit(app)
+
+    from app.services import ratelimit
+
+    def boom(*_a, **_k):
+        raise ConnectionError("redis went away")
+
+    monkeypatch.setattr(ratelimit, "get_redis", boom)
+
+    # Hammer past the configured limit — every request should still
+    # land 200 because the limiter fails open.
+    for _ in range(20):
+        resp = client.get("/auth/login")
+        assert resp.status_code == 200, "limiter must fail open when Redis is down"
