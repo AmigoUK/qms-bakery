@@ -36,13 +36,17 @@ def _parse_int(value: Any, *, name: str) -> int:
         abort(400, description=f"{name!r} must be an integer")
 
 
+DATE_FORMAT_ISO = "%Y-%m-%d"
+DATE_FORMAT_HUMAN = "YYYY-MM-DD"
+
+
 def _parse_date(value: Any, *, name: str) -> date:
     if not value:
-        abort(400, description=f"{name!r} is required (YYYY-MM-DD)")
+        abort(400, description=f"{name!r} is required ({DATE_FORMAT_HUMAN})")
     try:
-        return datetime.strptime(value, "%Y-%m-%d").date()
+        return datetime.strptime(value, DATE_FORMAT_ISO).date()
     except ValueError:
-        abort(400, description=f"{name!r} must be YYYY-MM-DD")
+        abort(400, description=f"{name!r} must be {DATE_FORMAT_HUMAN}")
 
 
 @bp.route("/haccp/monthly")

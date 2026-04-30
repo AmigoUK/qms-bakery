@@ -21,14 +21,14 @@ Usage
     # 3. run smoke (single user, 30s, baseline latency):
     locust -f loadtest/locustfile.py --headless \\
         -u 1 -r 1 -t 30s \\
-        --host https://qms.local \\
+        --host http://localhost:8000 \\
         LoadtestApi
 
     # 4. run soak at the throughput target (50 users ~= 250 req/s peak):
     LOCUST_API_KEY=loadtest LOCUST_API_SECRET=loadtest-secret \\
     locust -f loadtest/locustfile.py --headless \\
         -u 50 -r 5 -t 5m \\
-        --host https://qms.local \\
+        --host http://localhost:8000 \\
         LoadtestApi DashboardBrowser
 
 Pass/fail target: P95 latency < 250 ms on /api/v1/measurements at
@@ -125,8 +125,13 @@ class DashboardBrowser(HttpUser):
     wait_time = between(2.0, 5.0)
 
     def on_start(self) -> None:
-        email = os.environ.get("LOCUST_USER_EMAIL", "admin@local")
-        password = os.environ.get("LOCUST_USER_PASSWORD", "ChangeMe123!")
+        email = os.environ.get("LOCUST_USER_EMAIL")
+        password = os.environ.get("LOCUST_USER_PASSWORD")
+        if not email or not password:
+            raise RuntimeError(
+                "LOCUST_USER_EMAIL and LOCUST_USER_PASSWORD must be set "
+                "to a real seeded account before running DashboardBrowser"
+            )
         # GET first to grab a CSRF token from the login form.
         login_page = self.client.get("/auth/login", name="GET /auth/login")
         token = _extract_csrf(login_page.text)
