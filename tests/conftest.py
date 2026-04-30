@@ -29,6 +29,8 @@ def redis_binary_client(redis_server):
 
 @pytest.fixture()
 def app(redis_client, redis_binary_client):
+    from cryptography.fernet import Fernet
+
     application = create_app(
         {
             "TESTING": True,
@@ -43,6 +45,9 @@ def app(redis_client, redis_binary_client):
             # token bucket. Tests that exercise rate limiting flip it
             # on explicitly via app.config[...]= True.
             "RATELIMIT_ENABLED": False,
+            # Per-test Fernet key — TOTP enrolment paths exercise the
+            # encryption helper.
+            "TOTP_ENC_KEY": Fernet.generate_key().decode("ascii"),
         }
     )
     with application.app_context():

@@ -144,6 +144,11 @@ def _warn_unsafe_defaults(app: Flask) -> None:
         warnings.append(
             "SESSION_COOKIE_SECURE is False — sessions can leak over HTTP"
         )
+    if not app.config.get("TOTP_ENC_KEY"):
+        warnings.append(
+            "TOTP_ENC_KEY is not set — any TOTP enrolment or verification "
+            "will fail at runtime"
+        )
     for w in warnings:
         app.logger.warning("config-warning: %s", w)
 
@@ -181,6 +186,12 @@ def _default_config() -> dict[str, Any]:
         # Label shown by Authenticator apps. Doesn't affect verification
         # — already-enrolled users still work after a rebrand.
         "TOTP_ISSUER": os.environ.get("TOTP_ISSUER", "QMS"),
+        # Fernet key (urlsafe-base64) for TOTP-secret encryption-at-rest.
+        # Generate with: python -c "from cryptography.fernet import Fernet;
+        # print(Fernet.generate_key().decode())". Required only when
+        # TOTP-protected roles actually enrol; missing key is flagged at
+        # startup and refused at first encrypt/decrypt attempt.
+        "TOTP_ENC_KEY": os.environ.get("TOTP_ENC_KEY"),
         "LOCKOUT_THRESHOLD": int(os.environ.get("LOCKOUT_THRESHOLD", "5")),
         "LOCKOUT_MINUTES": int(os.environ.get("LOCKOUT_MINUTES", "15")),
         "AUTO_CREATE_TABLES": False,

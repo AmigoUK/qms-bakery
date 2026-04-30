@@ -5,9 +5,9 @@ enabled before they can sign critical decisions (close ticket, define CCP,
 configure system). The check is enforced via `require_totp_for_role()` and
 the dedicated `/auth/2fa/*` flows.
 
-We deliberately keep the secret in the same `users` table for simplicity in
-this MVP. Production note: store in a separate, encrypted-at-rest table or
-KMS, and never expose the secret via any API or template after enrollment.
+Secrets in `users.totp_secret` are encrypted at rest via
+`app.services.totp_crypto`; a database leak therefore does NOT yield
+working TOTP seeds without the env-held `TOTP_ENC_KEY`.
 """
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ from flask import current_app
 
 from app.models._base import utcnow
 from app.models.auth import User, UserRoleEnum
+from app.services import totp_crypto
 
 # Roles that MUST have 2FA enabled to perform sensitive actions.
 # Operators / line staff aren't in scope: they don't sign compliance docs.
@@ -43,11 +44,13 @@ def role_requires_totp(role_code: str | None) -> bool:
 def begin_enrollment(user: User) -> tuple[str, str]:
     """Generate a fresh TOTP secret and a provisioning URI.
 
-    Note: secret is staged on the user but `totp_enrolled_at` stays NULL
-    until `complete_enrollment()` confirms the first valid code.
+    The plaintext secret is shown to the user once (via the QR code /
+    otpauth URI on the enrolment page); only the encrypted form lands
+    in the database. `totp_enrolled_at` stays NULL until
+    `complete_enrollment()` confirms the first valid code.
     """
     secret = pyotp.random_base32()
-    user.totp_secret = secret
+    user.totp_secret = totp_crypto.encrypt(secret)
     user.totp_enrolled_at = None
     uri = pyotp.totp.TOTP(secret).provisioning_uri(name=user.email, issuer_name=_issuer())
     return secret, uri
@@ -56,7 +59,13 @@ def begin_enrollment(user: User) -> tuple[str, str]:
 def complete_enrollment(user: User, code: str) -> bool:
     if not user.totp_secret:
         return False
-    if not _verify(user.totp_secret, code):
+    try:
+        plaintext = totp_crypto.decrypt(user.totp_secret)
+    except totp_crypto.TOTPCryptoError:
+        # Legacy or undecryptable secret — refuse rather than treat as
+        # enrolled. Force the user back through begin_enrollment().
+        return False
+    if not _verify(plaintext, code):
         return False
     user.totp_enrolled_at = utcnow()
     return True
@@ -65,7 +74,11 @@ def complete_enrollment(user: User, code: str) -> bool:
 def verify_code(user: User, code: str) -> bool:
     if not user.totp_enabled:
         return False
-    return _verify(user.totp_secret, code)
+    try:
+        plaintext = totp_crypto.decrypt(user.totp_secret)
+    except totp_crypto.TOTPCryptoError:
+        return False
+    return _verify(plaintext, code)
 
 
 def _verify(secret: str, code: str) -> bool:

@@ -27,6 +27,7 @@ dependencies = [
     "requests>=2.32",
     "markdown>=3.6",
     "bleach>=6.1",
+    "cryptography>=42",
 ]
 
 [project.optional-dependencies]

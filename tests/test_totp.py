@@ -25,7 +25,11 @@ def test_begin_and_complete_enrollment(app):
         user = _admin()
         secret, uri = totp_service.begin_enrollment(user)
         db.session.commit()
-        assert user.totp_secret == secret
+        # The stored value is the encrypted form, not the raw base32.
+        # The plaintext is only handed back to the caller (and rendered
+        # once into the QR code on the enrolment page).
+        assert user.totp_secret != secret
+        assert user.totp_secret.startswith("v1:")
         assert user.totp_enrolled_at is None
         assert "otpauth://totp/" in uri
         # Issuer is configurable via TOTP_ISSUER; default in tests is "QMS"
@@ -66,7 +70,9 @@ def test_login_with_totp_requires_second_step(app, client):
         live = pyotp.TOTP(secret).now()
         totp_service.complete_enrollment(user, live)
         db.session.commit()
-        secret_for_test = user.totp_secret
+        # Use the plaintext from begin_enrollment for code generation
+        # later — user.totp_secret is the encrypted form.
+        secret_for_test = secret
 
     # First step: email + password — should redirect to /auth/login/2fa.
     resp = client.post(
