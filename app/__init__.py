@@ -111,7 +111,31 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         with app.app_context():
             db.create_all()
 
+    _warn_unsafe_defaults(app)
+
     return app
+
+
+def _warn_unsafe_defaults(app: Flask) -> None:
+    """Log a warning when production-shaped config still holds dev
+    placeholders. Doesn't block startup — TESTING/DEBUG environments
+    legitimately use these values."""
+    if app.config.get("TESTING") or app.config.get("DEBUG"):
+        return
+    warnings: list[str] = []
+    if app.config.get("SMTP_FROM") in ("qms@local", "qms@example.invalid"):
+        warnings.append(
+            f"SMTP_FROM={app.config['SMTP_FROM']!r} is a placeholder — outbound "
+            "email will fail or be marked spam in production"
+        )
+    if app.config.get("SECRET_KEY") and len(app.config["SECRET_KEY"]) < 16:
+        warnings.append("SECRET_KEY is shorter than 16 chars — generate a longer one")
+    if not app.config.get("SESSION_COOKIE_SECURE"):
+        warnings.append(
+            "SESSION_COOKIE_SECURE is False — sessions can leak over HTTP"
+        )
+    for w in warnings:
+        app.logger.warning("config-warning: %s", w)
 
 
 def _default_config() -> dict[str, Any]:
@@ -125,7 +149,10 @@ def _default_config() -> dict[str, Any]:
             os.environ.get("SUPPORTED_LANGUAGES", "pl,en").split(",")
         ),
         "WTF_CSRF_ENABLED": True,
-        "WTF_CSRF_TIME_LIMIT": 3600,
+        "WTF_CSRF_TIME_LIMIT": int(os.environ.get("WTF_CSRF_TIME_LIMIT", "3600")),
+        "LANGUAGE_COOKIE_MAX_AGE": int(
+            os.environ.get("LANGUAGE_COOKIE_MAX_AGE", str(60 * 60 * 24 * 365))
+        ),
         "PERMANENT_SESSION_LIFETIME": 60 * 60 * int(
             os.environ.get("SESSION_LIFETIME_HOURS", "8")
         ),
@@ -150,6 +177,7 @@ def _default_config() -> dict[str, Any]:
         # API keys for external integrations: {key_id: secret}
         "API_KEYS": {},
         "SECURITY_HEADERS_ENABLED": True,
+        "HSTS_MAX_AGE_SECONDS": int(os.environ.get("HSTS_MAX_AGE_SECONDS", "31536000")),
         "RATELIMIT_ENABLED": os.environ.get("RATELIMIT_ENABLED", "1") not in ("0", "false", "False"),
         "RATELIMIT_API_MAX": int(os.environ.get("RATELIMIT_API_MAX", "600")),
         "RATELIMIT_LOGIN_MAX": int(os.environ.get("RATELIMIT_LOGIN_MAX", "10")),
@@ -172,7 +200,7 @@ def _default_config() -> dict[str, Any]:
         "SMTP_USERNAME": os.environ.get("SMTP_USERNAME"),
         "SMTP_PASSWORD": os.environ.get("SMTP_PASSWORD"),
         "SMTP_USE_TLS": os.environ.get("SMTP_USE_TLS", "0") not in ("0", "false", "False"),
-        "SMTP_FROM": os.environ.get("SMTP_FROM", "qms@local"),
+        "SMTP_FROM": os.environ.get("SMTP_FROM", "qms@example.invalid"),
         "CLICKSEND_USERNAME": os.environ.get("CLICKSEND_USERNAME", ""),
         "CLICKSEND_API_KEY": os.environ.get("CLICKSEND_API_KEY", ""),
         "CLICKSEND_SOURCE": os.environ.get("CLICKSEND_SOURCE", "QMS"),

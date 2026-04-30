@@ -82,8 +82,9 @@ def init_security_headers(app: Flask) -> None:
         from flask import request
 
         if request.is_secure:
+            max_age = app.config.get("HSTS_MAX_AGE_SECONDS", 31536000)
             response.headers.setdefault(
                 "Strict-Transport-Security",
-                "max-age=31536000; includeSubDomains",
+                f"max-age={max_age}; includeSubDomains",
             )
         return response

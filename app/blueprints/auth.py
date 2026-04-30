@@ -154,7 +154,14 @@ def set_language(code: str):
             candidate = ref.path or "/"
     next_url = _safe_next_url(candidate)
     response = make_response(redirect(next_url))
-    response.set_cookie("lang", code, max_age=60 * 60 * 24 * 365, samesite="Lax")
+    response.set_cookie(
+        "lang",
+        code,
+        max_age=current_app.config["LANGUAGE_COOKIE_MAX_AGE"],
+        samesite="Lax",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        httponly=False,  # client-side i18n needs to read it
+    )
     if current_user.is_authenticated:
         current_user.language = code
         db.session.commit()

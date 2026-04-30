@@ -16,5 +16,10 @@ RUN uv pip install --system -e .
 
 COPY . .
 
+ENV GUNICORN_WORKERS=4 \
+    GUNICORN_BIND=0.0.0.0:8000
+
 EXPOSE 8000
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:8000", "app:create_app()"]
+# Shell form so $GUNICORN_WORKERS / $GUNICORN_BIND substitute. Override
+# either at run-time (e.g. for unix-socket binding or worker tuning).
+CMD ["sh", "-c", "exec gunicorn -w ${GUNICORN_WORKERS} -b ${GUNICORN_BIND} 'app:create_app()'"]
