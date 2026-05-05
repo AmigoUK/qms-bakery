@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('help.admin.title') }}{% endblock %}
+{% block content %}
+<div class="help-page">
+  <p><a class="muted" href="{{ url_for('help.index') }}">{{ _('help.back_to_index') }}</a></p>
+  <h1>{{ _('help.admin.title') }}</h1>
+
+  {% if current_lang == 'pl' %}
+  <h2>Mapa modułów</h2>
+  <ul>
+    <li><strong>Szkolenia</strong> — kursy, pracownicy, matryca compliance, wystawianie linków, CSV import/export.</li>
+    <li><strong>HACCP / CCP</strong> — definicje punktów krytycznych, pomiary, automatyczne tickety przy odchyleniach.</li>
+    <li><strong>SALSA</strong> — szablony list kontrolnych, codzienne / tygodniowe odpowiedzi.</li>
+    <li><strong>Triggery</strong> — reguły progowe na metryki; responder uruchamia SMS, email, ticket lub link szkoleniowy.</li>
+    <li><strong>Tickety</strong> — niezgodności i działania korygujące.</li>
+    <li><strong>Użytkownicy</strong> — konta, role, język interfejsu, 2FA.</li>
+    <li><strong>Audit</strong> — niezmienialny dziennik (SHA-256 chained); eksport DSAR przez CLI.</li>
+    <li><strong>Pipelines</strong> — etapy procesu produkcyjnego dla danej linii.</li>
+    <li><strong>DLQ</strong> — kolejka jobów, które nie zadziałały (SMS / email / cert nie wysłał się).</li>
+  </ul>
+
+  <h2>Szkolenia — najczęstsze zadania</h2>
+
+  <h3>Wystawić linki dla całej linii naraz</h3>
+  <ol>
+    <li>Wejdź na <em>Pracownicy</em> (<code>/admin/training/trainees</code>).</li>
+    <li>Filtr <em>Linia</em> — zaznacz np. A1.</li>
+    <li>Zaznacz checkbox w nagłówku tabeli (zaznaczy wszystkich widocznych).</li>
+    <li>W dolnej belce wybierz kurs, naciśnij <strong>Wystaw linki</strong>.</li>
+    <li>Ekran preview pokaże: ilu wystawimy, ilu pominiemy (np. „aktywny link do 2026-05-08").</li>
+    <li>Naciśnij <strong>Wystaw N linków</strong>.</li>
+  </ol>
+  <p><strong>Każdy pracownik dostaje swój własny link</strong> — żaden nie jest współdzielony. Token jest HMAC-podpisany i unikalny.</p>
+
+  <h3>Pracownik twierdzi, że nie dostał SMS-a</h3>
+  <ol>
+    <li>Otwórz <em>Audit</em> (<code>/admin/audit</code>), filtruj po <code>action=training_link_sent</code>.</li>
+    <li>Sprawdź czy jest wpis dla tego numeru telefonu.</li>
+    <li>Jeśli wpis jest, ale SMS nie dotarł — sprawdź <em>DLQ</em> (kolejka błędów).</li>
+    <li>Jeśli wpisu nie ma — sprawdź czy enrolment w ogóle się utworzył (lista pracownika → szczegóły).</li>
+  </ol>
+
+  <h3>Czemu kurs nie pojawia się na matrycy compliance?</h3>
+  <p>Kurs jest na matrycy tylko gdy spełnia <strong>wszystkie</strong> warunki:</p>
+  <ul>
+    <li>Ma <em>active version</em> — czyli choć jedną wersję z <code>active_from</code> w przeszłości.</li>
+    <li>Ta wersja ma przynajmniej jedno pytanie.</li>
+    <li>Ma przynajmniej jedno <em>assignment</em> (rola lub linia, dla których kurs jest wymagany).</li>
+  </ul>
+  <p>Bez tych trzech rzeczy matryca traktuje kurs jako „nieprzydzielony" i nie pokazuje go.</p>
+
+  <h3>Importuję pracowników z CSV</h3>
+  <ol>
+    <li><em>Pracownicy</em> → <strong>Import CSV</strong>.</li>
+    <li>Pobierz szablon (<em>Pobierz szablon</em>).</li>
+    <li>Wypełnij — kluczem stabilnym jest <code>employee_number</code>, nie telefon (telefon może się zmienić).</li>
+    <li>Upload → ekran preview pokazuje: ilu nowych, ilu zaktualizowanych, ilu pominiętych z błędem.</li>
+    <li>Sprawdź szczegóły błędów. Naciśnij <strong>Apply</strong> tylko gdy preview wygląda dobrze.</li>
+  </ol>
+
+  <h3>Co oznaczają kolory matrycy compliance?</h3>
+  <ul>
+    <li><strong>szary</strong> — kurs nie wymagany dla tego pracownika</li>
+    <li><strong>zielony</strong> — ważny certyfikat</li>
+    <li><strong>jasny zielony</strong> — link wystawiony, czeka na zaliczenie</li>
+    <li><strong>pomarańczowy</strong> — wygasa w najbliższych 30 dniach</li>
+    <li><strong>czerwony</strong> — przeterminowany (nie dopuszczany do pracy)</li>
+    <li><strong>czerwony krzyż</strong> — nigdy nie zaliczony</li>
+  </ul>
+
+  <h3>Czemu nie widzę przycisku „Wystaw"?</h3>
+  <p>Brak Ci uprawnienia <code>TRAINING_SEND</code>. Mają je: <em>admin</em>, <em>compliance</em>, <em>plant_manager</em>. Inne role widzą listę, ale nie mogą dispatch-ować linków.</p>
+
+  <h3>Bulk-issue mówi „Wystawiono 0, pominięto 5" — co się stało?</h3>
+  <ol>
+    <li>Otwórz preview ponownie — kolumna <em>Powód pominięcia</em> wyjaśnia.</li>
+    <li>Najczęściej: <em>active until YYYY-MM-DD</em> → ten pracownik ma już aktywny link tego kursu (anti-spam).</li>
+    <li>Mniej częste: <em>no_active_version</em> → kurs nie ma aktywnej wersji.</li>
+  </ol>
+
+  <h3>Trigger się nie odpalił</h3>
+  <ol>
+    <li><em>/admin/triggers/&lt;id&gt;</em> — sprawdź <code>is_active</code>.</li>
+    <li>Sprawdź <code>cooldown_seconds</code> — jeśli odpalił się w ciągu ostatnich N sekund, milknie.</li>
+    <li>Sprawdź <code>min_duration_seconds</code> — metryka musiała przekraczać próg przez ten czas ciągle.</li>
+    <li><em>/admin/audit</em> filter <code>action=fire_dry_run</code> lub <code>fire</code> po <code>trigger_id</code>.</li>
+  </ol>
+
+  <h3>Cofnąć błędnie wystawiony certyfikat (lub wycofać dane GDPR)</h3>
+  <p>Z poziomu konsoli serwera:</p>
+  <pre><code>flask gdpr-redact --subject trainee:&lt;id&gt; --confirm</code></pre>
+  <p>To wycofuje dane osobowe z dziennika audytu (zachowując łańcuch SHA-256 weryfikowalnym), wymaże podpis i adres IP z deklaracji. Akcja sama jest logowana.</p>
+
+  <h2>Dziennik audytu i eksport danych</h2>
+  <p>Dziennik audytu jest <strong>niezmienialny</strong> — każdy wpis ma SHA-256 hash poprzedniego wpisu w łańcuchu. Próba edycji rozjechałaby łańcuch i zostałaby wykryta przy weryfikacji.</p>
+  <p>Eksport DSAR (UK GDPR Art. 15 / Art. 20) — pełny zbiór danych dla podmiotu:</p>
+  <pre><code>flask dsar-export --subject trainee:&lt;id&gt; --output dsar.json</code></pre>
+
+  {% else %}
+  <h2>Module map</h2>
+  <ul>
+    <li><strong>Training</strong> — courses, trainees, compliance matrix, link issuance, CSV import/export.</li>
+    <li><strong>HACCP / CCP</strong> — critical control points, measurements, automatic tickets on deviation.</li>
+    <li><strong>SALSA</strong> — checklist templates, daily/weekly responses.</li>
+    <li><strong>Triggers</strong> — threshold rules on metrics; responder fires SMS, email, ticket, or training link.</li>
+    <li><strong>Tickets</strong> — non-conformities and corrective actions.</li>
+    <li><strong>Users</strong> — accounts, roles, UI language, 2FA.</li>
+    <li><strong>Audit</strong> — immutable hash-chained log (SHA-256); DSAR export via CLI.</li>
+    <li><strong>Pipelines</strong> — production-line stage definitions.</li>
+    <li><strong>DLQ</strong> — failed-job queue (SMS / email / cert that didn't deliver).</li>
+  </ul>
+
+  <h2>Training — common tasks</h2>
+
+  <h3>Issue links to a whole production line at once</h3>
+  <ol>
+    <li>Open <em>Trainees</em> (<code>/admin/training/trainees</code>).</li>
+    <li>Use the <em>Line</em> filter — pick e.g. A1.</li>
+    <li>Tick the header checkbox (selects all visible).</li>
+    <li>In the bottom bar pick a course, press <strong>Issue links</strong>.</li>
+    <li>Preview screen shows: how many will be issued, how many skipped (e.g. "active until 2026-05-08").</li>
+    <li>Press <strong>Issue N links</strong>.</li>
+  </ol>
+  <p><strong>Each trainee gets their own unique link</strong> — no shared tokens. Each is HMAC-signed and unique.</p>
+
+  <h3>"A worker says they didn't get the SMS"</h3>
+  <ol>
+    <li>Open <em>Audit</em> (<code>/admin/audit</code>), filter by <code>action=training_link_sent</code>.</li>
+    <li>Check whether there's a row for that phone number.</li>
+    <li>If a row exists but the SMS didn't arrive — check <em>DLQ</em> (failed-job queue).</li>
+    <li>If no row — check whether the enrolment got created at all (trainee detail page).</li>
+  </ol>
+
+  <h3>"A course doesn't appear in the compliance matrix"</h3>
+  <p>A course only appears if <strong>all three</strong> of these are true:</p>
+  <ul>
+    <li>It has an <em>active version</em> — at least one version with <code>active_from</code> in the past.</li>
+    <li>That version has at least one question.</li>
+    <li>It has at least one <em>assignment</em> (a role or line that requires it).</li>
+  </ul>
+  <p>Without all three, the matrix treats the course as "unassigned" and hides it.</p>
+
+  <h3>Importing trainees from CSV</h3>
+  <ol>
+    <li><em>Trainees</em> → <strong>Import CSV</strong>.</li>
+    <li>Download the template (<em>Download template</em>).</li>
+    <li>Fill it — the stable key is <code>employee_number</code>, not phone (phone may change).</li>
+    <li>Upload → preview shows new / updated / errored counts.</li>
+    <li>Inspect any errors. Press <strong>Apply</strong> only if the preview looks right.</li>
+  </ol>
+
+  <h3>Compliance-matrix colours</h3>
+  <ul>
+    <li><strong>grey</strong> — course not required for this trainee</li>
+    <li><strong>green</strong> — valid certificate</li>
+    <li><strong>light green</strong> — link issued, awaiting completion</li>
+    <li><strong>amber</strong> — expires within 30 days</li>
+    <li><strong>red</strong> — overdue (not cleared for work)</li>
+    <li><strong>red cross</strong> — never passed</li>
+  </ul>
+
+  <h3>"I don't see the Issue button"</h3>
+  <p>You lack the <code>TRAINING_SEND</code> permission. It's granted to <em>admin</em>, <em>compliance</em>, and <em>plant_manager</em>. Other roles see the list but can't dispatch links.</p>
+
+  <h3>Bulk-issue says "0 issued, 5 skipped" — what happened?</h3>
+  <ol>
+    <li>Open the preview again — the <em>Skip reason</em> column explains.</li>
+    <li>Most common: <em>active until YYYY-MM-DD</em> → that trainee already has a live link for this course (anti-spam).</li>
+    <li>Less common: <em>no_active_version</em> → the course has no active version.</li>
+  </ol>
+
+  <h3>Trigger didn't fire</h3>
+  <ol>
+    <li><em>/admin/triggers/&lt;id&gt;</em> — check <code>is_active</code>.</li>
+    <li>Check <code>cooldown_seconds</code> — if it fired in the last N seconds, it stays silent.</li>
+    <li>Check <code>min_duration_seconds</code> — the metric had to exceed the threshold continuously for that long.</li>
+    <li><em>/admin/audit</em> filter <code>action=fire_dry_run</code> or <code>fire</code> by <code>trigger_id</code>.</li>
+  </ol>
+
+  <h3>Revoking a wrongly-issued certificate (or fulfilling a GDPR erasure request)</h3>
+  <p>From the server console:</p>
+  <pre><code>flask gdpr-redact --subject trainee:&lt;id&gt; --confirm</code></pre>
+  <p>This redacts personal data from the audit log (keeping the SHA-256 chain verifiable), wipes signature and IP from declarations. The action itself is logged.</p>
+
+  <h2>Audit log and data export</h2>
+  <p>The audit log is <strong>immutable</strong> — every row contains a SHA-256 hash of the previous row. An attempted edit would break the chain and be detected on verification.</p>
+  <p>DSAR export (UK GDPR Art. 15 / Art. 20) — the full record-set for a subject:</p>
+  <pre><code>flask dsar-export --subject trainee:&lt;id&gt; --output dsar.json</code></pre>
+  {% endif %}
+</div>
+{% endblock %}

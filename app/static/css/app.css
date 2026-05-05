@@ -1,4 +1,51 @@
 /* QMS - minimal, high-contrast UI tuned for shop-floor tablets. */
+
+/* WCAG 2.1 — bypass-block: skip-to-content link, visible only on focus. */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 0;
+  background: #0b3d2e;
+  color: #fff;
+  padding: 12px 16px;
+  text-decoration: none;
+  font-weight: 600;
+  z-index: 1000;
+}
+.skip-link:focus {
+  top: 0;
+  outline: 3px solid #d97706;
+  outline-offset: 2px;
+}
+
+/* Keyboard focus indicator for buttons + links. Browsers vary; make
+   it explicit so a tab-only operator can see where they are. */
+.btn:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 3px solid #d97706;
+  outline-offset: 2px;
+}
+
+/* Utility classes referenced by templates but previously unstyled. */
+.muted { color: var(--ink-2); }
+.small { font-size: 0.85rem; }
+.prose { line-height: 1.5; }
+.prose p { margin: 0.6rem 0; }
+.prose ul, .prose ol { margin: 0.6rem 0 0.6rem 1.4rem; }
+.checklist-item {
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0;
+}
+.checklist-item:last-child { border-bottom: 0; }
+.field-error {
+  color: var(--danger);
+  font-size: 0.85rem;
+  margin: 0.25rem 0 0 0;
+  font-weight: 500;
+}
+.offline-page { padding: 2rem 1rem; text-align: center; }
+
 :root {
   --bg: #f5f6f4;
   --surface: #ffffff;
@@ -114,8 +161,30 @@ form.filters { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0 1
 .btn-primary:hover { background: var(--brand-2); text-decoration: none; }
 .btn-secondary { background: #e9ece7; color: var(--ink); }
 .btn-secondary:hover { background: #dde3dc; }
-.btn-ghost { background: transparent; color: #fff; border-color: rgba(255,255,255,0.4); }
-.btn-ghost:hover { background: rgba(255,255,255,0.08); text-decoration: none; }
+/* `.btn-ghost` is the secondary/cancel-style button. Default styling
+   targets light-card backgrounds (the vast majority of placements:
+   forms, list rows, study nav, ticket transitions). The override
+   below repaints it for dark-on-brand contexts (topbar logout,
+   training header). Keeping a single class lets templates stay
+   context-agnostic. */
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--border);
+}
+.btn-ghost:hover {
+  background: rgba(20, 33, 28, 0.05);
+  text-decoration: none;
+}
+.topbar .btn-ghost,
+.training-header .btn-ghost {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+.topbar .btn-ghost:hover,
+.training-header .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
 
 /* Tables */
 .data { width: 100%; border-collapse: collapse; }
@@ -235,3 +304,305 @@ form.filters { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0 1
 }
 .option-slot legend { font-weight: 600; padding: 0 0.4rem; color: var(--ink-2); }
 .meta-line { color: var(--ink-2); font-size: 0.9rem; margin: 0 0 1rem; }
+
+/* ── Training: study / flash-card step ─────────────────────────── */
+.study-card { max-width: 720px; }
+.study-header h1 { margin-bottom: 0.25rem; }
+.study-counter {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+}
+.flashcard-stack { margin: 1.25rem 0; }
+.flashcard {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1rem;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(20,33,28,0.04);
+}
+.flashcard-question {
+  font-size: 1.1rem;
+  font-weight: 500;
+  line-height: 1.4;
+  min-height: 4rem;
+}
+.flashcard-answer {
+  margin-top: 0.85rem;
+  display: grid;
+  gap: 0.4rem;
+  transition: opacity 0.2s ease;
+}
+.flashcard[data-state="question"] .flashcard-answer { display: none; }
+.flashcard[data-state="answer"] .flashcard-answer { display: grid; }
+.flashcard[data-state="question"] .when-answer { display: none; }
+.flashcard[data-state="answer"] .when-question { display: none; }
+.flashcard-toggle { margin-top: 0.85rem; }
+.flashcard-actions {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.flashcard-actions .flashcard-toggle { margin-top: 0; flex: 1; min-width: 8rem; }
+.flashcard-actions .flashcard-next { flex: 1; min-width: 8rem; }
+
+.flashcard-opt {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+.flashcard-mark {
+  flex: 0 0 1.5rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+.flashcard-opt-correct {
+  background: #e8f5ec;
+  border-color: var(--ok);
+  color: #1a4f2c;
+}
+.flashcard-opt-correct .flashcard-mark { color: var(--ok); }
+.flashcard-opt-correct .flashcard-label { font-weight: 600; }
+.flashcard-opt-wrong {
+  background: #fbecec;
+  border-color: var(--danger);
+  color: #6b1418;
+}
+.flashcard-opt-wrong .flashcard-mark { color: var(--danger); }
+
+.study-nav {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+.study-nav .btn { flex: 1; min-width: 8rem; }
+.study-skip { margin-top: 1rem; text-align: center; }
+.study-skip .btn { width: 100%; max-width: 24rem; }
+
+@media (max-width: 480px) {
+  .flashcard-question { font-size: 1rem; }
+  .flashcard-opt { font-size: 0.9rem; padding: 0.5rem 0.6rem; }
+  .study-nav .btn { min-width: 0; }
+}
+
+/* JS-disabled fallback: when no JS toggles data-state, show the
+   answer alongside the question so the page still teaches. */
+.flashcard:not([data-state]) .flashcard-answer { display: grid; }
+.flashcard:not([data-state]) .flashcard-toggle { display: none; }
+
+/* ── Compliance matrix (admin training dashboard) ───────────────── */
+/* Drill-down anchor: removes underline on the cell-pill while keeping
+   keyboard focus visible via .btn:focus-visible-style outline. */
+.compliance-link { text-decoration: none; display: inline-block; }
+.compliance-link:hover .compliance-cell { filter: brightness(0.97); }
+.compliance-link:focus-visible {
+  outline: 2px solid var(--brand-2);
+  outline-offset: 2px;
+  border-radius: 999px;
+}
+.compliance-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+.compliance-not-required {
+  background: #f5f6f4;
+  color: var(--ink-2);
+  border: 1px dashed var(--border);
+}
+.compliance-extra {
+  background: #ecf6ef;
+  color: #1a4f2c;
+  border-color: #c5dccd;
+}
+.compliance-valid {
+  background: #d2ead8;
+  color: #1a4f2c;
+  border-color: var(--ok);
+}
+.compliance-due-soon {
+  background: #fff5d6;
+  color: #6b4d00;
+  border-color: var(--warn);
+}
+.compliance-in-flight {
+  background: #dbeafe;
+  color: var(--info);
+  border-color: var(--info);
+}
+.compliance-overdue {
+  background: #fad6d8;
+  color: var(--danger);
+  border-color: var(--danger);
+  font-weight: 600;
+}
+
+/* Worker clearance flag in the first column of the matrix. */
+.clearance-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.clearance-badge.cleared { background: var(--ok);     color: #fff; }
+.clearance-badge.blocked { background: var(--danger); color: #fff; font-weight: 700; }
+
+/* Tint whole row red when the trainee is blocked, so a single overdue
+   cell is impossible to miss in a long table. */
+tr.row-blocked > td { background: rgba(177, 37, 43, 0.04); }
+
+/* Sticky table headers + first column for wide matrices. Modern
+   browsers only — legacy fallback is plain scroll. */
+.matrix-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+.matrix-table thead th {
+  position: sticky;
+  top: 0;
+  background: #fafbf9;
+  z-index: 2;
+}
+.matrix-table tbody th {
+  position: sticky;
+  left: 0;
+  background: #fff;
+  text-align: left;
+  z-index: 1;
+}
+.matrix-table tbody tr.row-blocked th { background: #fff5f5; }
+.matrix-wrap {
+  overflow: auto;
+  max-height: 70vh;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.matrix-trainee-meta {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--ink-2);
+  font-weight: 400;
+}
+
+/* Legend strip below the matrix. */
+.matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+/* Trainees list — bulk-action sticky bar.
+   Pinned to bottom of the viewport so it stays visible while
+   scrolling through long lists. Reveal/hide toggled by the
+   `hidden` HTML attribute (set by trainees_bulk.js based on
+   selection count). */
+.bulk-bar {
+  position: sticky;
+  bottom: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -2px 6px rgba(0, 0, 0, 0.05);
+  padding: 0.85rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  z-index: 4;
+}
+.bulk-bar[hidden] { display: none; }
+.bulk-count strong { font-size: 1.1rem; color: var(--brand); }
+.bulk-bar select { min-width: 14rem; }
+.trainees-table tbody tr.row-selected { background: #f0f7f3; }
+
+/* Exam-page actions row: back-to-practice (left) + submit (right). */
+.exam-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+.exam-actions .btn { min-width: 12rem; }
+@media (max-width: 480px) {
+  .exam-actions .btn { flex: 1; min-width: 0; }
+}
+
+/* ── Help & documentation pages ─────────────────────────────────── */
+.help-page { max-width: 50rem; }
+.help-page h1 { margin-bottom: 0.25rem; }
+.help-page .lead { color: var(--muted); margin-bottom: 1.5rem; }
+.help-page h2 { margin-top: 1.5rem; }
+.help-page h3 { margin-top: 1.25rem; font-size: 1.05rem; }
+.help-page pre {
+  background: #f4f6f3;
+  border: 1px solid #e0e6dd;
+  padding: 0.65rem 0.85rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  font-size: 0.9rem;
+}
+.help-page code { background: #f4f6f3; padding: 0.05rem 0.3rem; border-radius: 3px; }
+.help-page pre code { background: none; padding: 0; }
+
+/* Audience cards on /help index */
+.help-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.help-card {
+  display: block;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  color: var(--ink);
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.1s;
+}
+.help-card:hover {
+  border-color: var(--brand);
+  transform: translateY(-1px);
+  text-decoration: none;
+}
+.help-card h2 { margin: 0 0 0.4rem 0; font-size: 1.05rem; color: var(--brand); }
+.help-card p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+
+/* Topbar help link */
+.help-link {
+  font-size: 0.92rem;
+  color: var(--ink);
+  margin-right: 0.4rem;
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+.help-link:hover { border-bottom-color: var(--ink); text-decoration: none; }

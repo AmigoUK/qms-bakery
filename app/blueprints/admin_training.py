@@ -8,16 +8,19 @@ TRAINING_REVIEW (read-only dashboard + attempt detail).
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from flask import (
     Blueprint,
     abort,
+    current_app,
     flash,
     redirect,
     render_template,
     request,
     url_for,
 )
-from flask_login import login_required
+from flask_login import current_user, login_required
 from flask_wtf import FlaskForm
 from sqlalchemy import select
 from wtforms import (
@@ -67,7 +70,19 @@ bp = Blueprint("admin_training", __name__, url_prefix="/admin/training")
 
 
 class TraineeForm(FlaskForm):
+    """`employee_number` is the stable HR identifier — required on
+    create, editable later (audited). Phone is a delivery channel,
+    not identity. Channel governs which lane(s) the magic link is
+    queued on at issue time.
+    """
+
+    employee_number = StringField(
+        "employee_number", validators=[Optional(), Length(max=32)]
+    )
     phone = StringField("phone", validators=[DataRequired(), Length(max=32)])
+    email = StringField(
+        "email", validators=[Optional(), Length(max=255)]
+    )
     full_name = StringField(
         "full_name", validators=[DataRequired(), Length(max=MAX_FULL_NAME_LENGTH)]
     )
@@ -76,6 +91,15 @@ class TraineeForm(FlaskForm):
     )
     line_code = SelectField("line_code", validators=[Optional()])
     language = SelectField("language")
+    notification_channel = SelectField(
+        "notification_channel",
+        choices=[
+            ("sms", "SMS"),
+            ("email", "Email"),
+            ("both", "SMS + Email"),
+        ],
+        default="sms",
+    )
     is_active = BooleanField("is_active", default=True)
     submit = SubmitField()
 
@@ -229,8 +253,44 @@ def _resolve_line_id(code: str | None) -> str | None:
 @login_required
 @require_permission(Perm.TRAINING_SEND)
 def trainees_index():
-    rows = Trainee.query.order_by(Trainee.full_name).all()
-    return render_template("admin/training/trainees_list.html", trainees=rows)
+    """List of trainees with optional multi-select filters by role
+    code and production line. Filters apply at the SQL layer so the
+    bulk-action checkbox column always operates on a consistent
+    subset (`select-all` selects only what's currently visible)."""
+    role_codes = [x.strip() for x in request.args.getlist("role_code") if x.strip()]
+    line_ids = [x for x in request.args.getlist("line_id") if x]
+
+    query = Trainee.query
+    if role_codes:
+        query = query.filter(Trainee.role_code.in_(role_codes))
+    if line_ids:
+        query = query.filter(Trainee.line_id.in_(line_ids))
+    rows = query.order_by(Trainee.full_name).all()
+
+    # Choices for the filter UI: distinct role codes seen on any
+    # trainee, plus the active production lines.
+    role_choices = sorted({
+        r[0] for r in db.session.query(Trainee.role_code).distinct().all() if r[0]
+    })
+    line_choices = (
+        ProductionLine.query.filter_by(is_active=True)
+        .order_by(ProductionLine.code).all()
+    )
+    line_by_id = {ln.id: ln.code for ln in line_choices}
+    courses = (
+        TrainingCourse.query.filter_by(is_active=True)
+        .order_by(TrainingCourse.code).all()
+    )
+    return render_template(
+        "admin/training/trainees_list.html",
+        trainees=rows,
+        role_choices=role_choices,
+        line_choices=line_choices,
+        line_by_id=line_by_id,
+        courses=courses,
+        filter_role_codes=set(role_codes),
+        filter_line_ids=set(line_ids),
+    )
 
 
 @bp.route("/trainees/new", methods=["GET", "POST"])
@@ -241,19 +301,35 @@ def trainees_new():
     form.line_code.choices = _line_choices()
     form.language.choices = _language_choices()
     if form.validate_on_submit():
-        try:
-            trainee = training_service.create_trainee(
-                phone=form.phone.data.strip(),
-                full_name=form.full_name.data.strip(),
-                role_code=form.role_code.data.strip(),
-                line_id=_resolve_line_id(form.line_code.data),
-                language=form.language.data,
-            )
-            db.session.commit()
-            flash(_("admin.training.trainee.created"), "success")
-            return redirect(url_for("admin_training.trainees_index"))
-        except training_service.TrainingError as exc:
-            flash(str(exc), "danger")
+        email = (form.email.data or "").strip()
+        channel = form.notification_channel.data or "sms"
+        emp_no = (form.employee_number.data or "").strip()
+        # Both employee_number and email are required when adding a
+        # new trainee — they're the new identity-of-record + the
+        # alternative delivery channel.
+        if not emp_no:
+            flash(_("admin.training.trainee.employee_number_required"), "danger")
+        elif not email:
+            flash(_("admin.training.trainee.email_required_on_create"), "danger")
+        elif channel != "sms" and not email:
+            flash(_("admin.training.trainee.email_required_for_channel"), "danger")
+        else:
+            try:
+                trainee = training_service.create_trainee(
+                    employee_number=emp_no,
+                    phone=form.phone.data.strip(),
+                    email=email,
+                    full_name=form.full_name.data.strip(),
+                    role_code=form.role_code.data.strip(),
+                    line_id=_resolve_line_id(form.line_code.data),
+                    language=form.language.data,
+                    notification_channel=channel,
+                )
+                db.session.commit()
+                flash(_("admin.training.trainee.created"), "success")
+                return redirect(url_for("admin_training.trainees_index"))
+            except training_service.TrainingError as exc:
+                flash(str(exc), "danger")
     return render_template(
         "admin/training/trainee_form.html", form=form, edit=False
     )
@@ -276,11 +352,14 @@ def trainees_edit(trainee_id: str):
     form.line_code.choices = _line_choices()
     form.language.choices = _language_choices()
     if request.method == "GET":
+        form.employee_number.data = trainee.employee_number or ""
         form.phone.data = trainee.phone
+        form.email.data = trainee.email or ""
         form.full_name.data = trainee.full_name
         form.role_code.data = trainee.role_code
         form.is_active.data = trainee.is_active
         form.language.data = trainee.language
+        form.notification_channel.data = trainee.notification_channel
         if trainee.line_id:
             line = db.session.get(ProductionLine, trainee.line_id)
             if line:
@@ -290,23 +369,99 @@ def trainees_edit(trainee_id: str):
             "full_name": trainee.full_name,
             "role_code": trainee.role_code,
             "is_active": trainee.is_active,
+            "notification_channel": trainee.notification_channel,
+            "employee_number": trainee.employee_number,
         }
+        new_email = (form.email.data or "").strip() or None
+        new_channel = form.notification_channel.data or "sms"
+        new_emp_no = (form.employee_number.data or "").strip() or None
+        # Block channel=email/both without an email on file.
+        if new_channel != "sms" and not new_email:
+            flash(_("admin.training.trainee.email_required_for_channel"), "danger")
+            return render_template(
+                "admin/training/trainee_form.html", form=form, edit=True, trainee=trainee
+            )
+        # Reject collision against another trainee's employee_number.
+        if new_emp_no and new_emp_no != trainee.employee_number:
+            existing = (
+                Trainee.query.filter(Trainee.employee_number == new_emp_no)
+                .filter(Trainee.id != trainee.id).first()
+            )
+            if existing is not None:
+                flash(
+                    _("admin.training.trainee.employee_number_taken"),
+                    "danger",
+                )
+                return render_template(
+                    "admin/training/trainee_form.html",
+                    form=form, edit=True, trainee=trainee,
+                )
+        trainee.employee_number = new_emp_no
+        trainee.email = new_email
         trainee.full_name = form.full_name.data.strip()
         trainee.role_code = form.role_code.data.strip()
         trainee.language = form.language.data
         trainee.is_active = form.is_active.data
         trainee.line_id = _resolve_line_id(form.line_code.data)
+        trainee.notification_channel = new_channel
         audit.record(
             entity_type="trainee",
             entity_id=trainee.id,
             action=AuditAction.UPDATE,
-            diff={"before": prev},
+            diff={"before": prev, "channel": trainee.notification_channel},
         )
         db.session.commit()
         flash(_("admin.training.trainee.updated"), "success")
         return redirect(url_for("admin_training.trainees_index"))
     return render_template(
         "admin/training/trainee_form.html", form=form, edit=True, trainee=trainee
+    )
+
+
+@bp.route("/trainees/bulk-issue", methods=["POST"])
+@login_required
+@require_permission(Perm.TRAINING_SEND)
+def trainees_bulk_issue():
+    """Bulk-issue magic-links for the checked trainees + chosen course.
+
+    Two-pass: a POST without `apply=1` renders the confirm preview;
+    a POST with `apply=1` re-validates and commits. Each issued
+    enrolment is a fresh row with its own unique magic_token.
+    """
+    trainee_ids = request.form.getlist("trainee_ids")
+    course_code = (request.form.get("course_code") or "").strip()
+    if not trainee_ids:
+        flash(_("admin.training.bulk.no_trainees"), "danger")
+        return redirect(url_for("admin_training.trainees_index"))
+    course = training_service.get_course_by_code(course_code)
+    if course is None:
+        flash(_("admin.training.bulk.no_course"), "danger")
+        return redirect(url_for("admin_training.trainees_index"))
+
+    # Re-plan on every pass so the apply step picks up enrolments
+    # that landed between preview and apply.
+    plan = training_service.plan_bulk_issue(trainee_ids, course)
+
+    if request.form.get("apply") == "1":
+        base_url = (
+            current_app.config.get("TRAINING_BASE_URL")
+            or request.host_url.rstrip("/")
+        )
+        counts = training_service.apply_bulk_issue(
+            plan, base_url=base_url, by_user_id=current_user.id
+        )
+        db.session.commit()
+        flash(
+            _("admin.training.bulk.applied").format(**counts),
+            "success",
+        )
+        return redirect(url_for("admin_training.trainees_index"))
+
+    return render_template(
+        "admin/training/trainees_bulk_confirm.html",
+        plan=plan,
+        course=course,
+        trainee_ids=trainee_ids,
     )
 
 
@@ -326,9 +481,21 @@ def trainees_issue(trainee_id: str):
             flash(_("admin.training.course.not_found"), "danger")
         else:
             try:
-                training_service.enrol(trainee=trainee, course=course)
+                from flask import current_app, request as _req
+
+                base_url = (
+                    current_app.config.get("TRAINING_BASE_URL")
+                    or _req.host_url.rstrip("/")
+                )
+                enrolment = training_service.enrol(
+                    trainee=trainee, course=course, base_url=base_url
+                )
                 db.session.commit()
-                flash(_("admin.training.link_issued"), "success")
+                link = f"{base_url.rstrip('/')}/training/take/{enrolment.magic_token}"
+                flash(
+                    _("admin.training.link_issued") + " " + link,
+                    "success",
+                )
                 return redirect(url_for("admin_training.trainees_index"))
             except training_service.TrainingError as exc:
                 flash(str(exc), "danger")
@@ -691,6 +858,477 @@ def questions_delete(course_id: str, question_id: str):
     return redirect(url_for("admin_training.questions_index", course_id=course.id))
 
 
+# ─── Assignments ────────────────────────────────────────────────────
+
+
+@bp.route("/courses/<course_id>/assignments")
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def assignments_index(course_id: str):
+    course = db.session.get(TrainingCourse, course_id)
+    if course is None:
+        abort(404)
+    rows = list(course.assignments)
+    line_by_id = {
+        line.id: line.code
+        for line in ProductionLine.query.all()
+    }
+    return render_template(
+        "admin/training/assignments_list.html",
+        course=course,
+        assignments=rows,
+        line_by_id=line_by_id,
+    )
+
+
+@bp.route("/courses/<course_id>/assignments/new", methods=["GET", "POST"])
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def assignments_new(course_id: str):
+    course = db.session.get(TrainingCourse, course_id)
+    if course is None:
+        abort(404)
+    form = AssignmentForm()
+    form.line_code.choices = _line_choices()
+    if form.validate_on_submit():
+        role_code = (form.role_code.data or "").strip() or None
+        line_id = _resolve_line_id(form.line_code.data)
+        assignment = TrainingAssignment(
+            course_id=course.id,
+            role_code=role_code,
+            line_id=line_id,
+            recurrence_months=int(form.recurrence_months.data),
+        )
+        db.session.add(assignment)
+        db.session.flush()
+        audit.record(
+            entity_type="training_assignment",
+            entity_id=assignment.id,
+            action=AuditAction.CREATE,
+            diff={
+                "course_id": course.id,
+                "role_code": role_code,
+                "line_id": line_id,
+                "recurrence_months": assignment.recurrence_months,
+            },
+        )
+        db.session.commit()
+        flash(_("admin.training.assignment.created"), "success")
+        return redirect(
+            url_for("admin_training.assignments_index", course_id=course.id)
+        )
+    return render_template(
+        "admin/training/assignment_form.html",
+        course=course,
+        form=form,
+    )
+
+
+@bp.route(
+    "/courses/<course_id>/assignments/<assignment_id>/delete", methods=["POST"]
+)
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def assignments_delete(course_id: str, assignment_id: str):
+    course = db.session.get(TrainingCourse, course_id)
+    if course is None:
+        abort(404)
+    assignment = db.session.get(TrainingAssignment, assignment_id)
+    if assignment is None or assignment.course_id != course.id:
+        abort(404)
+    audit.record(
+        entity_type="training_assignment",
+        entity_id=assignment.id,
+        action="delete",
+        diff={
+            "course_id": course.id,
+            "role_code": assignment.role_code,
+            "line_id": assignment.line_id,
+        },
+    )
+    db.session.delete(assignment)
+    db.session.commit()
+    flash(_("admin.training.assignment.deleted"), "success")
+    return redirect(
+        url_for("admin_training.assignments_index", course_id=course.id)
+    )
+
+
+# ─── CSV export / template / import — trainees + courses ──────────
+
+
+def _csv_response(payload: bytes, filename: str):
+    from flask import Response
+
+    return Response(
+        payload,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@bp.route("/trainees.csv")
+@login_required
+@require_permission(Perm.TRAINING_SEND)
+def trainees_export_csv():
+    from app.services import training_csv
+
+    from datetime import date as _date
+
+    return _csv_response(
+        training_csv.export_trainees(),
+        f"trainees-{_date.today().isoformat()}.csv",
+    )
+
+
+@bp.route("/trainees/template.csv")
+@login_required
+@require_permission(Perm.TRAINING_SEND)
+def trainees_template_csv():
+    from app.services import training_csv
+
+    return _csv_response(training_csv.trainees_template(), "trainees-template.csv")
+
+
+@bp.route("/trainees/import", methods=["GET", "POST"])
+@login_required
+@require_permission(Perm.TRAINING_SEND)
+def trainees_import():
+    """Two-pass CSV upload: dry-run preview by default, ?apply=1 commits.
+
+    The plan is recomputed on each upload — we don't persist it
+    between requests, which means the user re-uploads the same file
+    when moving from preview to apply. That keeps the flow stateless
+    and dodges the Redis-down failure mode dev/test sees.
+    """
+    from app.services import training_csv
+
+    plan: training_csv.TraineeImportPlan | None = None
+    if request.method == "POST":
+        upload = request.files.get("csv")
+        if upload is None or not upload.filename:
+            flash(_("admin.training.import.no_file"), "danger")
+        else:
+            blob = upload.read()
+            plan = training_csv.plan_trainees_import(blob)
+            if request.form.get("apply") == "1":
+                if plan.n_error == 0 and (plan.n_create + plan.n_update) > 0:
+                    counts = training_csv.apply_trainees_plan(plan)
+                    db.session.commit()
+                    flash(
+                        _("admin.training.import.applied").format(
+                            created=counts["created"],
+                            updated=counts["updated"],
+                            skipped=counts["skipped"],
+                        ),
+                        "success",
+                    )
+                    return redirect(url_for("admin_training.trainees_index"))
+                else:
+                    flash(_("admin.training.import.fix_errors_first"), "danger")
+    return render_template(
+        "admin/training/trainees_import.html",
+        plan=plan,
+    )
+
+
+@bp.route("/courses.csv")
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def courses_export_csv():
+    from app.services import training_csv
+
+    from datetime import date as _date
+
+    return _csv_response(
+        training_csv.export_courses(),
+        f"courses-{_date.today().isoformat()}.csv",
+    )
+
+
+@bp.route("/courses/template.csv")
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def courses_template_csv():
+    from app.services import training_csv
+
+    return _csv_response(training_csv.courses_template(), "courses-template.csv")
+
+
+@bp.route("/courses/import", methods=["GET", "POST"])
+@login_required
+@require_permission(Perm.TRAINING_AUTHOR)
+def courses_import():
+    from app.services import training_csv
+
+    plan: training_csv.CourseImportPlan | None = None
+    if request.method == "POST":
+        upload = request.files.get("csv")
+        if upload is None or not upload.filename:
+            flash(_("admin.training.import.no_file"), "danger")
+        else:
+            blob = upload.read()
+            plan = training_csv.plan_courses_import(blob)
+            if request.form.get("apply") == "1":
+                if plan.n_error == 0 and (plan.n_create + plan.n_update) > 0:
+                    counts = training_csv.apply_courses_plan(plan)
+                    db.session.commit()
+                    flash(
+                        _("admin.training.import.applied").format(
+                            created=counts["created"],
+                            updated=counts["updated"],
+                            skipped=counts["skipped"],
+                        ),
+                        "success",
+                    )
+                    return redirect(url_for("admin_training.courses_index"))
+                else:
+                    flash(_("admin.training.import.fix_errors_first"), "danger")
+    return render_template(
+        "admin/training/courses_import.html",
+        plan=plan,
+    )
+
+
+# ─── Matrix exports (CSV + PDF) ─────────────────────────────────────
+
+
+def _matrix_export_rows(matrix: dict, line_by_id: dict) -> list[list[str]]:
+    """Flatten the matrix into rows suitable for both CSV and PDF.
+
+    First row is header (Worker / Role / Line / Clearance / one column
+    per course code). Remaining rows are one per trainee with the
+    state for each course rendered as its enum value.
+    """
+    header = [
+        "Worker",
+        "Role",
+        "Line",
+        "Clearance",
+    ] + [c.code for c in matrix["courses"]]
+    rows: list[list[str]] = [header]
+    for trainee in matrix["trainees"]:
+        cleared = matrix["cleared"].get(trainee.id, True)
+        line = line_by_id.get(trainee.line_id, "") if trainee.line_id else ""
+        cells = []
+        for course in matrix["courses"]:
+            state = matrix["states"].get((trainee.id, course.id))
+            cert = matrix["certs"].get((trainee.id, course.id))
+            text = state.value if state else ""
+            if cert and state in (
+                training_service.ComplianceState.VALID,
+                training_service.ComplianceState.DUE_SOON,
+                training_service.ComplianceState.EXTRA,
+            ):
+                text = f"{state.value} (until {cert.valid_until:%Y-%m-%d})"
+            cells.append(text)
+        rows.append([
+            trainee.full_name,
+            trainee.role_code,
+            line,
+            "cleared" if cleared else "BLOCKED",
+        ] + cells)
+    return rows
+
+
+@bp.route("/dashboard.csv")
+@login_required
+@require_permission(Perm.TRAINING_REVIEW)
+def dashboard_csv():
+    """CSV export of the (filtered) compliance matrix.
+
+    Same query parameters as the on-screen dashboard so an auditor
+    can export exactly what they're looking at. RFC 4180 dialect via
+    csv.writer; UTF-8 with BOM so Excel opens it cleanly without
+    asking about encoding.
+    """
+    import csv
+    import io
+
+    line_ids = [x for x in request.args.getlist("line_id") if x]
+    role_codes = [x.strip() for x in request.args.getlist("role_code") if x.strip()]
+    blocked_only = request.args.get("blocked") == "1"
+    matrix = training_service.build_compliance_matrix(
+        line_ids=line_ids, role_codes=role_codes, blocked_only=blocked_only
+    )
+    line_by_id = {ln.id: ln.code for ln in ProductionLine.query.all()}
+    rows = _matrix_export_rows(matrix, line_by_id)
+
+    buf = io.StringIO()
+    buf.write("﻿")  # UTF-8 BOM for Excel
+    writer = csv.writer(buf)
+    writer.writerows(rows)
+    payload = buf.getvalue().encode("utf-8")
+
+    from flask import Response
+    from datetime import date as _date
+
+    filename = f"compliance-matrix-{_date.today().isoformat()}.csv"
+    return Response(
+        payload,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@bp.route("/dashboard.pdf")
+@login_required
+@require_permission(Perm.TRAINING_REVIEW)
+def dashboard_pdf():
+    """PDF export of the (filtered) compliance matrix.
+
+    Renders a print-tuned HTML template through WeasyPrint (already
+    used by the existing reports.* routes for HACCP / FSA traceability).
+    Filename includes today's date so the inspector can collect them
+    chronologically.
+    """
+    import weasyprint
+    from datetime import date as _date
+
+    line_ids = [x for x in request.args.getlist("line_id") if x]
+    role_codes = [x.strip() for x in request.args.getlist("role_code") if x.strip()]
+    blocked_only = request.args.get("blocked") == "1"
+    # Orientation: explicit query override wins; otherwise auto-flip
+    # to landscape when the matrix has more than 5 course columns
+    # (portrait gets cramped past that).
+    orient_param = (request.args.get("orient") or "").strip().lower()
+    matrix = training_service.build_compliance_matrix(
+        line_ids=line_ids, role_codes=role_codes, blocked_only=blocked_only
+    )
+    if orient_param in ("landscape", "portrait"):
+        orientation = orient_param
+    else:
+        orientation = "landscape" if len(matrix["courses"]) > 5 else "portrait"
+    line_by_id = {ln.id: ln.code for ln in ProductionLine.query.all()}
+
+    html = render_template(
+        "reports/training_compliance_matrix.html",
+        matrix=matrix,
+        line_by_id=line_by_id,
+        ComplianceState=training_service.ComplianceState,
+        generated_at=datetime.now(timezone.utc),
+        filter_line_ids=line_ids,
+        filter_role_codes=role_codes,
+        filter_blocked_only=blocked_only,
+        orientation=orientation,
+    )
+    pdf = weasyprint.HTML(
+        string=html, base_url=str(current_app.root_path)
+    ).write_pdf()
+    from flask import Response
+
+    filename = f"compliance-matrix-{_date.today().isoformat()}.pdf"
+    return Response(
+        pdf,
+        mimetype="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
+# ─── Drill-down: trainee × course history ──────────────────────────
+
+
+@bp.route("/trainees/<trainee_id>/courses/<course_id>/history")
+@login_required
+@require_permission(Perm.TRAINING_REVIEW)
+def trainee_course_history(trainee_id: str, course_id: str):
+    """Audit-grade view of every interaction this trainee has had
+    with this course: assignments matching, all enrolments (with
+    status + token expiry), all attempts (score + payload), all
+    declarations, all certifications (incl. revoked)."""
+    trainee = db.session.get(Trainee, trainee_id)
+    course = db.session.get(TrainingCourse, course_id)
+    if trainee is None or course is None:
+        abort(404)
+
+    # Enrolments — newest first; eager-load attempts via the relation.
+    enrolments = (
+        db.session.execute(
+            select(TrainingEnrolment)
+            .join(
+                TrainingCourseVersion,
+                TrainingEnrolment.course_version_id == TrainingCourseVersion.id,
+            )
+            .where(TrainingEnrolment.trainee_id == trainee.id)
+            .where(TrainingCourseVersion.course_id == course.id)
+            .order_by(TrainingEnrolment.issued_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+    enrolment_ids = [e.id for e in enrolments]
+
+    attempts = []
+    if enrolment_ids:
+        attempts = (
+            TrainingAttempt.query.filter(TrainingAttempt.enrolment_id.in_(enrolment_ids))
+            .order_by(TrainingAttempt.started_at.desc())
+            .all()
+        )
+
+    certs = (
+        TrainingCertification.query.filter_by(
+            trainee_id=trainee.id, course_id=course.id
+        )
+        .order_by(TrainingCertification.valid_until.desc())
+        .all()
+    )
+
+    line_code = None
+    if trainee.line_id:
+        line = db.session.get(ProductionLine, trainee.line_id)
+        line_code = line.code if line else None
+
+    can_issue = current_user.has_permission(Perm.TRAINING_SEND)
+    return render_template(
+        "admin/training/trainee_course_history.html",
+        trainee=trainee,
+        course=course,
+        enrolments=enrolments,
+        attempts=attempts,
+        certs=certs,
+        line_code=line_code,
+        can_issue=can_issue,
+    )
+
+
+@bp.route(
+    "/trainees/<trainee_id>/courses/<course_id>/issue", methods=["POST"]
+)
+@login_required
+@require_permission(Perm.TRAINING_SEND)
+def trainee_course_issue(trainee_id: str, course_id: str):
+    """Issue a magic-link for this trainee × course straight from the
+    drill-down history. Reuses the standard `enrol()` path so the SMS /
+    email channel preference + audit trail behave identically to the
+    Trainees > Issue form."""
+    trainee = db.session.get(Trainee, trainee_id)
+    course = db.session.get(TrainingCourse, course_id)
+    if trainee is None or course is None:
+        abort(404)
+    base_url = (
+        current_app.config.get("TRAINING_BASE_URL")
+        or request.host_url.rstrip("/")
+    )
+    try:
+        enrolment = training_service.enrol(
+            trainee=trainee, course=course, base_url=base_url
+        )
+        db.session.commit()
+        link = f"{base_url.rstrip('/')}/training/take/{enrolment.magic_token}"
+        flash(_("admin.training.link_issued") + " " + link, "success")
+    except training_service.TrainingError as exc:
+        db.session.rollback()
+        flash(str(exc), "danger")
+    return redirect(
+        url_for(
+            "admin_training.trainee_course_history",
+            trainee_id=trainee.id,
+            course_id=course.id,
+        )
+    )
+
+
 # ─── Dashboard ──────────────────────────────────────────────────────
 
 
@@ -698,17 +1336,30 @@ def questions_delete(course_id: str, question_id: str):
 @login_required
 @require_permission(Perm.TRAINING_REVIEW)
 def dashboard():
-    """Per-trainee × per-course matrix with cert state."""
-    trainees = Trainee.query.filter_by(is_active=True).order_by(Trainee.full_name).all()
-    courses = TrainingCourse.query.filter_by(is_active=True).order_by(TrainingCourse.code).all()
-    rows: list[dict] = []
-    for trainee in trainees:
-        cells = []
-        for course in courses:
-            cert = training_service.latest_certification(trainee.id, course.id)
-            due = training_service.is_due_for_recert(trainee, course)
-            cells.append({"course": course, "cert": cert, "due": due})
-        rows.append({"trainee": trainee, "cells": cells})
+    """Per-trainee × per-course compliance matrix.
+
+    Uses the bulk-loader so a 100×10 grid still hits the DB only ~5
+    times. Six colour-coded states surface "required vs not", "valid /
+    due-soon / overdue" and an "in-flight" enrolment-pending state.
+    Worker-level clearance flag lights up the row when any required
+    cell is OVERDUE.
+
+    Optional query parameters narrow the visible set:
+      ?line_id=<id>   — only one production line
+      ?role_code=<rc> — only one role
+      ?blocked=1      — only workers not currently cleared
+    """
+    # Multi-select aware: getlist returns [] when the param is absent
+    # or empty, which `build_compliance_matrix` treats as "no filter".
+    line_ids = [x for x in request.args.getlist("line_id") if x]
+    role_codes = [x.strip() for x in request.args.getlist("role_code") if x.strip()]
+    blocked_only = request.args.get("blocked") == "1"
+
+    matrix = training_service.build_compliance_matrix(
+        line_ids=line_ids,
+        role_codes=role_codes,
+        blocked_only=blocked_only,
+    )
     open_enrolments = (
         db.session.execute(
             select(TrainingEnrolment)
@@ -721,9 +1372,28 @@ def dashboard():
         .scalars()
         .all()
     )
+    line_by_id = {ln.id: ln.code for ln in ProductionLine.query.all()}
+    # Choices for the filter selects: lines + the distinct set of
+    # role_codes actually present on any active trainee.
+    line_choices = (
+        ProductionLine.query.filter_by(is_active=True)
+        .order_by(ProductionLine.code).all()
+    )
+    role_choices = sorted({
+        row[0] for row in db.session.query(Trainee.role_code)
+        .filter(Trainee.is_active.is_(True)).distinct().all()
+        if row[0]
+    })
     return render_template(
         "admin/training/dashboard.html",
-        rows=rows,
-        courses=courses,
+        matrix=matrix,
+        line_by_id=line_by_id,
         open_enrolments=open_enrolments,
+        ComplianceState=training_service.ComplianceState,
+        # Filter UI state — sets so the template can do `id in selected`.
+        filter_line_ids=set(line_ids),
+        filter_role_codes=set(role_codes),
+        filter_blocked_only=blocked_only,
+        line_choices=line_choices,
+        role_choices=role_choices,
     )

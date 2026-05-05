@@ -11,16 +11,26 @@
         <legend>{{ loop.index }}. {{ q.prompt.get(trainee_lang) or q.prompt.get('en') }}</legend>
         {% for opt in q.options %}
           <label class="exam-option">
+            {# HTML5 `required` on a checkbox would force EVERY checkbox to
+               be ticked (browsers apply it per-input, not per-name-group),
+               making multi-choice questions unsubmittable. Apply only to
+               radio buttons; the server validates "at least one selected"
+               for multi_choice. #}
             <input type="{{ 'checkbox' if q.kind == 'multi_choice' else 'radio' }}"
                    name="q-{{ q.id }}"
                    value="{{ opt.id }}"
-                   required>
+                   {% if q.kind != 'multi_choice' %}required{% endif %}>
             <span>{{ opt.label.get(trainee_lang) or opt.label.get('en') }}</span>
           </label>
         {% endfor %}
       </fieldset>
     {% endfor %}
-    <button class="btn btn-primary" type="submit">{{ _('training.exam.submit') }}</button>
+    <div class="exam-actions">
+      <a class="btn btn-ghost" href="{{ url_for('training.study', token=enrolment.magic_token) }}">
+        ← {{ _('training.exam.back_to_study') }}
+      </a>
+      <button class="btn btn-primary" type="submit">{{ _('training.exam.submit') }}</button>
+    </div>
   </form>
 </div>
 {% endblock %}

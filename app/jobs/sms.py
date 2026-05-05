@@ -70,6 +70,13 @@ def send_sms(
     # 4xx (except 429) is permanent: bad creds / bad number / out of credit.
     # Raise a non-RequestException so RQ does not consume a retry budget.
     if 400 <= response.status_code < 500 and response.status_code != 429:
+        # Drain remaining retries on the running job so RQ drops the job
+        # straight to the failed-job registry rather than burning the
+        # 3/9/27-minute backoff envelope on something that won't fix
+        # itself.
+        from app.jobs.webhook import _drain_retries
+
+        _drain_retries()
         raise PermanentSMSError(
             f"ClickSend rejected SMS ({response.status_code}): {response.text[:200]}"
         )

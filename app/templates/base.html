@@ -11,6 +11,7 @@
   <script src="{{ url_for('static', filename='js/sw-register.js') }}" defer></script>
 </head>
 <body>
+  <a class="skip-link" href="#main">{{ _('a11y.skip_to_content') }}</a>
   <header class="topbar">
     <a class="brand" href="{{ url_for('dashboard.index') }}">
       <span class="brand-mark">QMS</span>
@@ -32,6 +33,7 @@
       {% endif %}
     </nav>
     <div class="topright">
+      <a class="help-link" href="{{ url_for('help.index') }}" title="{{ _('nav.help') }}">{{ _('nav.help') }}</a>
       <form class="lang-switcher" method="get" action="">
         <a class="lang {% if current_lang == 'pl' %}active{% endif %}"
            href="{{ url_for('auth.set_language', code='pl', next=request.path) }}">PL</a>
@@ -50,17 +52,23 @@
     </div>
   </header>
 
-  <main class="container">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, msg in messages %}
-        <div class="flash flash-{{ category }}">{{ msg }}</div>
-      {% endfor %}
-    {% endwith %}
+  <main class="container" id="main">
+    <div role="status" aria-live="polite" aria-atomic="true">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, msg in messages %}
+          <div class="flash flash-{{ category }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+    </div>
     {% block content %}{% endblock %}
   </main>
 
   <footer class="footer">
-    <small>QMS · FSA · SALSA · HACCP · v0.1</small>
+    <small>
+      QMS · FSA · SALSA · HACCP · v0.1
+      · <a href="{{ url_for('legal.privacy') }}">{{ _('legal.privacy') }}</a>
+      · {{ _('footer.credit_prefix') }} <a href="https://attv.uk/" target="_blank" rel="noopener">Tomasz Lewandowski</a>
+    </small>
   </footer>
 </body>
 </html>

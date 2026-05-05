@@ -1,0 +1,70 @@
+{% extends "training_base.html" %}
+{% block title_suffix %} · {{ _('training.study.title') }}{% endblock %}
+{% block content %}
+<div class="card study-card">
+  <header class="study-header">
+    <h1>{{ _('training.study.title') }}</h1>
+    <p class="subtitle">{{ _('training.study.intro') }}</p>
+    <div class="study-counter" id="study-counter" data-total="{{ questions|length }}">
+      1 / {{ questions|length }}
+    </div>
+  </header>
+
+  <div class="flashcard-stack" id="flashcard-stack">
+    {% for q in questions %}
+      <article class="flashcard"
+               data-state="question"
+               {% if not loop.first %}hidden{% endif %}>
+        <div class="flashcard-question">
+          {{ q.prompt.get(trainee_lang) or q.prompt.get('en') }}
+        </div>
+        <div class="flashcard-answer">
+          {% for opt in q.options %}
+            <div class="flashcard-opt
+                 {% if opt.is_correct %}flashcard-opt-correct{% else %}flashcard-opt-wrong{% endif %}">
+              <span class="flashcard-mark"
+                    aria-label="{% if opt.is_correct %}{{ _('training.study.correct_label') }}{% else %}{{ _('training.study.incorrect_label') }}{% endif %}">
+                {% if opt.is_correct %}✓{% else %}✗{% endif %}
+              </span>
+              <span class="flashcard-label">
+                {{ opt.label.get(trainee_lang) or opt.label.get('en') }}
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="flashcard-actions">
+          <button type="button" class="btn btn-secondary flashcard-toggle">
+            <span class="when-question">{{ _('training.study.show_answer') }}</span>
+            <span class="when-answer">{{ _('training.study.hide_answer') }}</span>
+          </button>
+          <button type="button" class="btn btn-primary flashcard-next">
+            {{ _('training.study.next') }} →
+          </button>
+        </div>
+      </article>
+    {% endfor %}
+  </div>
+
+  <nav class="study-nav" aria-label="{{ _('training.study.title') }}">
+    <button type="button" class="btn btn-ghost" id="study-prev">
+      ← {{ _('training.study.prev') }}
+    </button>
+    <button type="button" class="btn btn-ghost" id="study-shuffle">
+      ⤭ {{ _('training.study.shuffle') }}
+    </button>
+    <button type="button" class="btn btn-ghost" id="study-next">
+      {{ _('training.study.next') }} →
+    </button>
+  </nav>
+
+  <p class="study-skip">
+    <a class="btn btn-primary"
+       href="{{ url_for('training.exam', token=enrolment.magic_token) }}">
+      {{ _('training.study.skip_to_exam') }} →
+    </a>
+  </p>
+</div>
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/study.js') }}" defer></script>
+{% endblock %}

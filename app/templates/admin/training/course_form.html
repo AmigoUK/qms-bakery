@@ -66,6 +66,9 @@
     <a class="btn btn-secondary" href="{{ url_for('admin_training.questions_index', course_id=course.id) }}">
       {{ _('admin.training.questions') }} ({{ course.active_version.questions|length if course.active_version else 0 }})
     </a>
+    <a class="btn btn-secondary" href="{{ url_for('admin_training.assignments_index', course_id=course.id) }}">
+      {{ _('admin.training.assignments') }} ({{ course.assignments|length }})
+    </a>
   </p>
 </div>
 

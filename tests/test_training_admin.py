@@ -103,11 +103,14 @@ def test_create_trainee_through_admin_form(app, client):
     resp = client.post(
         "/admin/training/trainees/new",
         data={
+            "employee_number": "EMP-T01",
             "phone": "+447700099999",
+            "email": "worker@example.com",
             "full_name": "Admin-Created Worker",
             "role_code": "operator",
             "line_code": "",
             "language": "en",
+            "notification_channel": "sms",
             "is_active": "y",
         },
         follow_redirects=False,
@@ -116,7 +119,80 @@ def test_create_trainee_through_admin_form(app, client):
     with app.app_context():
         trainee = Trainee.query.filter_by(phone="+447700099999").first()
         assert trainee is not None
+        assert trainee.employee_number == "EMP-T01"
         assert trainee.full_name == "Admin-Created Worker"
+        assert trainee.email == "worker@example.com"
+        assert trainee.notification_channel == "sms"
+
+
+def test_create_trainee_rejects_missing_email(app, client):
+    _login(client, app)
+    resp = client.post(
+        "/admin/training/trainees/new",
+        data={
+            "employee_number": "EMP-T02",
+            "phone": "+447700099998",
+            "email": "",  # missing
+            "full_name": "No Email",
+            "role_code": "operator",
+            "line_code": "",
+            "language": "en",
+            "notification_channel": "sms",
+            "is_active": "y",
+        },
+        follow_redirects=False,
+    )
+    # Form re-renders (no redirect), trainee not persisted.
+    assert resp.status_code == 200
+    with app.app_context():
+        assert Trainee.query.filter_by(phone="+447700099998").first() is None
+
+
+def test_create_trainee_rejects_missing_employee_number(app, client):
+    _login(client, app)
+    resp = client.post(
+        "/admin/training/trainees/new",
+        data={
+            "employee_number": "",  # missing
+            "phone": "+447700099996",
+            "email": "x@example.com",
+            "full_name": "No EmpNo",
+            "role_code": "operator",
+            "line_code": "",
+            "language": "en",
+            "notification_channel": "sms",
+            "is_active": "y",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 200
+    with app.app_context():
+        assert Trainee.query.filter_by(phone="+447700099996").first() is None
+
+
+def test_create_trainee_with_email_channel(app, client):
+    _login(client, app)
+    resp = client.post(
+        "/admin/training/trainees/new",
+        data={
+            "employee_number": "EMP-T03",
+            "phone": "+447700099997",
+            "email": "anna@example.com",
+            "full_name": "Anna Email",
+            "role_code": "operator",
+            "line_code": "",
+            "language": "en",
+            "notification_channel": "both",
+            "is_active": "y",
+        },
+        follow_redirects=False,
+    )
+    assert resp.status_code == 302
+    with app.app_context():
+        trainee = Trainee.query.filter_by(phone="+447700099997").first()
+        assert trainee is not None
+        assert trainee.notification_channel == "both"
+        assert trainee.email == "anna@example.com"
 
 
 def test_dashboard_renders(app, client):

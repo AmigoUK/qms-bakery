@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('help.training.title') }}{% endblock %}
+{% block content %}
+<div class="help-page">
+  <p><a class="muted" href="{{ url_for('help.index') }}">{{ _('help.back_to_index') }}</a></p>
+  <h1>{{ _('help.training.title') }}</h1>
+  <p>
+    <a class="btn btn-primary" href="{{ url_for('help.trainee_card_pdf') }}">
+      {{ _('help.printable_card') }}
+    </a>
+  </p>
+
+  {% if current_lang == 'pl' %}
+  <h2>Co Cię czeka</h2>
+  <ol>
+    <li><strong>SMS-a z linkiem</strong> — dostajesz go od kierownika.</li>
+    <li><strong>Materiały</strong> — kilka ekranów do przeczytania (3–5 minut).</li>
+    <li><strong>Karty do nauki</strong> — możesz powtórzyć (opcjonalne).</li>
+    <li><strong>Sprawdzian</strong> — kilka pytań, możesz wracać i zmieniać odpowiedzi przed wysłaniem.</li>
+    <li><strong>Podpis</strong> — narysuj palcem na ekranie, jeśli zaliczysz.</li>
+    <li><strong>Certyfikat PDF</strong> — pobierz i zapisz.</li>
+  </ol>
+  <p>Jeśli przerwiesz w połowie, wróć tym samym linkiem. Postęp jest zapamiętany.</p>
+
+  <h2>Najczęściej zadawane pytania</h2>
+
+  <h3>Dostałem SMS — co teraz?</h3>
+  <p>Kliknij link. Otworzy się strona <em>Szkolenie</em>. Naciśnij <strong>Rozpocznij kurs</strong>.</p>
+
+  <h3>Link nie działa — „Link nie jest już aktywny"</h3>
+  <p>Mogą być trzy powody:</p>
+  <ul>
+    <li><strong>Wygasł</strong> (minęła data ważności) → poproś kierownika linii o nowy link.</li>
+    <li><strong>Już użyty</strong> (Ty lub ktoś inny otworzył go pierwszy) → otwórz pierwotny link aby zobaczyć wynik.</li>
+    <li><strong>Uszkodzony</strong> (skrócony, niekompletny) → otwórz oryginalnego SMS-a, kliknij dokładnie cały link.</li>
+  </ul>
+
+  <h3>Czy mogę przerwać i wrócić później?</h3>
+  <p>Tak. Kliknij ten sam link ponownie. System pamięta, na którym module skończyłeś/-aś.</p>
+
+  <h3>Czy muszę robić to na telefonie?</h3>
+  <p>Nie. Otwórz link na telefonie, tablecie lub komputerze. Podpis rysujesz palcem (telefon/tablet) lub myszką (komputer).</p>
+
+  <h3>Nie zdałem — co dalej?</h3>
+  <p>Strona <em>Niezaliczone</em> pokazuje Twój wynik i próg. Skontaktuj się z kierownikiem linii — wystawi nowy link, żebyś mógł/-mogła powtórzyć.</p>
+
+  <h3>Skąd wiem, że mój podpis się zapisał?</h3>
+  <p>Po naciśnięciu <strong>Podpisz i wyślij</strong> trafisz na ekran <em>Zaliczone</em>. Pobierz certyfikat — zobaczysz na nim swój podpis. Jeśli go nie ma na PDF, zgłoś to kierownikowi.</p>
+
+  <h3>Gdzie mój certyfikat?</h3>
+  <p>To PDF do pobrania w momencie zaliczenia. <strong>Zapisz go</strong> na telefonie lub wydrukuj. System kierownika także zachowuje kopię.</p>
+
+  <h3>Kiedy będę musiał/-a powtórzyć?</h3>
+  <p>Większość kursów ważna jest 12 miesięcy. Na 7 dni i 3 dni przed wygaśnięciem dostaniesz przypomnienie SMS / email. W dniu wygaśnięcia — ostatni alert: bez zaliczenia tego dnia nie zostaniesz dopuszczony/-a do pracy.</p>
+
+  <h3>Co znaczą „karty do nauki" — czy są obowiązkowe?</h3>
+  <p>Nie. To powtórka pytań z odpowiedziami. Możesz pominąć — przejdź od razu do <strong>Już umiem — egzamin</strong>.</p>
+
+  <h3>Mój telefon nie ma internetu w hali — co zrobić?</h3>
+  <p>Otwórz link na łączności WiFi (np. szatnia, biuro). Po zalogowaniu na link szkolenie nie wymaga ciągłego internetu — możesz wykonać większość kroków offline. <strong>Wysłanie odpowiedzi</strong> wymaga ponownego połączenia.</p>
+
+  <h2>Coś poszło nie tak</h2>
+
+  <h3>Połączenie zerwane podczas wysyłania odpowiedzi</h3>
+  <p>Twoje odpowiedzi są zapisane w przeglądarce. Wróć do tej samej strony i naciśnij <strong>Wyślij odpowiedzi</strong> ponownie.</p>
+
+  <h3>Podpis nie chce się narysować lub jest „zły"</h3>
+  <p>Wyczyść (przycisk <strong>Wyczyść</strong>) i spróbuj ponownie. Rysuj prostszymi kreskami — jeśli podpis jest zbyt szczegółowy, system go nie zapisze.</p>
+
+  <h3>Strona pokazuje treść po angielsku zamiast po polsku</h3>
+  <p>Część modułów może być dostępna tylko w jednym języku. Treść interfejsu (przyciski) zawsze masz w preferowanym języku — możesz przełączyć w prawym górnym rogu.</p>
+
+  <h3>Po wysłaniu odpowiedzi nie widzę certyfikatu</h3>
+  <p>Certyfikat generuje się chwilę. Odśwież stronę. Jeśli po minucie nadal go nie ma — zgłoś kierownikowi.</p>
+  {% else %}
+  <h2>Here's the flow</h2>
+  <ol>
+    <li><strong>SMS with a link</strong> — your line manager sends it.</li>
+    <li><strong>Read the lessons</strong> — a few screens (3–5 minutes).</li>
+    <li><strong>Flash cards</strong> — practice if you want (optional).</li>
+    <li><strong>Take the test</strong> — a few questions; you can go back and change answers before submitting.</li>
+    <li><strong>Sign</strong> — draw with your finger if you pass.</li>
+    <li><strong>Download the PDF certificate</strong> — save it.</li>
+  </ol>
+  <p>If you stop midway, come back via the same link. Your progress is saved.</p>
+
+  <h2>Frequently asked questions</h2>
+
+  <h3>Got the SMS — what now?</h3>
+  <p>Tap the link. A <em>Training</em> page opens. Press <strong>Start course</strong>.</p>
+
+  <h3>The link doesn't work — "Link no longer valid"</h3>
+  <p>Three possible reasons:</p>
+  <ul>
+    <li><strong>Expired</strong> (its valid-by date has passed) → ask your line manager for a new link.</li>
+    <li><strong>Already used</strong> (you or someone else opened it first) → open the original link to see your result.</li>
+    <li><strong>Broken</strong> (shortened, incomplete) → open the original SMS and tap the full link.</li>
+  </ul>
+
+  <h3>Can I pause and come back later?</h3>
+  <p>Yes. Tap the same link again. The system remembers which lesson you stopped at.</p>
+
+  <h3>Do I have to do this on a phone?</h3>
+  <p>No. Phone, tablet, or PC all work. Sign with your finger (phone/tablet) or mouse (PC).</p>
+
+  <h3>I failed — what next?</h3>
+  <p>The <em>Failed</em> page shows your score and the pass threshold. Ask your line manager for a new link to retake.</p>
+
+  <h3>How do I know my signature was saved?</h3>
+  <p>After you press <strong>Sign and send</strong> the <em>Passed</em> screen opens. Download the certificate — your signature is on it. If it's missing, tell your manager.</p>
+
+  <h3>Where's my certificate?</h3>
+  <p>A PDF you download at the moment of passing. <strong>Save</strong> it to your phone or print it. Your manager's system also keeps a copy.</p>
+
+  <h3>When will I have to retake?</h3>
+  <p>Most courses are valid 12 months. You get reminder SMS / email 7 days and 3 days before expiry — and on the expiry day itself you'll get a final alert: without passing that day, you can't be cleared for work.</p>
+
+  <h3>What are "flash cards" — are they required?</h3>
+  <p>No, optional. They show questions with answers — practice. Skip with <strong>I know it — exam</strong>.</p>
+
+  <h3>My phone has no internet on the floor — what now?</h3>
+  <p>Open the link on Wi-Fi (locker room, office). Most steps work offline once loaded. <strong>Submitting answers</strong> needs a connection.</p>
+
+  <h2>Something went wrong</h2>
+
+  <h3>Connection dropped while submitting answers</h3>
+  <p>Your answers are saved in the browser. Return to the same page and press <strong>Submit answers</strong> again.</p>
+
+  <h3>The signature won't draw, or it's rejected</h3>
+  <p>Press <strong>Clear</strong> and try again with simpler strokes. If the signature is too detailed, the system won't save it.</p>
+
+  <h3>The page shows English when I want Polish</h3>
+  <p>Some modules may only exist in one language. The interface buttons always follow your preferred language — switch it in the top right.</p>
+
+  <h3>After submitting, I can't see the certificate</h3>
+  <p>The certificate takes a moment to generate. Refresh the page. If after a minute it's still missing, tell your manager.</p>
+  {% endif %}
+</div>
+{% endblock %}

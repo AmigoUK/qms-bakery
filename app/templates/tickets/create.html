@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import field_errors %}
 {% block title_suffix %} · {{ _('tickets.create.title') }}{% endblock %}
 {% block content %}
 <div class="card card-narrow">
@@ -8,14 +9,17 @@
     <label>
       <span>{{ _('tickets.field.line') }}</span>
       {{ form.line_id() }}
+      {{ field_errors(form.line_id) }}
     </label>
     <label>
       <span>{{ _('tickets.field.title') }}</span>
       {{ form.title(required=True, maxlength=200) }}
+      {{ field_errors(form.title) }}
     </label>
     <label>
       <span>{{ _('tickets.field.description') }}</span>
       {{ form.description(rows=5) }}
+      {{ field_errors(form.description) }}
     </label>
     <div class="row">
       <label>

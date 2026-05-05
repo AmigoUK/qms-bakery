@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('help.auditor.title') }}{% endblock %}
+{% block content %}
+<div class="help-page">
+  <p><a class="muted" href="{{ url_for('help.index') }}">{{ _('help.back_to_index') }}</a></p>
+  <h1>{{ _('help.auditor.title') }}</h1>
+
+  {% if current_lang == 'pl' %}
+  <p>Ten pakiet jest dla zewnętrznego audytora SALSA / BRC / klienta końcowego — pokazuje, gdzie znaleźć dowody zgodności i jak zweryfikować integralność dziennika.</p>
+
+  <h2>1. Niezmienialność dziennika audytu</h2>
+  <p>Każdy wpis w tabeli <code>audit_log</code> zawiera <code>prev_hash</code> — SHA-256 bajtowej reprezentacji poprzedniego wpisu (subject, action, actor, payload diff, timestamp). Pierwszy wpis ma <code>prev_hash = "0" * 64</code>. Próba modyfikacji któregokolwiek wpisu przerywa łańcuch.</p>
+  <p>Weryfikacja łańcucha: <code>flask audit-verify</code> przelicza hash dla każdego wpisu i porównuje z zapisanym. Każdy fail to dowód manipulacji.</p>
+  <p><em>Lokalizacja widoku:</em> <code>/admin/audit</code> (wymaga <code>AUDIT_VIEW</code>).</p>
+
+  <h2>2. Co jest logowane</h2>
+  <ul>
+    <li>Każde logowanie i nieudana próba (z 2FA jeśli wymagane).</li>
+    <li>Każda zmiana ustawień (CRUD na users, courses, triggers, pipelines).</li>
+    <li>Wystawienie linku szkoleniowego (czas, odbiorca, kurs, kanał: SMS/email).</li>
+    <li>Każda próba egzaminu, deklaracja, certyfikat.</li>
+    <li>Każde uruchomienie triggera (z dry-run i fire).</li>
+    <li>Każdy eksport DSAR i każde wykonanie redakcji GDPR (samolog).</li>
+  </ul>
+
+  <h2>3. Dowody dla podmiotu danych (UK GDPR Art. 15 / 20)</h2>
+  <pre><code>flask dsar-export --subject trainee:&lt;id&gt; --output evidence.json</code></pre>
+  <p>Zwraca pełny pakiet JSON: profil, certyfikaty, deklaracje (z oryginalnym podpisem), historia enrolment'ów, każdy wpis audytu dotyczący podmiotu.</p>
+
+  <h2>4. Prawo do bycia zapomnianym (Art. 17)</h2>
+  <pre><code>flask gdpr-redact --subject trainee:&lt;id&gt; --confirm</code></pre>
+  <p>Wycofuje wszystkie dane osobowe (PII) z dziennika audytu i tabel źródłowych. Łańcuch SHA-256 zostaje rehashowany; zewnętrzna weryfikacja nadal przechodzi. Sama redakcja jest wpisana do audytu (kto, kiedy, dla kogo).</p>
+
+  <h2>5. Retencja</h2>
+  <p>Polityka retencji: enrolment'y po 5 latach od wygaśnięcia → usuwane. Deklaracje — podpis + IP wymazane po 3 latach od certyfikatu (sam wpis o zaliczeniu zostaje). Logi audytu — zachowane (z możliwością redakcji PII).</p>
+  <pre><code>flask retention-sweep --dry-run    # zobacz co by się stało
+flask retention-sweep --apply      # wykonaj</code></pre>
+
+  <h2>6. Podpis pracownika — co audytor zobaczy</h2>
+  <p>Każda deklaracja zawiera: wpisane imię i nazwisko, narysowany podpis (PNG), tekst oświadczenia (zapisany w momencie podpisu — nie zmienia się gdy admin edytuje template), IP i User-Agent, timestamp w UTC.</p>
+  <p>Tekst oświadczenia (PL): <em>„Potwierdzam, że zapoznałem(-am) się z materiałami szkoleniowymi, samodzielnie wypełniłem(-am) sprawdzian i rozumiem obowiązki HACCP związane z moim stanowiskiem."</em></p>
+
+  <h2>7. Dostęp do dowodów</h2>
+  <p>Widok matrycy compliance: <code>/admin/training/dashboard</code> — eksport CSV i PDF. Filtry po linii, roli, stanie. PDF jest wersją do druku (orientacja pozioma).</p>
+  <p>Lista wszystkich kursów: <code>/admin/training/courses</code>. Każdy kurs ma wersjonowanie immutable — wersja 1 użyta dla certyfikatu z 2024 nie zostaje nadpisana edycją w 2026.</p>
+
+  {% else %}
+  <p>This packet is for the external SALSA / BRC / customer auditor — it shows where the compliance evidence lives and how to verify audit-log integrity.</p>
+
+  <h2>1. Audit-log immutability</h2>
+  <p>Every row in <code>audit_log</code> carries <code>prev_hash</code> — SHA-256 over the byte representation of the previous row (subject, action, actor, payload diff, timestamp). The first row has <code>prev_hash = "0" * 64</code>. Modifying any row breaks the chain.</p>
+  <p>Chain verification: <code>flask audit-verify</code> recomputes each row's hash and compares to the stored value. Any mismatch is evidence of tampering.</p>
+  <p><em>Where to look:</em> <code>/admin/audit</code> (requires <code>AUDIT_VIEW</code>).</p>
+
+  <h2>2. What is logged</h2>
+  <ul>
+    <li>Every login and failed attempt (with 2FA where required).</li>
+    <li>Every settings change (CRUD on users, courses, triggers, pipelines).</li>
+    <li>Each training link issuance (when, to whom, which course, channel: SMS/email).</li>
+    <li>Every exam attempt, declaration, certificate.</li>
+    <li>Every trigger fire (both dry-run and live).</li>
+    <li>Every DSAR export and every GDPR redaction (self-logged).</li>
+  </ul>
+
+  <h2>3. Data-subject evidence (UK GDPR Art. 15 / 20)</h2>
+  <pre><code>flask dsar-export --subject trainee:&lt;id&gt; --output evidence.json</code></pre>
+  <p>Returns a full JSON bundle: profile, certificates, declarations (with original signature), enrolment history, every audit row touching the subject.</p>
+
+  <h2>4. Right to erasure (Art. 17)</h2>
+  <pre><code>flask gdpr-redact --subject trainee:&lt;id&gt; --confirm</code></pre>
+  <p>Redacts all personally identifiable information (PII) from audit-log diffs and source rows. The SHA-256 chain is rehashed forward; external verification still passes. The redaction itself is recorded in the audit (who, when, for whom).</p>
+
+  <h2>5. Retention</h2>
+  <p>Retention policy: enrolments dropped 5 years past expiry. Declarations — signature + IP wiped 3 years after certification (the pass record itself stays). Audit log — preserved (with PII-redact capability).</p>
+  <pre><code>flask retention-sweep --dry-run    # see what would happen
+flask retention-sweep --apply      # execute</code></pre>
+
+  <h2>6. The trainee's signature — what auditors see</h2>
+  <p>Every declaration carries: typed full name, drawn signature (PNG), declaration text (snapshotted at sign-time — doesn't change if admin edits the template later), IP and User-Agent, timestamp in UTC.</p>
+  <p>Declaration text (EN): <em>"I confirm that I have read the training materials, completed the test myself, and understand the HACCP responsibilities for my role."</em></p>
+
+  <h2>7. Reaching the evidence</h2>
+  <p>Compliance matrix: <code>/admin/training/dashboard</code> — CSV and PDF export. Filter by line, role, state. The PDF is print-ready (landscape).</p>
+  <p>Course catalogue: <code>/admin/training/courses</code>. Each course is versioned immutably — version 1 used for a 2024 certificate isn't overwritten by a 2026 edit.</p>
+  {% endif %}
+</div>
+{% endblock %}

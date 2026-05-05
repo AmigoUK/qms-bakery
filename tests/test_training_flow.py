@@ -99,12 +99,18 @@ def test_full_pass_flow_through_routes(app, client):
     resp = client.get(f"/training/take/{token}/module")
     assert resp.status_code == 200
 
-    # 4. Advance past last module → redirected to exam
+    # 4. Advance past last module → redirected to /study (the optional
+    #    practice step). Trainee can take their time on flash cards then
+    #    click "I know this — go to exam" to land on /exam.
     resp = client.post(f"/training/take/{token}/next", follow_redirects=False)
     assert resp.status_code == 302
-    assert "/exam" in resp.headers["Location"]
+    assert "/study" in resp.headers["Location"]
 
-    # 5. Exam GET
+    # 4b. Study renders the practice page.
+    resp = client.get(f"/training/take/{token}/study")
+    assert resp.status_code == 200
+
+    # 5. Exam GET (reached via the skip-to-exam link from study).
     resp = client.get(f"/training/take/{token}/exam")
     assert resp.status_code == 200
     assert b"Submit answers" in resp.data
@@ -221,3 +227,24 @@ def test_expired_enrolment_yields_expired_page(app, client):
         token = enrolment.magic_token
     resp = client.get(f"/training/take/{token}")
     assert resp.status_code == 410
+
+
+def test_expired_page_branches_invalid_vs_expired(app, client):
+    """Garbled-token gets the 'looks broken' copy; HMAC-valid but TTL-past
+    token gets the 'expired' copy. The trainee can only act on the right
+    advice if the page distinguishes the two."""
+    # 1. Malformed token → "invalid" branch
+    resp = client.get("/training/take/garbage.token.value")
+    assert resp.status_code == 410
+    assert b"looks broken" in resp.data or b"uszkodzony" in resp.data
+
+    # 2. HMAC-valid token, TTL past → "expired" branch
+    with app.app_context():
+        course, _, _ = _seed_full_course()
+        enrolment = _enrol(course)
+        enrolment.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        db.session.commit()
+        token = enrolment.magic_token
+    resp = client.get(f"/training/take/{token}")
+    assert resp.status_code == 410
+    assert b"valid-by date has passed" in resp.data or b"min\xc4\x99\xc5\x82a data" in resp.data

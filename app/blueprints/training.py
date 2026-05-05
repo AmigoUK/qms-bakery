@@ -39,17 +39,22 @@ bp = Blueprint("training", __name__, url_prefix="/training", template_folder="..
 # blueprint — every state-changing route is a POST with a token.
 
 
-def _load_enrolment(token: str) -> TrainingEnrolment | None:
-    enrolment = training_service.get_enrolment_by_token(token)
+def _load_enrolment(token: str) -> tuple[TrainingEnrolment | None, str]:
+    """Returns (enrolment, reason). reason is "" on success, else
+    "expired" or "invalid" for the 410 page to branch on."""
+    enrolment, reason = training_service.get_enrolment_with_reason(token)
     if enrolment is None:
-        return None
+        return (None, reason)
     g.trainee_lang = enrolment.trainee.language or "en"
-    return enrolment
+    return (enrolment, "")
 
 
-def _expired() -> Response:
+def _expired(reason: str = "expired") -> Response:
     return Response(
-        render_template("training/expired.html", trainee_lang="en"), status=410
+        render_template(
+            "training/expired.html", trainee_lang="en", reason=reason,
+        ),
+        status=410,
     )
 
 
@@ -63,9 +68,9 @@ def _render(template: str, *, enrolment: TrainingEnrolment, **ctx) -> Response:
 
 @bp.route("/take/<token>", methods=["GET"])
 def take(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     # If the trainee already submitted their attempt, jump straight to the
     # result so reopening the link doesn't re-prompt the exam.
     if enrolment.status == EnrolmentStatus.SUBMITTED.value:
@@ -75,22 +80,24 @@ def take(token: str):
 
 @bp.route("/take/<token>/start", methods=["POST"])
 def start(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     if enrolment.status == EnrolmentStatus.ISSUED.value:
         enrolment.status = EnrolmentStatus.STARTED.value
         db.session.commit()
     if enrolment.module_progress >= len(enrolment.course_version.modules):
-        return redirect(url_for("training.exam", token=token))
+        # All modules done — drop into the optional practice/study step.
+        # Trainee can press "I know this" on /study to skip to /exam.
+        return redirect(url_for("training.study", token=token))
     return redirect(url_for("training.module", token=token))
 
 
 @bp.route("/take/<token>/module", methods=["GET"])
 def module(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     modules = enrolment.course_version.modules
     if not modules:
         return redirect(url_for("training.exam", token=token))
@@ -106,22 +113,43 @@ def module(token: str):
 
 @bp.route("/take/<token>/next", methods=["POST"])
 def next_module(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     total = len(enrolment.course_version.modules)
     enrolment.module_progress = min(enrolment.module_progress + 1, total)
     db.session.commit()
     if enrolment.module_progress >= total:
-        return redirect(url_for("training.exam", token=token))
+        # Past the last module → optional practice/study step.
+        return redirect(url_for("training.study", token=token))
     return redirect(url_for("training.module", token=token))
+
+
+@bp.route("/take/<token>/study", methods=["GET"])
+def study(token: str):
+    """Optional flash-card practice step between modules and the exam.
+
+    Renders the same questions the exam will assess but reveals the
+    answer key. No state is persisted — order is shuffled client-side
+    each visit, the trainee can leave for /exam at any time.
+    """
+    enrolment, reason = _load_enrolment(token)
+    if enrolment is None:
+        return _expired(reason)
+    if enrolment.status == EnrolmentStatus.SUBMITTED.value:
+        return redirect(url_for("training.result", token=token))
+    return _render(
+        "training/study.html",
+        enrolment=enrolment,
+        questions=enrolment.course_version.questions,
+    )
 
 
 @bp.route("/take/<token>/exam", methods=["GET"])
 def exam(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     if enrolment.status == EnrolmentStatus.SUBMITTED.value:
         return redirect(url_for("training.result", token=token))
     return _render(
@@ -133,9 +161,9 @@ def exam(token: str):
 
 @bp.route("/take/<token>/exam", methods=["POST"])
 def submit_exam(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     if enrolment.status == EnrolmentStatus.SUBMITTED.value:
         return redirect(url_for("training.result", token=token))
 
@@ -156,9 +184,9 @@ def submit_exam(token: str):
 
 @bp.route("/take/<token>/declaration", methods=["GET"])
 def declaration(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     attempt = enrolment.attempt
     if attempt is None or not attempt.passed:
         return redirect(url_for("training.result", token=token))
@@ -173,9 +201,9 @@ def declaration(token: str):
 
 @bp.route("/take/<token>/declare", methods=["POST"])
 def declare(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     attempt = enrolment.attempt
     if attempt is None or not attempt.passed:
         return redirect(url_for("training.result", token=token))
@@ -214,9 +242,9 @@ def declare(token: str):
 
 @bp.route("/take/<token>/result", methods=["GET"])
 def result(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     attempt = enrolment.attempt
     if attempt is None:
         return redirect(url_for("training.take", token=token))
@@ -232,9 +260,9 @@ def result(token: str):
 
 @bp.route("/take/<token>/certificate", methods=["GET"])
 def certificate(token: str):
-    enrolment = _load_enrolment(token)
+    enrolment, reason = _load_enrolment(token)
     if enrolment is None:
-        return _expired()
+        return _expired(reason)
     attempt = enrolment.attempt
     if attempt is None or not attempt.passed:
         abort(404)

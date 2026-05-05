@@ -15,7 +15,8 @@
     {{ declaration_text }}
   </article>
   <form method="post" action="{{ url_for('training.declare', token=enrolment.magic_token) }}"
-        id="declaration-form">
+        id="declaration-form"
+        data-sign-required-message="{{ _('training.declaration.sign_required') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <input type="hidden" name="declaration_text" value="{{ declaration_text }}"/>
     <input type="hidden" name="signature_data_url" id="signature-data" value=""/>
@@ -39,5 +40,8 @@
       {{ _('training.declaration.submit') }}
     </button>
   </form>
+  <p class="subtitle">
+    <a href="{{ url_for('legal.privacy') }}">{{ _('legal.privacy') }}</a>
+  </p>
 </div>
 {% endblock %}

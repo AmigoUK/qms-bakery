@@ -17,7 +17,27 @@
  * cleaned up in `activate`.
  */
 
-const CACHE_VERSION = 'qms-v1';
+// Bumped after shipping the study/flash-card CSS — old caches still
+// hold an app.css without .flashcard* rules, which breaks the answer
+// hide/show toggle on the practice page.
+// v3: per-card [Next] button added; .flashcard-actions layout rules
+// need to ship with the new study.js wiring.
+// v4: switched /static/* to network-first so dev/test iterations land
+// without forcing operators to do double-refreshes.
+// v5: fixed .btn-ghost contrast — was white-on-white on every light
+// card; now defaults to dark-on-light with a topbar override.
+// v6: exam page got a "back to practice" link + .exam-actions row.
+// v7: training compliance matrix — new .compliance-* + .matrix-* CSS,
+// plus the dashboard template rewrite. Bump so old caches let go.
+// v8: trainee email/channel + matrix filters + drill-down + CSV/PDF
+// exports — fresh CSS for .compliance-link + .matrix-exports rows.
+// v9: matrix multi-select filters + issue-now button on drill-down +
+// auto-landscape PDF.
+// v10: trainees list — multi-select filters + checkbox bulk-issue
+// magic-links + sticky bulk-bar + new trainees_bulk.js.
+// v11: /help blueprint + topbar help link + 410-page reason branching
+// + 6 silent-failure copy keys + .help-page CSS.
+const CACHE_VERSION = 'qms-v11';
 const APP_SHELL = [
   '/offline',
   '/static/css/app.css',
@@ -57,7 +77,11 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (url.pathname.startsWith('/static/') || url.pathname === '/manifest.webmanifest') {
-    event.respondWith(cacheFirst(request));
+    // Dev/test iteration matters more than the offline-first speed
+    // win — operators see CSS / JS changes on the next normal reload
+    // instead of waiting for a cache-version bump. Cache stays warm
+    // as a fallback when the network actually fails.
+    event.respondWith(networkFirstStaticAsset(request));
     return;
   }
 
@@ -66,9 +90,7 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
+async function networkFirstStaticAsset(request) {
   try {
     const fresh = await fetch(request);
     if (fresh.ok) {
@@ -77,6 +99,7 @@ async function cacheFirst(request) {
     }
     return fresh;
   } catch (err) {
+    const cached = await caches.match(request);
     return cached || Response.error();
   }
 }

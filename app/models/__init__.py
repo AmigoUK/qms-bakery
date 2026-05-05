@@ -12,6 +12,7 @@ from app.models.triggers import (
     trigger_responders,
 )
 from app.models.tickets import (
+    TICKET_TRANSITIONS,
     Ticket,
     TicketCategory,
     TicketEvent,
@@ -22,6 +23,7 @@ from app.models.tickets import (
 from app.models.training import (
     EnrolmentSource,
     EnrolmentStatus,
+    NotificationChannel,
     QuestionKind,
     Trainee,
     TrainingAnswerOption,
@@ -44,6 +46,7 @@ __all__ = [
     "EnrolmentSource",
     "EnrolmentStatus",
     "InAppNotification",
+    "NotificationChannel",
     "Permission",
     "Pipeline",
     "PipelineStage",

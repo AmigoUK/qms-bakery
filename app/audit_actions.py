@@ -48,3 +48,8 @@ class AuditAction:
     TRAINING_DECLARED = "training_declared"
     TRAINING_CERTIFIED = "training_certified"
     TRAINING_LINK_EXPIRED = "training_link_expired"
+    TRAINING_REMINDER_SENT = "training_reminder_sent"
+
+    # GDPR / data subject rights
+    GDPR_DSAR_EXPORTED = "gdpr_dsar_exported"
+    GDPR_REDACTED = "gdpr_redacted"

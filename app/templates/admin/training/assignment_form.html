@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.assignment.new') }}{% endblock %}
+{% block content %}
+<div class="card card-narrow">
+  <h1>{{ course.code }} — {{ _('admin.training.assignment.new') }}</h1>
+  <p>{{ _('admin.training.assignment.form_intro') }}</p>
+  <form method="post" novalidate>
+    {{ form.csrf_token }}
+    <label>
+      <span>{{ _('admin.training.assignment.role') }}</span>
+      {{ form.role_code(placeholder=_('admin.training.assignment.any')) }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.assignment.line') }}</span>
+      {{ form.line_code() }}
+    </label>
+    <label>
+      <span>{{ _('admin.training.assignment.recurrence_months') }}</span>
+      {{ form.recurrence_months(type='number', min='1', max='120', required=True) }}
+    </label>
+    <div class="actions">
+      <a class="btn btn-ghost" href="{{ url_for('admin_training.assignments_index', course_id=course.id) }}">{{ _('common.cancel') }}</a>
+      <button class="btn btn-primary" type="submit">{{ _('common.save') }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

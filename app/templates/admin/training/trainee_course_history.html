@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ trainee.full_name }} × {{ course.code }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{{ trainee.full_name }} × {{ course.code }}</h1>
+    <p class="subtitle">
+      {{ trainee.role_code }}{% if line_code %} · {{ line_code }}{% endif %}
+      · {{ trainee.notification_channel }}
+    </p>
+  </div>
+  <div class="page-head-actions">
+    {% if can_issue %}
+      <form method="post"
+            action="{{ url_for('admin_training.trainee_course_issue',
+                                trainee_id=trainee.id, course_id=course.id) }}"
+            style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <button class="btn btn-primary" type="submit">
+          ✉ {{ _('admin.training.history.issue_now') }}
+        </button>
+      </form>
+    {% endif %}
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.dashboard') }}">
+      ← {{ _('admin.training.history.back_to_matrix') }}
+    </a>
+  </div>
+</div>
+
+<section class="card">
+  <h2>{{ _('admin.training.history.certs') }}</h2>
+  {% if certs %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>v</th>
+          <th>{{ _('admin.training.history.valid_from') }}</th>
+          <th>{{ _('admin.training.history.valid_until') }}</th>
+          <th>{{ _('admin.training.history.status') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in certs %}
+          <tr>
+            <td>v{{ c.course_version.version if c.course_version else '?' }}</td>
+            <td>{{ c.valid_from.strftime('%Y-%m-%d') }}</td>
+            <td>{{ c.valid_until.strftime('%Y-%m-%d') }}</td>
+            <td>
+              {% if c.revoked_at %}
+                <span class="status status-rejected">
+                  {{ _('admin.training.history.revoked') }} {{ c.revoked_at.strftime('%Y-%m-%d') }}
+                </span>
+              {% else %}
+                <span class="status status-closed">{{ _('admin.training.history.live') }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">{{ _('admin.training.history.no_certs') }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>{{ _('admin.training.history.enrolments') }}</h2>
+  {% if enrolments %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>{{ _('admin.training.history.issued_at') }}</th>
+          <th>v</th>
+          <th>{{ _('admin.training.history.status') }}</th>
+          <th>{{ _('admin.training.history.expires') }}</th>
+          <th>{{ _('admin.training.history.source') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in enrolments %}
+          <tr>
+            <td>{{ e.issued_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>v{{ e.course_version.version }}</td>
+            <td>{{ e.status }}</td>
+            <td>{{ e.expires_at.strftime('%Y-%m-%d') }}</td>
+            <td>{{ e.source }}{% if e.source_ref %} ({{ e.source_ref }}){% endif %}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">{{ _('admin.training.history.no_enrolments') }}</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2>{{ _('admin.training.history.attempts') }}</h2>
+  {% if attempts %}
+    <table class="data">
+      <thead>
+        <tr>
+          <th>{{ _('admin.training.history.started') }}</th>
+          <th>{{ _('admin.training.history.submitted') }}</th>
+          <th>{{ _('admin.training.history.score') }}</th>
+          <th>{{ _('admin.training.history.passed') }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in attempts %}
+          <tr>
+            <td>{{ a.started_at.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td>{% if a.submitted_at %}{{ a.submitted_at.strftime('%Y-%m-%d %H:%M') }}{% else %}—{% endif %}</td>
+            <td>{% if a.score is not none %}{{ '%.0f'|format(a.score * 100) }}%{% else %}—{% endif %}</td>
+            <td>
+              {% if a.passed is none %}
+                —
+              {% elif a.passed %}
+                <span class="status status-closed">{{ _('common.yes') }}</span>
+              {% else %}
+                <span class="status status-rejected">{{ _('common.no') }}</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="empty">{{ _('admin.training.history.no_attempts') }}</p>
+  {% endif %}
+</section>
+{% endblock %}

@@ -41,8 +41,18 @@ def _poll_interval(app: Flask) -> int:
 
 
 def run_once(app: Flask) -> dict[str, Any]:
-    """Single tick. Returns a small summary dict (handy for testing)."""
+    """Single tick. Returns a small summary dict (handy for testing).
+
+    Two-phase per tick:
+      1. Routine recert — enrol trainees due for re-cert on each
+         active course (existing behaviour).
+      2. Reminder dispatch — for every open enrolment, decide if a
+         3d / 7d / final reminder is due and send it via the
+         trainee's preferred channel. Idempotent: each kind is
+         tracked by its own `reminder_*_sent_at` timestamp.
+    """
     issued: list[dict] = []
+    reminder_counts = {"3d": 0, "7d": 0, "final": 0, "skipped": 0}
     with app.app_context():
         courses = TrainingCourse.query.filter_by(is_active=True).all()
         for course in courses:
@@ -74,7 +84,20 @@ def run_once(app: Flask) -> dict[str, Any]:
                     db.session.rollback()
                     continue
             db.session.commit()
-    return {"issued": len(issued), "items": issued}
+
+        # Reminder pass — independent of recert dispatch above.
+        try:
+            reminder_counts = training_service.send_pending_reminders()
+            db.session.commit()
+        except Exception:
+            logger.exception("training-scheduler: reminder dispatch failed")
+            db.session.rollback()
+
+    return {
+        "issued": len(issued),
+        "items": issued,
+        "reminders": reminder_counts,
+    }
 
 
 _stop_requested = False
@@ -99,6 +122,12 @@ def run(app: Flask) -> None:
                 logger.info(
                     "training-scheduler tick: %d enrolment(s) issued",
                     summary["issued"],
+                )
+            r = summary.get("reminders", {})
+            if any(r.get(k, 0) for k in ("3d", "7d", "final")):
+                logger.info(
+                    "training-scheduler tick: reminders 3d=%d 7d=%d final=%d",
+                    r.get("3d", 0), r.get("7d", 0), r.get("final", 0),
                 )
         except Exception:
             logger.exception("training-scheduler: tick failed")

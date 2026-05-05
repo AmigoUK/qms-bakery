@@ -16,5 +16,8 @@
       {% if enrolment.module_progress > 0 %}{{ _('training.landing.resume') }}{% else %}{{ _('training.landing.start') }}{% endif %}
     </button>
   </form>
+  <p class="subtitle">
+    <a href="{{ url_for('legal.privacy') }}">{{ _('legal.privacy') }}</a>
+  </p>
 </div>
 {% endblock %}

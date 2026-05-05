@@ -10,22 +10,28 @@
   {% block head_extra %}{% endblock %}
 </head>
 <body class="training-body">
+  <a class="skip-link" href="#main">{{ _('a11y.skip_to_content') }}</a>
   <header class="training-header">
     <span class="brand-mark">QMS</span>
     <span class="brand-tag">{{ _('training.app.tagline') }}</span>
   </header>
 
-  <main class="container training-container">
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% for category, msg in messages %}
-        <div class="flash flash-{{ category }}">{{ msg }}</div>
-      {% endfor %}
-    {% endwith %}
+  <main class="container training-container" id="main">
+    <div role="status" aria-live="polite" aria-atomic="true">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, msg in messages %}
+          <div class="flash flash-{{ category }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+    </div>
     {% block content %}{% endblock %}
   </main>
 
   <footer class="footer">
-    <small>QMS · {{ _('training.footer.compliance') }}</small>
+    <small>
+      QMS · {{ _('training.footer.compliance') }}
+      · {{ _('footer.credit_prefix') }} <a href="https://attv.uk/" target="_blank" rel="noopener">Tomasz Lewandowski</a>
+    </small>
   </footer>
   {% block scripts %}{% endblock %}
 </body>

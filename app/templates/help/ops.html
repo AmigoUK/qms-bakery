@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('help.ops.title') }}{% endblock %}
+{% block content %}
+<div class="help-page">
+  <p><a class="muted" href="{{ url_for('help.index') }}">{{ _('help.back_to_index') }}</a></p>
+  <h1>{{ _('help.ops.title') }}</h1>
+
+  <p class="muted">EN only — operational reference for the engineer maintaining this deployment.</p>
+
+  <h2>1. Required environment variables</h2>
+  <table class="data-table">
+    <thead><tr><th>Variable</th><th>Required</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>SECRET_KEY</code></td><td>Yes</td><td>Flask session signing. ≥16 chars, hex/random. App refuses to start without it.</td></tr>
+      <tr><td><code>DATABASE_URL</code></td><td>No (default sqlite)</td><td>Postgres recommended for production: <code>postgresql+psycopg://user:pw@host/db</code>.</td></tr>
+      <tr><td><code>TRAINING_BASE_URL</code></td><td>Yes (production)</td><td>Public HTTPS base for SMS magic links. Without it, SMS contains a relative path.</td></tr>
+      <tr><td><code>TRAINING_LINK_SIGNING_KEY</code></td><td>Optional</td><td>Independent rotation of magic-link HMAC key (falls back to SECRET_KEY).</td></tr>
+      <tr><td><code>TOTP_ENC_KEY</code></td><td>Yes (if 2FA roles enrol)</td><td>Fernet key for TOTP-secret encryption-at-rest. Generate with <code>cryptography.fernet.Fernet.generate_key()</code>.</td></tr>
+      <tr><td><code>TOTP_ENC_KEYS_OLD</code></td><td>Optional</td><td>Comma-separated previous keys during rotation; drop after <code>flask totp-rotate-keys --apply</code>.</td></tr>
+      <tr><td><code>REDIS_URL</code></td><td>Yes</td><td>RQ queues + MQTT bridge state. <code>redis://host:6379/0</code>.</td></tr>
+      <tr><td><code>SMTP_HOST</code> / <code>SMTP_FROM</code></td><td>Yes (for email channel)</td><td>Email delivery. Without these, email-channel reminders quietly drop.</td></tr>
+      <tr><td><code>CLICKSEND_USERNAME</code> / <code>CLICKSEND_API_KEY</code></td><td>Yes (for SMS)</td><td>SMS sending. <code>CLICKSEND_SOURCE</code> sets the sender ID.</td></tr>
+      <tr><td><code>MQTT_BROKER_HOST</code></td><td>If using IoT triggers</td><td>For factory sensor metric ingest.</td></tr>
+      <tr><td><code>TRUSTED_PROXY_HOPS</code></td><td>If behind a reverse proxy</td><td>Number of trusted hops between user and app. Set to 1 for Caddy/Nginx; 2 for Caddy + Tailscale serve. Mis-configure → XFF spoof.</td></tr>
+      <tr><td><code>ENFORCE_TOTP_FOR_ROLES</code></td><td>No</td><td>Set to <code>0</code> for dev/test to disable TOTP gate. Default <code>1</code>.</td></tr>
+      <tr><td><code>TRAINING_RECERT_LEAD_DAYS</code></td><td>No (default 14)</td><td>How many days before cert expiry to start re-issuing.</td></tr>
+      <tr><td><code>SESSION_COOKIE_SECURE</code></td><td>No</td><td>Set to <code>0</code> for HTTP-only dev. Defaults to <code>1</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>2. Long-running processes</h2>
+  <p>The web server runs the Flask app. These are <strong>separate</strong> processes that need to be running too:</p>
+  <ul>
+    <li><code>flask rq-worker</code> — drains the SMS / email / training-cert async queues. Without this, every SMS is enqueued and never sent.</li>
+    <li><code>flask training-scheduler</code> — every 60s: routine recert dispatch + reminder dispatch (3d / 7d / final).</li>
+    <li><code>flask trigger-worker</code> — evaluates metric triggers; fires responders.</li>
+    <li><code>flask mqtt-bridge</code> — subscribes to factory sensor MQTT topics and publishes events to Redis.</li>
+  </ul>
+  <p>Recommended: run each via systemd or a process supervisor; on crash, restart with backoff.</p>
+
+  <h2>3. First-time bootstrap</h2>
+  <pre><code>export INITIAL_ADMIN_EMAIL=admin@yourorg.example
+export INITIAL_ADMIN_PASSWORD='<strong-random>'
+flask init-db        # runs migrations + seeds roles/permissions + first admin
+flask rq-worker &amp;
+flask training-scheduler &amp;</code></pre>
+
+  <h2>4. Backup &amp; restore</h2>
+  <p>Postgres: <code>pg_dump --format=custom</code> nightly, retain 30 days. SQLite (dev): file copy after <code>SQLITE_BUSY_TIMEOUT</code>.</p>
+  <p>Critical paths to back up beyond the DB:</p>
+  <ul>
+    <li>The <strong>TOTP_ENC_KEY</strong> — losing it means every TOTP-enrolled user must re-enrol. Store in a separate secrets vault.</li>
+    <li>The <strong>TRAINING_LINK_SIGNING_KEY</strong> (if set) — losing it invalidates every outstanding magic link.</li>
+    <li>The <strong>SECRET_KEY</strong> — losing it logs everyone out and breaks any signed payload. Independent of HMAC keys above.</li>
+  </ul>
+
+  <h2>5. TOTP key rotation</h2>
+  <ol>
+    <li>Generate a new key. Set <code>TOTP_ENC_KEY=&lt;new&gt;</code> and move the old to <code>TOTP_ENC_KEYS_OLD=&lt;old&gt;</code>. Restart.</li>
+    <li>Verify decryption still works (login of any TOTP-enrolled user).</li>
+    <li><code>flask totp-rotate-keys --dry-run</code> — reports counts.</li>
+    <li><code>flask totp-rotate-keys --apply</code> — re-encrypts every secret under the new key.</li>
+    <li>Drop <code>TOTP_ENC_KEYS_OLD</code> from env. Restart.</li>
+  </ol>
+
+  <h2>6. Service-worker cache version</h2>
+  <p>The PWA service worker caches static assets. After deploying changes to <code>app/static/css/app.css</code> or any <code>app/static/js/*.js</code>, bump <code>CACHE_VERSION</code> in <code>app/static/sw.js</code>. Old browsers will detect the change and re-fetch.</p>
+
+  <h2>7. Production checklist (pre-launch)</h2>
+  <ul>
+    <li>✓ <code>SESSION_COOKIE_SECURE=1</code></li>
+    <li>✓ <code>SMTP_FROM</code> is not the placeholder <code>qms@example.invalid</code></li>
+    <li>✓ <code>SECRET_KEY</code> ≥ 32 chars random</li>
+    <li>✓ <code>TRAINING_BASE_URL</code> is the public HTTPS URL</li>
+    <li>✓ <code>TRUSTED_PROXY_HOPS</code> matches your front of stack</li>
+    <li>✓ <code>TOTP_ENC_KEY</code> set; backup is in your secrets vault</li>
+    <li>✓ <code>flask init-db</code> ran with strong <code>INITIAL_ADMIN_PASSWORD</code></li>
+    <li>✓ <code>rq-worker</code> + <code>training-scheduler</code> running under supervision</li>
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('legal.privacy.title') }}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ _('legal.privacy.title') }}</h1>
+  <p class="subtitle">{{ _('legal.privacy.intro') }}</p>
+
+  <h2>{{ _('legal.privacy.controller') }}</h2>
+  <p>{{ _('legal.privacy.controller_body') }}</p>
+
+  <h2>{{ _('legal.privacy.what') }}</h2>
+  <ul>
+    <li>{{ _('legal.privacy.what.users') }}</li>
+    <li>{{ _('legal.privacy.what.trainees') }}</li>
+    <li>{{ _('legal.privacy.what.declarations') }}</li>
+    <li>{{ _('legal.privacy.what.audit') }}</li>
+    <li>{{ _('legal.privacy.what.measurements') }}</li>
+  </ul>
+
+  <h2>{{ _('legal.privacy.why') }}</h2>
+  <p>{{ _('legal.privacy.why.body') }}</p>
+  <ul>
+    <li>{{ _('legal.privacy.why.contract') }}</li>
+    <li>{{ _('legal.privacy.why.legal') }}</li>
+    <li>{{ _('legal.privacy.why.legitimate') }}</li>
+  </ul>
+  <p class="subtitle">{{ _('legal.privacy.why.detail_link') }}</p>
+
+  <h2>{{ _('legal.privacy.recipients') }}</h2>
+  <p>{{ _('legal.privacy.recipients.body') }}</p>
+
+  <h2>{{ _('legal.privacy.transfers') }}</h2>
+  <p>{{ _('legal.privacy.transfers.body') }}</p>
+
+  <h2>{{ _('legal.privacy.retention') }}</h2>
+  <p>{{ _('legal.privacy.retention.body') }}</p>
+
+  <h2>{{ _('legal.privacy.rights') }}</h2>
+  <ul>
+    <li>{{ _('legal.privacy.rights.access') }}</li>
+    <li>{{ _('legal.privacy.rights.rectification') }}</li>
+    <li>{{ _('legal.privacy.rights.erasure') }}</li>
+    <li>{{ _('legal.privacy.rights.restriction') }}</li>
+    <li>{{ _('legal.privacy.rights.portability') }}</li>
+    <li>{{ _('legal.privacy.rights.object') }}</li>
+  </ul>
+  <p>{{ _('legal.privacy.rights.contact') }}</p>
+
+  <h2>{{ _('legal.privacy.complaints') }}</h2>
+  <p>{{ _('legal.privacy.complaints.body') }}</p>
+
+  <h2>{{ _('legal.privacy.cookies') }}</h2>
+  <p>{{ _('legal.privacy.cookies.body') }}</p>
+
+  <h2>{{ _('legal.privacy.security') }}</h2>
+  <p>{{ _('legal.privacy.security.body') }}</p>
+</div>
+{% endblock %}

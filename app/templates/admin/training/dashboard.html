@@ -2,43 +2,171 @@
 {% block title_suffix %} · {{ _('admin.training.dashboard') }}{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>{{ _('admin.training.dashboard') }}</h1>
+  <h1>{{ _('admin.training.matrix.title') }}</h1>
+</div>
+<p class="subtitle">{{ _('admin.training.matrix.intro') }}</p>
+
+{# ─── Filters (multi-select for line + role) ───────────────────── #}
+<form class="filters" method="get">
+  <label>
+    <span>
+      {{ _('admin.training.matrix.filter.line') }}
+      <small class="muted">{{ _('admin.training.matrix.filter.multi_hint') }}</small>
+    </span>
+    <select name="line_id" multiple size="4">
+      {% for line in line_choices %}
+        <option value="{{ line.id }}" {% if line.id in filter_line_ids %}selected{% endif %}>
+          {{ line.code }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>
+      {{ _('admin.training.matrix.filter.role') }}
+      <small class="muted">{{ _('admin.training.matrix.filter.multi_hint') }}</small>
+    </span>
+    <select name="role_code" multiple size="4">
+      {% for role in role_choices %}
+        <option value="{{ role }}" {% if role in filter_role_codes %}selected{% endif %}>
+          {{ role }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+  <label class="inline">
+    <input type="checkbox" name="blocked" value="1"
+           {% if filter_blocked_only %}checked{% endif %}>
+    {{ _('admin.training.matrix.filter.blocked_only') }}
+  </label>
+  <button class="btn btn-ghost" type="submit">{{ _('common.filter') }}</button>
+  {% if filter_line_ids or filter_role_codes or filter_blocked_only %}
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.dashboard') }}">
+      {{ _('admin.training.matrix.filter.reset') }}
+    </a>
+  {% endif %}
+</form>
+
+{# ─── Export buttons ───────────────────────────────────────────── #}
+{# Build the same query string the user already has so the export
+   honours the active filters. Multi-value params land as repeated
+   `?line_id=a&line_id=b` segments via getlist. #}
+{% set _query_pairs = [] %}
+{% for lid in filter_line_ids %}{% set _ = _query_pairs.append(('line_id', lid)) %}{% endfor %}
+{% for rc in filter_role_codes %}{% set _ = _query_pairs.append(('role_code', rc)) %}{% endfor %}
+{% if filter_blocked_only %}{% set _ = _query_pairs.append(('blocked', '1')) %}{% endif %}
+{% set _qs = _query_pairs | map('join', '=') | join('&') %}
+<p class="matrix-exports">
+  <a class="btn btn-ghost"
+     href="{{ url_for('admin_training.dashboard_csv') }}{% if _qs %}?{{ _qs }}{% endif %}">
+    ⤓ {{ _('admin.training.matrix.export.csv') }}
+  </a>
+  <a class="btn btn-ghost"
+     href="{{ url_for('admin_training.dashboard_pdf') }}{% if _qs %}?{{ _qs }}{% endif %}">
+    ⤓ {{ _('admin.training.matrix.export.pdf') }}
+  </a>
+</p>
+
+{# ─── KPI strip ─────────────────────────────────────────────────── #}
+<section class="kpi-grid">
+  <div class="kpi {% if matrix.kpis.blocked %}kpi-warn{% else %}kpi-ok{% endif %}">
+    <div class="kpi-value">{{ matrix.kpis.blocked }}</div>
+    <div class="kpi-label">{{ _('admin.training.matrix.kpi.blocked') }}</div>
+  </div>
+  <div class="kpi {% if matrix.kpis.overdue_courses %}kpi-warn{% endif %}">
+    <div class="kpi-value">{{ matrix.kpis.overdue_courses }}</div>
+    <div class="kpi-label">{{ _('admin.training.matrix.kpi.overdue_courses') }}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">{{ matrix.kpis.due_soon }}</div>
+    <div class="kpi-label">{{ _('admin.training.matrix.kpi.due_soon') }}</div>
+  </div>
+  <div class="kpi">
+    <div class="kpi-value">{{ matrix.kpis.in_flight }}</div>
+    <div class="kpi-label">{{ _('admin.training.matrix.kpi.in_flight') }}</div>
+  </div>
+</section>
+
+{# ─── Matrix ────────────────────────────────────────────────────── #}
+{% if not matrix.trainees %}
+  <p class="empty">{{ _('admin.training.matrix.empty.no_trainees') }}</p>
+{% elif not matrix.courses %}
+  <p class="empty">{{ _('admin.training.matrix.empty.no_courses') }}</p>
+{% else %}
+<div class="matrix-wrap">
+  <table class="data matrix-table">
+    <thead>
+      <tr>
+        <th>{{ _('admin.training.matrix.col.worker') }}</th>
+        {% for c in matrix.courses %}<th>{{ c.code }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for trainee in matrix.trainees %}
+      {% set is_cleared = matrix.cleared.get(trainee.id, True) %}
+      <tr class="{% if not is_cleared %}row-blocked{% endif %}">
+        <th scope="row" data-label="{{ _('admin.training.matrix.col.worker') }}">
+          <strong>{{ trainee.full_name }}</strong>
+          <span class="matrix-trainee-meta">
+            {{ trainee.role_code }}{% if trainee.line_id %} · {{ line_by_id.get(trainee.line_id, '?') }}{% endif %}
+          </span>
+          <span class="clearance-badge {% if is_cleared %}cleared{% else %}blocked{% endif %}">
+            {% if is_cleared %}✅ {{ _('admin.training.matrix.clearance.cleared') }}
+            {% else %}⛔ {{ _('admin.training.matrix.clearance.blocked') }}{% endif %}
+          </span>
+        </th>
+        {% for course in matrix.courses %}
+          {% set state = matrix.states.get((trainee.id, course.id)) %}
+          {% set cert = matrix.certs.get((trainee.id, course.id)) %}
+          {% set drill = url_for('admin_training.trainee_course_history',
+                                 trainee_id=trainee.id, course_id=course.id) %}
+          <td data-label="{{ course.code }}">
+            <a href="{{ drill }}" class="compliance-link"
+               title="{{ _('admin.training.matrix.cell.drill') }}">
+            {% if state == ComplianceState.NOT_REQUIRED %}
+              <span class="compliance-cell compliance-not-required">—</span>
+            {% elif state == ComplianceState.EXTRA %}
+              <span class="compliance-cell compliance-extra">
+                + {{ cert.valid_until.strftime('%Y-%m-%d') if cert else '' }}
+              </span>
+            {% elif state == ComplianceState.VALID %}
+              <span class="compliance-cell compliance-valid">
+                ✓ {{ cert.valid_until.strftime('%Y-%m-%d') }}
+              </span>
+            {% elif state == ComplianceState.DUE_SOON %}
+              <span class="compliance-cell compliance-due-soon">
+                ⌛ {{ cert.valid_until.strftime('%Y-%m-%d') }}
+              </span>
+            {% elif state == ComplianceState.IN_FLIGHT %}
+              <span class="compliance-cell compliance-in-flight">
+                ↻ {{ _('admin.training.matrix.state.in_flight') }}
+              </span>
+            {% elif state == ComplianceState.OVERDUE %}
+              <span class="compliance-cell compliance-overdue">
+                ✗ {{ _('admin.training.matrix.state.overdue') }}
+              </span>
+            {% endif %}
+            </a>
+          </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
 </div>
 
-{% if rows %}
-<table class="data">
-  <thead>
-    <tr>
-      <th>{{ _('admin.training.trainee.name') }}</th>
-      {% for c in courses %}<th>{{ c.code }}</th>{% endfor %}
-    </tr>
-  </thead>
-  <tbody>
-  {% for row in rows %}
-    <tr>
-      <td data-label="Trainee">
-        <strong>{{ row.trainee.full_name }}</strong>
-        <small>{{ row.trainee.role_code }}</small>
-      </td>
-      {% for cell in row.cells %}
-        <td data-label="{{ cell.course.code }}">
-          {% if cell.cert %}
-            <span class="status status-ok">✓ {{ cell.cert.valid_until.strftime('%Y-%m-%d') }}</span>
-          {% elif cell.due %}
-            <span class="status status-danger">{{ _('admin.training.due') }}</span>
-          {% else %}
-            <span class="status">—</span>
-          {% endif %}
-        </td>
-      {% endfor %}
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
-{% else %}
-<p class="empty">{{ _('admin.training.trainees.empty') }}</p>
+<div class="matrix-legend">
+  <strong>{{ _('admin.training.matrix.legend') }}:</strong>
+  <span class="compliance-cell compliance-valid">✓ {{ _('admin.training.matrix.state.valid') }}</span>
+  <span class="compliance-cell compliance-due-soon">⌛ {{ _('admin.training.matrix.state.due_soon') }}</span>
+  <span class="compliance-cell compliance-in-flight">↻ {{ _('admin.training.matrix.state.in_flight') }}</span>
+  <span class="compliance-cell compliance-overdue">✗ {{ _('admin.training.matrix.state.overdue') }}</span>
+  <span class="compliance-cell compliance-extra">+ {{ _('admin.training.matrix.state.extra') }}</span>
+  <span class="compliance-cell compliance-not-required">— {{ _('admin.training.matrix.state.not_required') }}</span>
+</div>
 {% endif %}
 
+{# ─── Open enrolments ────────────────────────────────────────────── #}
 <div class="card">
   <h2>{{ _('admin.training.open_enrolments') }}</h2>
   {% if open_enrolments %}
@@ -52,10 +180,10 @@
       <tbody>
       {% for e in open_enrolments %}
         <tr>
-          <td data-label="Trainee">{{ e.trainee.full_name }}</td>
-          <td data-label="Course">{{ e.course_version.course.code }} v{{ e.course_version.version }}</td>
-          <td data-label="Status">{{ e.status }}</td>
-          <td data-label="Expires">{{ e.expires_at.strftime('%Y-%m-%d') }}</td>
+          <td data-label="{{ _('admin.training.trainee.name') }}">{{ e.trainee.full_name }}</td>
+          <td data-label="{{ _('admin.training.course') }}">{{ e.course_version.course.code }} v{{ e.course_version.version }}</td>
+          <td data-label="{{ _('admin.training.status') }}">{{ e.status }}</td>
+          <td data-label="{{ _('admin.training.expires') }}">{{ e.expires_at.strftime('%Y-%m-%d') }}</td>
         </tr>
       {% endfor %}
       </tbody>

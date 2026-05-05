@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.import.title') }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ _('admin.training.import.trainees_title') }}</h1>
+  <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_index') }}">
+    ← {{ _('admin.training.import.back') }}
+  </a>
+</div>
+
+<div class="card">
+  <p>{{ _('admin.training.import.intro') }}</p>
+  <p>
+    <a class="btn btn-secondary"
+       href="{{ url_for('admin_training.trainees_template_csv') }}">
+      ⤓ {{ _('admin.training.import.template') }}
+    </a>
+    <a class="btn btn-ghost"
+       href="{{ url_for('admin_training.trainees_export_csv') }}">
+      ⤓ {{ _('admin.training.import.export_current') }}
+    </a>
+  </p>
+
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <label>
+      <span>{{ _('admin.training.import.file') }}</span>
+      <input type="file" name="csv" accept=".csv,text/csv" required>
+    </label>
+    <div class="actions">
+      <button class="btn btn-secondary" type="submit">
+        {{ _('admin.training.import.preview') }}
+      </button>
+      {% if plan and plan.n_error == 0 and (plan.n_create + plan.n_update) > 0 %}
+        <button class="btn btn-primary" type="submit" name="apply" value="1">
+          ✓ {{ _('admin.training.import.apply') }}
+          ({{ plan.n_create }} + {{ plan.n_update }})
+        </button>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+{% if plan %}
+<div class="card">
+  <h2>{{ _('admin.training.import.preview_title') }}</h2>
+  <ul>
+    <li>{{ _('admin.training.import.summary.create') }}: <strong>{{ plan.n_create }}</strong></li>
+    <li>{{ _('admin.training.import.summary.update') }}: <strong>{{ plan.n_update }}</strong></li>
+    <li>{{ _('admin.training.import.summary.error') }}:
+      <strong class="{% if plan.n_error %}sev-critical{% endif %}">{{ plan.n_error }}</strong></li>
+  </ul>
+
+  <table class="data">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>{{ _('admin.training.import.col.action') }}</th>
+        <th>{{ _('admin.training.trainee.employee_number') }}</th>
+        <th>{{ _('admin.training.trainee.name') }}</th>
+        <th>{{ _('admin.training.import.col.notes') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in plan.rows %}
+        <tr class="{% if r.errors %}row-blocked{% endif %}">
+          <td>{{ r.line_no }}</td>
+          <td>
+            {% if r.errors %}
+              <span class="status sev-critical">⚠ error</span>
+            {% elif r.action == 'create' %}
+              <span class="status status-closed">+ create</span>
+            {% elif r.action == 'update' %}
+              <span class="status status-assigned">↻ update</span>
+            {% else %}
+              <span class="status">—</span>
+            {% endif %}
+          </td>
+          <td>{{ r.raw.get('employee_number', '') }}</td>
+          <td>{{ r.raw.get('full_name', '') }}</td>
+          <td>
+            {% if r.errors %}
+              <ul class="muted">
+                {% for e in r.errors %}<li>{{ e }}</li>{% endfor %}
+              </ul>
+            {% elif r.diff %}
+              <ul class="muted small">
+                {% for col, pair in r.diff.items() %}
+                  <li>{{ col }}: <code>{{ pair[0] }}</code> → <code>{{ pair[1] }}</code></li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

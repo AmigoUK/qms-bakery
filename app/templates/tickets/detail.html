@@ -63,14 +63,44 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     {% if ticket.status == 'new' %}
       <button class="btn btn-secondary" type="submit" name="status" value="assigned">→ {{ _('tickets.status.assigned') }}</button>
+      <button class="btn btn-ghost" type="submit" name="status" value="rejected">→ {{ _('tickets.status.rejected') }}</button>
     {% elif ticket.status == 'assigned' %}
       <button class="btn btn-secondary" type="submit" name="status" value="in_progress">→ {{ _('tickets.status.in_progress') }}</button>
+      <button class="btn btn-ghost" type="submit" name="status" value="escalated">→ {{ _('tickets.status.escalated') }}</button>
+      <button class="btn btn-ghost" type="submit" name="status" value="rejected">→ {{ _('tickets.status.rejected') }}</button>
     {% elif ticket.status == 'in_progress' %}
       <button class="btn btn-secondary" type="submit" name="status" value="awaiting_verification">→ {{ _('tickets.status.awaiting_verification') }}</button>
-    {% elif ticket.status == 'awaiting_verification' and current_user.has_permission(Perm.TICKETS_CLOSE) %}
-      <button class="btn btn-primary" type="submit" name="status" value="closed">{{ _('tickets.action.close') }}</button>
+      <button class="btn btn-ghost" type="submit" name="status" value="escalated">→ {{ _('tickets.status.escalated') }}</button>
+      <button class="btn btn-ghost" type="submit" name="status" value="rejected">→ {{ _('tickets.status.rejected') }}</button>
+    {% elif ticket.status == 'awaiting_verification' %}
+      {% if current_user.has_permission(Perm.TICKETS_CLOSE) %}
+        <button class="btn btn-primary" type="submit" name="status" value="closed">{{ _('tickets.action.close') }}</button>
+      {% endif %}
+      <button class="btn btn-ghost" type="submit" name="status" value="in_progress">→ {{ _('tickets.action.rework') }}</button>
+    {% elif ticket.status == 'escalated' %}
+      <button class="btn btn-secondary" type="submit" name="status" value="in_progress">→ {{ _('tickets.status.in_progress') }}</button>
+      {% if current_user.has_permission(Perm.TICKETS_CLOSE) %}
+        <button class="btn btn-primary" type="submit" name="status" value="closed">{{ _('tickets.action.close') }}</button>
+      {% endif %}
+      <button class="btn btn-ghost" type="submit" name="status" value="rejected">→ {{ _('tickets.status.rejected') }}</button>
+    {% else %}
+      <p class="muted">{{ _('tickets.action.terminal') }}</p>
     {% endif %}
   </form>
 </section>
+
+{% if assign_form is defined and current_user.has_permission(Perm.TICKETS_CLASSIFY) and ticket.status not in ('closed', 'rejected') %}
+<section class="card">
+  <h2>{{ _('tickets.action.assign') }}</h2>
+  <form action="{{ url_for('tickets.assign', ticket_id=ticket.id) }}" method="post" class="inline-actions">
+    {{ assign_form.csrf_token }}
+    <label>
+      <span>{{ _('tickets.field.assignee') }}</span>
+      {{ assign_form.assignee_id() }}
+    </label>
+    <button class="btn btn-secondary" type="submit">{{ _('common.save') }}</button>
+  </form>
+</section>
+{% endif %}
 {% endif %}
 {% endblock %}

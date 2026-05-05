@@ -3,38 +3,133 @@
 {% block content %}
 <div class="page-head">
   <h1>{{ _('admin.training.trainees') }}</h1>
-  <a class="btn btn-primary" href="{{ url_for('admin_training.trainees_new') }}">
-    {{ _('admin.training.trainees.new') }}
-  </a>
+  <div class="page-head-actions">
+    <a class="btn btn-primary" href="{{ url_for('admin_training.trainees_new') }}">
+      {{ _('admin.training.trainees.new') }}
+    </a>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_import') }}">
+      ⤒ {{ _('admin.training.import.csv') }}
+    </a>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_export_csv') }}">
+      ⤓ {{ _('admin.training.export.csv') }}
+    </a>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_template_csv') }}">
+      ⤓ {{ _('admin.training.template.csv') }}
+    </a>
+  </div>
 </div>
+
+{# ── Filters (multi-select role + line) ────────────────────────── #}
+<form class="filters" method="get">
+  <label>
+    <span>
+      {{ _('admin.training.list.filter.role') }}
+      <small class="muted">{{ _('admin.training.list.filter.multi_hint') }}</small>
+    </span>
+    <select name="role_code" multiple size="4">
+      {% for role in role_choices %}
+        <option value="{{ role }}" {% if role in filter_role_codes %}selected{% endif %}>
+          {{ role }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    <span>
+      {{ _('admin.training.list.filter.line') }}
+      <small class="muted">{{ _('admin.training.list.filter.multi_hint') }}</small>
+    </span>
+    <select name="line_id" multiple size="4">
+      {% for line in line_choices %}
+        <option value="{{ line.id }}" {% if line.id in filter_line_ids %}selected{% endif %}>
+          {{ line.code }}
+        </option>
+      {% endfor %}
+    </select>
+  </label>
+  <button class="btn btn-ghost" type="submit">{{ _('common.filter') }}</button>
+  {% if filter_role_codes or filter_line_ids %}
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_index') }}">
+      {{ _('admin.training.list.filter.reset') }}
+    </a>
+  {% endif %}
+</form>
+
 {% if trainees %}
-<table class="data">
-  <thead>
-    <tr>
-      <th>{{ _('admin.training.trainee.name') }}</th>
-      <th>{{ _('admin.training.trainee.phone') }}</th>
-      <th>{{ _('admin.training.trainee.role') }}</th>
-      <th>{{ _('admin.users.active') }}</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-  {% for t in trainees %}
-    <tr>
-      <td data-label="Name">{{ t.full_name }}</td>
-      <td data-label="Phone">{{ t.phone }}</td>
-      <td data-label="Role">{{ t.role_code }}</td>
-      <td data-label="Active">{% if t.is_active %}{{ _('common.yes') }}{% else %}{{ _('common.no') }}{% endif %}</td>
-      <td data-label="">
-        <a href="{{ url_for('admin_training.trainees_edit', trainee_id=t.id) }}">{{ _('admin.users.edit') }}</a>
-        ·
-        <a href="{{ url_for('admin_training.trainees_issue', trainee_id=t.id) }}">{{ _('admin.training.issue_link') }}</a>
-      </td>
-    </tr>
-  {% endfor %}
-  </tbody>
-</table>
+<form id="trainees-bulk-form"
+      method="post"
+      action="{{ url_for('admin_training.trainees_bulk_issue') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+  <table class="data trainees-table">
+    <thead>
+      <tr>
+        <th>
+          <input type="checkbox" id="trainees-select-all"
+                 aria-label="{{ _('admin.training.bulk.button') }}">
+        </th>
+        <th>{{ _('admin.training.trainee.employee_number') }}</th>
+        <th>{{ _('admin.training.trainee.name') }}</th>
+        <th>{{ _('admin.training.trainee.phone') }}</th>
+        <th>{{ _('admin.training.trainee.role') }}</th>
+        <th>{{ _('admin.training.trainee.line') }}</th>
+        <th>{{ _('admin.users.active') }}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for t in trainees %}
+      <tr class="trainee-row">
+        <td>
+          <input type="checkbox" class="trainee-pick"
+                 name="trainee_ids" value="{{ t.id }}"
+                 aria-label="{{ t.full_name }}">
+        </td>
+        <td data-label="{{ _('admin.training.trainee.employee_number') }}">
+          {% if t.employee_number %}{{ t.employee_number }}
+          {% else %}<span class="status sev-medium">⚠ {{ _('admin.training.trainee.no_emp_no') }}</span>
+          {% endif %}
+        </td>
+        <td data-label="{{ _('admin.training.trainee.name') }}">{{ t.full_name }}</td>
+        <td data-label="{{ _('admin.training.trainee.phone') }}">{{ t.phone }}</td>
+        <td data-label="{{ _('admin.training.trainee.role') }}">{{ t.role_code }}</td>
+        <td data-label="{{ _('admin.training.trainee.line') }}">
+          {% if t.line_id %}{{ line_by_id.get(t.line_id, '?') }}{% else %}—{% endif %}
+        </td>
+        <td data-label="{{ _('admin.users.active') }}">{% if t.is_active %}{{ _('common.yes') }}{% else %}{{ _('common.no') }}{% endif %}</td>
+        <td data-label="">
+          <a href="{{ url_for('admin_training.trainees_edit', trainee_id=t.id) }}">{{ _('admin.users.edit') }}</a>
+          ·
+          <a href="{{ url_for('admin_training.trainees_issue', trainee_id=t.id) }}">{{ _('admin.training.issue_link') }}</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="bulk-bar" id="bulk-bar" hidden>
+    <span class="bulk-count">
+      <strong id="bulk-count-n">0</strong>
+      {{ _('admin.training.bulk.selected') }}
+    </span>
+    <label class="inline">
+      <span>{{ _('admin.training.bulk.course') }}:</span>
+      <select name="course_code" required>
+        <option value="">—</option>
+        {% for c in courses %}
+          <option value="{{ c.code }}">{{ c.code }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <button class="btn btn-primary" type="submit">
+      ✉ {{ _('admin.training.bulk.button') }}
+    </button>
+  </div>
+</form>
 {% else %}
 <p class="empty">{{ _('admin.training.trainees.empty') }}</p>
 {% endif %}
+{% endblock %}
+{% block scripts %}
+  <script src="{{ url_for('static', filename='js/trainees_bulk.js') }}" defer></script>
 {% endblock %}

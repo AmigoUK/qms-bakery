@@ -37,6 +37,13 @@ def authenticate(email: str, password: str) -> User | None:
         return None
     if user.is_locked():
         return None
+    # Lockout window served — reset counter so the user gets a fresh
+    # attempt budget. Without this, one bad password after the window
+    # expires re-locks the account immediately (failed_attempts was
+    # frozen at threshold).
+    if user.locked_until is not None:
+        user.failed_attempts = 0
+        user.locked_until = None
     if not verify_password(password, user.password_hash):
         user.failed_attempts += 1
         threshold = current_app.config["LOCKOUT_THRESHOLD"]

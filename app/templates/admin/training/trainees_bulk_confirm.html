@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('admin.training.bulk.title') }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{{ _('admin.training.bulk.confirm_title') }}</h1>
+  <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_index') }}">
+    ← {{ _('common.cancel') }}
+  </a>
+</div>
+
+<div class="card">
+  <p>
+    <strong>{{ _('admin.training.bulk.course') }}:</strong>
+    {{ course.code }}
+    {% if course.active_version %}
+      (v{{ course.active_version.version }})
+    {% endif %}
+  </p>
+  <ul>
+    <li>
+      {{ _('admin.training.bulk.summary.issue') }}:
+      <strong>{{ plan.n_issue }}</strong>
+    </li>
+    <li>
+      {{ _('admin.training.bulk.summary.skip') }}:
+      <strong>{{ plan.n_skip }}</strong>
+    </li>
+    {% if plan.n_error %}
+      <li class="sev-critical">
+        {{ _('admin.training.bulk.summary.error') }}:
+        <strong>{{ plan.n_error }}</strong>
+      </li>
+    {% endif %}
+  </ul>
+
+  <table class="data">
+    <thead>
+      <tr>
+        <th>{{ _('admin.training.bulk.action') }}</th>
+        <th>{{ _('admin.training.trainee.employee_number') }}</th>
+        <th>{{ _('admin.training.trainee.name') }}</th>
+        <th>{{ _('admin.training.bulk.note') }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in plan.rows %}
+        <tr class="{% if r.action == 'error' or r.action.startswith('skip') %}row-blocked{% endif %}">
+          <td>
+            {% if r.action == 'issue' %}
+              <span class="status status-closed">+ {{ _('admin.training.bulk.action.issue') }}</span>
+            {% elif r.action == 'skip_in_flight' %}
+              <span class="status sev-medium">⏭ {{ _('admin.training.bulk.action.skip_in_flight') }}</span>
+            {% elif r.action == 'skip_no_version' %}
+              <span class="status sev-medium">⚠ {{ _('admin.training.bulk.action.skip_no_version') }}</span>
+            {% else %}
+              <span class="status sev-critical">⚠ {{ _('admin.training.bulk.action.error') }}</span>
+            {% endif %}
+          </td>
+          <td>{{ r.trainee.employee_number if r.trainee else '?' }}</td>
+          <td>{{ r.trainee.full_name if r.trainee else '—' }}</td>
+          <td class="muted">{{ r.note }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post" action="{{ url_for('admin_training.trainees_bulk_issue') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+    <input type="hidden" name="course_code" value="{{ course.code }}"/>
+    {% for tid in trainee_ids %}
+      <input type="hidden" name="trainee_ids" value="{{ tid }}"/>
+    {% endfor %}
+    <input type="hidden" name="apply" value="1"/>
+    <div class="actions">
+      <a class="btn btn-ghost" href="{{ url_for('admin_training.trainees_index') }}">
+        {{ _('common.cancel') }}
+      </a>
+      {% if plan.n_issue > 0 %}
+        <button class="btn btn-primary" type="submit">
+          ✓ {{ _('admin.training.bulk.apply').format(n=plan.n_issue) }}
+        </button>
+      {% else %}
+        <p class="muted">{{ _('admin.training.bulk.nothing_to_do') }}</p>
+      {% endif %}
+    </div>
+  </form>
+</div>
+{% endblock %}

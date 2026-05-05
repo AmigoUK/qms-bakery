@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title_suffix %} · {{ _('help.index.title') }}{% endblock %}
+{% block content %}
+<div class="help-page">
+  <h1>{{ _('help.index.title') }}</h1>
+  <p class="lead">{{ _('help.index.intro') }}</p>
+
+  <div class="help-cards">
+    <a class="help-card" href="{{ url_for('help.training') }}">
+      <h2>{{ _('help.index.audience.trainee') }}</h2>
+      <p>{{ _('help.index.audience.trainee.desc') }}</p>
+    </a>
+    <a class="help-card" href="{{ url_for('help.admin') }}">
+      <h2>{{ _('help.index.audience.admin') }}</h2>
+      <p>{{ _('help.index.audience.admin.desc') }}</p>
+    </a>
+    <a class="help-card" href="{{ url_for('help.auditor') }}">
+      <h2>{{ _('help.index.audience.auditor') }}</h2>
+      <p>{{ _('help.index.audience.auditor.desc') }}</p>
+    </a>
+    <a class="help-card" href="{{ url_for('help.ops') }}">
+      <h2>{{ _('help.index.audience.ops') }}</h2>
+      <p>{{ _('help.index.audience.ops.desc') }}</p>
+    </a>
+  </div>
+</div>
+{% endblock %}

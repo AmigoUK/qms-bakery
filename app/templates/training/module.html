@@ -10,7 +10,7 @@
   <form method="post" action="{{ url_for('training.next_module', token=enrolment.magic_token) }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
     <button class="btn btn-primary" type="submit">
-      {% if index + 1 < total %}{{ _('training.module.next') }}{% else %}{{ _('training.module.to_exam') }}{% endif %}
+      {% if index + 1 < total %}{{ _('training.module.next') }}{% else %}{{ _('training.module.to_study') }}{% endif %}
     </button>
   </form>
 </div>

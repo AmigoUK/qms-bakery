@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "_macros.html" import field_errors %}
 {% block title_suffix %} · {{ _('admin.users') }}{% endblock %}
 {% block content %}
 <div class="card card-narrow">
@@ -6,9 +7,16 @@
   <form method="post" novalidate>
     {{ form.csrf_token }}
     <label><span>{{ _('auth.login.email') }}</span>
-      {{ form.email(required=True, type="email", disabled=edit) }}
+      {# `readonly` (not `disabled`) so the field is still submitted —
+         disabled inputs are stripped from the POST and email then fails
+         DataRequired on every save. #}
+      {{ form.email(required=True, type="email", readonly=edit) }}
+      {{ field_errors(form.email) }}
     </label>
-    <label><span>{{ _('admin.users.full_name') }}</span>{{ form.full_name(required=True) }}</label>
+    <label><span>{{ _('admin.users.full_name') }}</span>
+      {{ form.full_name(required=True) }}
+      {{ field_errors(form.full_name) }}
+    </label>
     <label><span>{{ _('admin.users.role') }}</span>{{ form.role_code() }}</label>
     <label><span>{{ _('admin.users.language') }}</span>{{ form.language() }}</label>
     <label>

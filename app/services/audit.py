@@ -3,8 +3,10 @@
 Each new audit entry incorporates the SHA-256 checksum of the previous entry,
 forming a hash chain. Tampering with any past record breaks verification.
 
-A SERIALIZABLE transaction is used to prevent races where two writers compute
-the same `prev_checksum`.
+Concurrency: PostgreSQL writers serialise on a transaction-scoped advisory
+lock so two simultaneous `record()` calls can't both read the same tail and
+fork the chain. SQLite has a single-writer model already, so it is a no-op
+there.
 """
 
 from __future__ import annotations
@@ -13,10 +15,26 @@ from typing import Any
 
 from flask import has_request_context, request
 from flask_login import current_user
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.extensions import db
 from app.models.audit import GENESIS_HASH, AuditLog
+
+# Constant-keyed advisory lock; PG accepts any signed 64-bit integer.
+# Keep stable across deploys — its value is just an opaque namespace tag.
+_AUDIT_CHAIN_LOCK_KEY = 0x4155_4449_5443_4841  # ASCII: "AUDITCHA"
+
+
+def _acquire_chain_lock() -> None:
+    """Take a transaction-scoped advisory lock on PostgreSQL so concurrent
+    `record()` calls serialise on the prev_checksum read. No-op on SQLite
+    (single-writer at the file level)."""
+    bind = db.session.get_bind()
+    if bind.dialect.name == "postgresql":
+        db.session.execute(
+            text("SELECT pg_advisory_xact_lock(:k)"),
+            {"k": _AUDIT_CHAIN_LOCK_KEY},
+        )
 
 
 def _request_metadata() -> dict[str, str | None]:
@@ -47,9 +65,10 @@ def record(
     """Append a new entry to audit_log. Caller is responsible for committing.
 
     The chain is built per-entry; we read the latest checksum then write the
-    new one in the same session. Race-resistance relies on either DB
-    serialization or a single-writer worker - both acceptable for QMS volume.
+    new one in the same session. Concurrent writers on PG serialise via the
+    transaction-scoped advisory lock acquired below; SQLite is single-writer.
     """
+    _acquire_chain_lock()
     last = db.session.execute(
         select(AuditLog).order_by(AuditLog.id.desc()).limit(1)
     ).scalar_one_or_none()

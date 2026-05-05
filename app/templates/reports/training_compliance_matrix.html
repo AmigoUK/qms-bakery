@@ -1,0 +1,79 @@
+{% extends "reports/base.html" %}
+
+{% block title %}Compliance matrix — {{ generated_at.strftime('%Y-%m-%d') }}{% endblock %}
+
+{% block heading %}Worker training compliance — {{ generated_at.strftime('%Y-%m-%d') }}{% endblock %}
+
+{% block meta %}
+  <dt>Workers in view</dt><dd>{{ matrix.trainees | length }}</dd>
+  <dt>Courses in view</dt><dd>{{ matrix.courses | length }}</dd>
+  <dt>Filters</dt><dd>
+    {% if filter_line_ids %}lines={{ filter_line_ids | join(',') }} {% endif %}
+    {% if filter_role_codes %}roles={{ filter_role_codes | join(',') }} {% endif %}
+    {% if filter_blocked_only %}blocked-only {% endif %}
+    {% if not (filter_line_ids or filter_role_codes or filter_blocked_only) %}none{% endif %}
+  </dd>
+  <dt>Orientation</dt><dd>{{ orientation }}</dd>
+{% endblock %}
+
+{% block content %}
+{# WeasyPrint picks up <style> at any document position; this overrides
+   the base template's portrait `@page` rule when the view decides
+   landscape (auto when courses>5, or `?orient=landscape`). #}
+{% if orientation == 'landscape' %}
+<style>
+  @page { size: A4 landscape; }
+  /* Landscape gets more horizontal real-estate, but tiny fonts still
+     help when there are many course columns. */
+  table { font-size: 8pt; }
+  th, td { padding: 2pt 4pt; }
+</style>
+{% endif %}
+<div class="summary-box">
+  <strong>Summary:</strong>
+  {{ matrix.kpis.blocked }} blocked worker{{ '' if matrix.kpis.blocked == 1 else 's' }};
+  {{ matrix.kpis.overdue_courses }} course{{ '' if matrix.kpis.overdue_courses == 1 else 's' }} with overdue cells;
+  {{ matrix.kpis.due_soon }} cell{{ '' if matrix.kpis.due_soon == 1 else 's' }} due soon;
+  {{ matrix.kpis.in_flight }} enrolment{{ '' if matrix.kpis.in_flight == 1 else 's' }} in progress.
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Worker</th>
+      <th>Role</th>
+      <th>Line</th>
+      <th>Clearance</th>
+      {% for c in matrix.courses %}<th>{{ c.code }}</th>{% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {% for trainee in matrix.trainees %}
+      {% set is_cleared = matrix.cleared.get(trainee.id, True) %}
+      <tr>
+        <td>{{ trainee.full_name }}</td>
+        <td>{{ trainee.role_code }}</td>
+        <td>{% if trainee.line_id %}{{ line_by_id.get(trainee.line_id, '?') }}{% else %}—{% endif %}</td>
+        <td>{% if is_cleared %}cleared{% else %}<strong>BLOCKED</strong>{% endif %}</td>
+        {% for course in matrix.courses %}
+          {% set state = matrix.states.get((trainee.id, course.id)) %}
+          {% set cert = matrix.certs.get((trainee.id, course.id)) %}
+          <td>
+            {% if state == ComplianceState.NOT_REQUIRED %}—
+            {% elif state == ComplianceState.EXTRA %}+ {{ cert.valid_until.strftime('%Y-%m-%d') if cert else '' }}
+            {% elif state == ComplianceState.VALID %}✓ {{ cert.valid_until.strftime('%Y-%m-%d') }}
+            {% elif state == ComplianceState.DUE_SOON %}⌛ {{ cert.valid_until.strftime('%Y-%m-%d') }}
+            {% elif state == ComplianceState.IN_FLIGHT %}↻ in progress
+            {% elif state == ComplianceState.OVERDUE %}<strong>✗ OVERDUE</strong>
+            {% endif %}
+          </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<p class="footer-note">
+  Legend: ✓ valid · ⌛ due soon · ↻ in progress · ✗ overdue · + extra credit · — not required
+</p>
+{% endblock %}

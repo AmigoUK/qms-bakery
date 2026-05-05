@@ -78,6 +78,29 @@ def _is_safe_outbound_host(hostname: str) -> bool:
     return True
 
 
+def _drain_retries() -> None:
+    """Inside an RQ worker, set the current job's retries_left to 0.
+
+    Used to short-circuit RQ's exponential-backoff retry policy when
+    the failure is known to be permanent — UnsafeWebhookURL,
+    PermanentSMSError. Outside a worker (direct call in tests) this is
+    a no-op.
+    """
+    try:
+        from rq import get_current_job
+    except ImportError:
+        return
+    try:
+        job = get_current_job()
+    except Exception:
+        return
+    if job is not None:
+        try:
+            job.retries_left = 0
+        except Exception:
+            pass
+
+
 def _validate_outbound_url(url: str, *, allow_private: bool = False) -> None:
     parsed = urlparse(url)
     if parsed.scheme not in {"http", "https"}:
@@ -114,7 +137,14 @@ def post_webhook(
     """
     import requests
 
-    _validate_outbound_url(url, allow_private=allow_private)
+    try:
+        _validate_outbound_url(url, allow_private=allow_private)
+    except UnsafeWebhookURL:
+        # Permanent — same URL will resolve the same way next attempt,
+        # so spending the 3/9/27-min retry budget is pure waste. Tell
+        # RQ to drop straight into the failed-job registry.
+        _drain_retries()
+        raise
 
     body = json.dumps(payload, default=str, sort_keys=True).encode("utf-8")
     headers: dict[str, str] = {

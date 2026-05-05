@@ -46,6 +46,14 @@ class CommentForm(FlaskForm):
     submit = SubmitField()
 
 
+class AssignForm(FlaskForm):
+    """Assign / reassign a ticket to a User. Choices set per-request from
+    the active users list."""
+
+    assignee_id = SelectField("assignee_id")
+    submit = SubmitField()
+
+
 @bp.route("/", methods=["GET"])
 @login_required
 @require_permission(Perm.TICKETS_VIEW)
@@ -56,7 +64,17 @@ def index():
     rows = ticket_service.list_tickets(
         open_only=open_only, severity=severity, line_id=line_id
     )
-    return render_template("tickets/list.html", tickets=rows, open_only=open_only)
+    from app.models import ProductionLine, TicketSeverity
+
+    return render_template(
+        "tickets/list.html",
+        tickets=rows,
+        open_only=open_only,
+        severity_filter=severity,
+        line_filter=line_id,
+        severities=[s.value for s in TicketSeverity],
+        lines=ProductionLine.query.filter_by(is_active=True).order_by(ProductionLine.code).all(),
+    )
 
 
 @bp.route("/new", methods=["GET", "POST"])
@@ -102,7 +120,41 @@ def detail(ticket_id: str):
         db.session.commit()
         return redirect(url_for("tickets.detail", ticket_id=ticket.id))
 
-    return render_template("tickets/detail.html", ticket=ticket, comment_form=comment_form)
+    from app.models import User
+
+    assign_form = AssignForm()
+    assign_form.assignee_id.choices = [("", _("tickets.action.unassign"))] + [
+        (u.id, u.full_name)
+        for u in User.query.filter_by(is_active_flag=True).order_by(User.full_name).all()
+    ]
+    return render_template(
+        "tickets/detail.html",
+        ticket=ticket,
+        comment_form=comment_form,
+        assign_form=assign_form,
+    )
+
+
+@bp.route("/<ticket_id>/assign", methods=["POST"])
+@login_required
+@require_permission(Perm.TICKETS_CLASSIFY)
+def assign(ticket_id: str):
+    ticket = db.session.get(Ticket, ticket_id)
+    if ticket is None:
+        abort(404)
+    assignee_id = request.form.get("assignee_id") or None
+    if assignee_id is None:
+        # "Unassign" path — clear the FK, audit it.
+        ticket.assigned_to_user_id = None
+        db.session.commit()
+        return redirect(url_for("tickets.detail", ticket_id=ticket.id))
+    try:
+        ticket_service.assign_to(ticket, user_id=assignee_id, by_user_id=current_user.id)
+        db.session.commit()
+    except ticket_service.TicketError as exc:
+        db.session.rollback()
+        flash(str(exc), "danger")
+    return redirect(url_for("tickets.detail", ticket_id=ticket.id))
 
 
 @bp.route("/<ticket_id>/transition", methods=["POST"])

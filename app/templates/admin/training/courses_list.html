@@ -3,9 +3,20 @@
 {% block content %}
 <div class="page-head">
   <h1>{{ _('admin.training.courses') }}</h1>
-  <a class="btn btn-primary" href="{{ url_for('admin_training.courses_new') }}">
-    {{ _('admin.training.courses.new') }}
-  </a>
+  <div class="page-head-actions">
+    <a class="btn btn-primary" href="{{ url_for('admin_training.courses_new') }}">
+      {{ _('admin.training.courses.new') }}
+    </a>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.courses_import') }}">
+      ⤒ {{ _('admin.training.import.csv') }}
+    </a>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.courses_export_csv') }}">
+      ⤓ {{ _('admin.training.export.csv') }}
+    </a>
+    <a class="btn btn-ghost" href="{{ url_for('admin_training.courses_template_csv') }}">
+      ⤓ {{ _('admin.training.template.csv') }}
+    </a>
+  </div>
 </div>
 {% if courses %}
 <table class="data">

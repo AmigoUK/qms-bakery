@@ -214,11 +214,25 @@ def _dispatch_responder(responder: Responder, trigger: Trigger, payload: dict) -
         ticket_id = payload.get("ticket_id") or cfg.get("ticket_id")
         if not ticket_id:
             raise TriggerError("escalate responder requires ticket_id in payload or config")
-        from app.models import Ticket, TicketStatus
+        from app.models import Ticket, TICKET_TRANSITIONS, TicketStatus
 
         ticket = db.session.get(Ticket, ticket_id)
         if ticket is None:
             raise TriggerError(f"Ticket {ticket_id} not found")
+        # ESCALATED is only reachable from {ASSIGNED, IN_PROGRESS}.
+        # If the ticket is in any other state (NEW / closed / already
+        # escalated), don't raise — return a structured "skipped"
+        # result so the trigger execution audit captures *why* nothing
+        # happened, instead of looking like a successful escalation.
+        current = TicketStatus(ticket.status)
+        allowed_next = TICKET_TRANSITIONS.get(current, set())
+        if TicketStatus.ESCALATED not in allowed_next:
+            return {
+                "escalated_ticket_id": ticket_id,
+                "skipped": True,
+                "reason": "ineligible_status",
+                "current_status": ticket.status,
+            }
         ticket_service.transition(
             ticket, TicketStatus.ESCALATED, user_id=None, comment="Auto-escalated by trigger"
         )

@@ -48,6 +48,10 @@ def app(redis_client, redis_binary_client):
             # Per-test Fernet key — TOTP enrolment paths exercise the
             # encryption helper.
             "TOTP_ENC_KEY": Fernet.generate_key().decode("ascii"),
+            # Off by default so the bulk of test fixtures (which use the
+            # seeded admin without TOTP) aren't redirected to enrolment.
+            # The dedicated TOTP-enforcement test flips this on per-app.
+            "ENFORCE_TOTP_FOR_ROLES": False,
         }
     )
     with application.app_context():

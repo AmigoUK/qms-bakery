@@ -1,0 +1,23 @@
+{# Reusable form-helper macros.
+
+   Goal: render WTForms field errors inline next to the input, with
+   aria-invalid + aria-describedby so AT users get the feedback they
+   currently miss (the form just silently re-displayed before).
+
+   Usage in a template (commented to keep the translation-key drift
+   test from picking up the example as a real reference):
+
+     # {% from "_macros.html" import field_errors %}
+     # <label>
+     #   <span>...</span>
+     #   {{ form.email(required=True) }}
+     #   {{ field_errors(form.email) }}
+     # </label>
+#}
+{% macro field_errors(field) -%}
+  {% if field.errors %}
+    <p class="field-error" role="alert" id="{{ field.id }}-errors">
+      {{ field.errors | join('; ') }}
+    </p>
+  {% endif %}
+{%- endmacro %}

@@ -4,9 +4,12 @@ import os
 from typing import Any
 
 import click
-from flask import Flask, g, redirect, request, url_for
+from flask import Flask, flash, g, redirect, request, url_for
+from flask_login import current_user
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.extensions import csrf, db, login_manager, migrate
+from app.i18n import gettext as _l
 from app.i18n import init_i18n
 from app.security_headers import init_security_headers
 
@@ -22,6 +25,24 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         raise RuntimeError(
             "SECRET_KEY is required. Set the SECRET_KEY environment variable "
             "(generate one with: python -c \"import secrets; print(secrets.token_hex(32))\")"
+        )
+
+    # When deployed behind a trusted reverse proxy (Caddy / Nginx /
+    # Tailnet), honour the X-Forwarded-* headers up to the configured
+    # depth. Without this, a client could spoof X-Forwarded-For to
+    # bucket every request under a fresh identity and bypass the
+    # rate-limiter on /auth/login and /api/v1/measurements. Set
+    # TRUSTED_PROXY_HOPS=0 (default) to keep request.remote_addr at the
+    # raw socket peer for direct-exposed deployments.
+    proxy_hops = app.config.get("TRUSTED_PROXY_HOPS", 0)
+    if proxy_hops > 0:
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=proxy_hops,
+            x_proto=proxy_hops,
+            x_host=proxy_hops,
+            x_port=proxy_hops,
+            x_prefix=proxy_hops,
         )
 
     db.init_app(app)
@@ -48,6 +69,8 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     from app.blueprints.dashboard import bp as dashboard_bp
     from app.blueprints.haccp import bp as haccp_bp
     from app.blueprints.health import bp as health_bp
+    from app.blueprints.help import bp as help_bp
+    from app.blueprints.legal import bp as legal_bp
     from app.blueprints.pwa import bp as pwa_bp
     from app.blueprints.reports import bp as reports_bp
     from app.blueprints.salsa import bp as salsa_bp
@@ -64,6 +87,8 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(reports_bp, url_prefix="/reports")
     app.register_blueprint(health_bp)
+    app.register_blueprint(help_bp)
+    app.register_blueprint(legal_bp)
     app.register_blueprint(pwa_bp)
     app.register_blueprint(training_bp)
 
@@ -154,6 +179,92 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
             db.session.commit()
             click.echo(f"Rotated {len(stale)} row(s).")
 
+    @app.cli.command("retention-sweep")
+    @click.option(
+        "--dry-run/--apply", default=True,
+        help="--dry-run reports counts only (default); --apply mutates rows.",
+    )
+    def _retention_sweep_cmd(dry_run: bool):
+        """UK GDPR Art. 5(1)(e) — drop expired enrolments, redact stale
+        declarations, redact dormant trainees, count audit rows past the
+        retention horizon. Idempotent."""
+        from app.services import retention
+
+        with app.app_context():
+            summary = retention.sweep(dry_run=dry_run, config=app.config)
+            click.echo(f"Retention sweep ({'DRY RUN' if dry_run else 'APPLIED'}):")
+            for key, value in summary.items():
+                if key == "dry_run":
+                    continue
+                click.echo(f"  {key}: {value}")
+
+    @app.cli.command("dsar-export")
+    @click.option(
+        "--subject", "subject_spec", required=True,
+        help="Subject specifier: 'user:<id>' or 'trainee:<id>'.",
+    )
+    @click.option(
+        "--output", "output_path", default="-", show_default=True,
+        help="File path to write the JSON to. Use '-' for stdout.",
+    )
+    def _dsar_export_cmd(subject_spec: str, output_path: str):
+        """UK GDPR Art. 15 / Art. 20 export of every record we hold for a
+        given subject. The export itself is logged to the audit trail."""
+        import json
+        import sys
+
+        from app.services import dsar
+
+        with app.app_context():
+            try:
+                payload = dsar.export(subject_spec)
+            except dsar.DSARError as exc:
+                raise click.ClickException(str(exc)) from exc
+            text = json.dumps(payload, indent=2, ensure_ascii=False, default=str)
+            if output_path == "-":
+                sys.stdout.write(text + "\n")
+            else:
+                with open(output_path, "w", encoding="utf-8") as fh:
+                    fh.write(text + "\n")
+                click.echo(f"Wrote {output_path}")
+
+    @app.cli.command("gdpr-redact")
+    @click.option(
+        "--subject", "subject_spec", required=True,
+        help="Subject specifier: 'user:<id>' or 'trainee:<id>'.",
+    )
+    @click.option(
+        "--confirm", is_flag=True, default=False,
+        help="Required to actually run — without it, the command refuses.",
+    )
+    def _gdpr_redact_cmd(subject_spec: str, confirm: bool):
+        """UK GDPR Art. 17 — redact a subject's personal data from audit
+        diffs and source rows, rehashing the audit chain forward. The
+        chain remains internally verifiable; the personal-data payload
+        is replaced with a redaction marker. The action is itself
+        logged to the audit trail."""
+        if not confirm:
+            raise click.ClickException(
+                "Refusing to redact without --confirm. This rewrites audit "
+                "diffs in place and rehashes every subsequent chain row."
+            )
+        from app.services import gdpr
+
+        with app.app_context():
+            try:
+                summary = gdpr.redact(subject_spec)
+            except gdpr.GDPRError as exc:
+                raise click.ClickException(str(exc)) from exc
+            click.echo(
+                f"Redacted {summary['audit_rows_redacted']} audit row(s) "
+                f"for {summary['subject']['type']}:{summary['subject']['id']}."
+            )
+            if summary.get("declarations_redacted"):
+                click.echo(
+                    f"Redacted {summary['declarations_redacted']} "
+                    "declaration(s) (signature, IP, UA wiped)."
+                )
+
     @app.cli.command("training-issue-link")
     @click.option("--phone", required=True, help="E.164 phone number, e.g. +447700000000")
     @click.option("--course", "course_code", default="HACCP-REFRESHER", show_default=True)
@@ -240,6 +351,52 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
                 "  SMS queued on the qms:sms RQ queue — "
                 "run `flask rq-worker` to deliver it (or check the worker container's log)."
             )
+
+    # ─── Compliance/admin TOTP enforcement ────────────────────────
+    # Documented control: roles in ROLES_REQUIRING_2FA must have TOTP
+    # enabled. Until they enrol, every request is bounced to the
+    # enrolment page. Routes whitelisted below are the ones the user
+    # must be able to reach to actually complete the enrolment or
+    # log out.
+    _TOTP_GATE_ALLOWLIST: frozenset[str] = frozenset(
+        {
+            "auth.totp_enroll",
+            "auth.logout",
+            "auth.set_language",
+            "legal.privacy",
+            "pwa.service_worker",
+            "pwa.manifest",
+            "health.healthz",
+            "health.readyz",
+            "help.index",
+            "help.training",
+            "help.admin",
+            "help.auditor",
+            "help.ops",
+            "help.trainee_card_pdf",
+            "static",
+        }
+    )
+
+    @app.before_request
+    def _enforce_totp_for_compliance_roles():
+        if not app.config.get("ENFORCE_TOTP_FOR_ROLES", True):
+            return None
+        if not current_user.is_authenticated:
+            return None
+        if request.endpoint in _TOTP_GATE_ALLOWLIST:
+            return None
+        if request.endpoint and request.endpoint.startswith("static"):
+            return None
+        from app.services.totp import role_requires_totp
+
+        role_code = current_user.role.code if current_user.role else None
+        if not role_requires_totp(role_code):
+            return None
+        if current_user.totp_enabled:
+            return None
+        flash(_l("auth.2fa.required"), "warning")
+        return redirect(url_for("auth.totp_enroll"))
 
     @app.context_processor
     def _inject_globals():
@@ -379,4 +536,23 @@ def _default_config() -> dict[str, Any]:
         "TRAINING_LINK_SIGNING_KEY": os.environ.get("TRAINING_LINK_SIGNING_KEY"),
         # Public base URL embedded in SMS bodies (e.g. "https://qms.example.com")
         "TRAINING_BASE_URL": os.environ.get("TRAINING_BASE_URL", ""),
+        # Days *before* a cert expires that the recurrence scheduler should
+        # start re-issuing magic links. Default 14 closes the SMS
+        # roundtrip + retake window so workers don't go non-compliant
+        # for a few hours at the moment of expiry.
+        "TRAINING_RECERT_LEAD_DAYS": int(
+            os.environ.get("TRAINING_RECERT_LEAD_DAYS", "14")
+        ),
+        # Number of trusted reverse-proxy hops between the public
+        # internet and the app. 0 = direct exposure (don't honour XFF).
+        # 1 = single Caddy/Nginx in front. 2 = e.g. Caddy → Tailscale
+        # serve. Required for reliable rate-limiting; mis-configuring
+        # this opens an XFF-spoof bypass.
+        "TRUSTED_PROXY_HOPS": int(os.environ.get("TRUSTED_PROXY_HOPS", "0")),
+        # Enforce TOTP enrolment for compliance & admin before they can
+        # use any authenticated route. Disable only for tests that
+        # don't exercise the gate (test fixtures opt out).
+        "ENFORCE_TOTP_FOR_ROLES": os.environ.get(
+            "ENFORCE_TOTP_FOR_ROLES", "1"
+        ) not in ("0", "false", "False"),
     }

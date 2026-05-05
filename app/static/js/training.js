@@ -38,11 +38,34 @@
 
   var form = document.getElementById('declaration-form');
   var hidden = document.getElementById('signature-data');
+  // Localised "please sign first" message comes from the template via
+  // a data-attribute so the strict CSP can stay 'self'-only and the PL
+  // operator doesn't get an English alert popup.
+  var signRequired = (form && form.dataset.signRequiredMessage) ||
+    'Please sign before submitting.';
+  // Render an inline error banner instead of a native alert() — alert
+  // blocks the page, has no styling, and is easy to miss on touch
+  // devices. Insert above the canvas, idempotently.
+  function showSignError() {
+    var existing = document.getElementById('signature-error');
+    if (existing) {
+      existing.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+    var banner = document.createElement('p');
+    banner.id = 'signature-error';
+    banner.className = 'field-error';
+    banner.setAttribute('role', 'alert');
+    banner.textContent = signRequired;
+    var wrap = document.querySelector('.signature-pad-wrap') || canvas.parentNode;
+    wrap.parentNode.insertBefore(banner, wrap);
+    banner.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
   if (form && hidden) {
     form.addEventListener('submit', function (event) {
       if (pad.isEmpty()) {
         event.preventDefault();
-        alert('Please sign before submitting.');
+        showSignError();
         return;
       }
       hidden.value = pad.toDataURL('image/png');

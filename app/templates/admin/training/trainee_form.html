@@ -8,8 +8,23 @@
   <form method="post" novalidate>
     {{ form.csrf_token }}
     <label>
+      <span>
+        {{ _('admin.training.trainee.employee_number') }}
+        {% if not edit %}<small class="muted">({{ _('common.required') }})</small>{% endif %}
+      </span>
+      {{ form.employee_number(required=(not edit), placeholder="EMP-001") }}
+    </label>
+    <label>
       <span>{{ _('admin.training.trainee.phone') }}</span>
       {{ form.phone(required=True, autocomplete="tel", placeholder="+447700000000") }}
+    </label>
+    <label>
+      <span>
+        {{ _('admin.training.trainee.email') }}
+        {% if not edit %}<small class="muted">({{ _('common.required') }})</small>{% endif %}
+      </span>
+      {{ form.email(type="email", autocomplete="email", placeholder="anna@example.com",
+                    required=(not edit)) }}
     </label>
     <label>
       <span>{{ _('admin.training.trainee.name') }}</span>
@@ -26,6 +41,13 @@
     <label>
       <span>{{ _('admin.users.language') }}</span>
       {{ form.language() }}
+    </label>
+    <label>
+      <span>
+        {{ _('admin.training.trainee.channel') }}
+        <small class="muted">({{ _('admin.training.trainee.channel_hint') }})</small>
+      </span>
+      {{ form.notification_channel() }}
     </label>
     <label class="exam-option">
       {{ form.is_active() }}

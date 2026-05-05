@@ -81,7 +81,18 @@ def index():
         .scalars()
         .all()
     )
-    return render_template("admin/index.html", counts=counts, recent_audit=recent_audit)
+    from datetime import date
+
+    today = date.today()
+    return render_template(
+        "admin/index.html",
+        counts=counts,
+        recent_audit=recent_audit,
+        today_year=today.year,
+        today_month=today.month,
+        today_iso=today.isoformat(),
+        today_month_first=today.replace(day=1).isoformat(),
+    )
 
 
 # ─── Users ───────────────────────────────────────────────────────────────
@@ -150,7 +161,10 @@ def users_new():
                 entity_type="user",
                 entity_id=user.id,
                 action=AuditAction.CREATE,
-                diff={"email": user.email, "role": role.code},
+                # Email is reachable via the FK (entity_id → users.email);
+                # storing it inline in the audit diff would mean it lives
+                # forever even after a GDPR-Art.17 redaction request.
+                diff={"role": role.code},
             )
             db.session.commit()
             flash(_("admin.users.created"), "success")
@@ -175,7 +189,10 @@ def users_edit(user_id: str):
         form.language.data = user.language
         form.is_active.data = user.is_active_flag
     if form.validate_on_submit():
-        prev = {"email": user.email, "role": user.role.code, "is_active": user.is_active_flag}
+        # Audit diff carries only mutable, non-PII fields: role and
+        # is_active. Email is the entity key and lives on the User row
+        # itself; full_name/language are PII that's redactable separately.
+        prev = {"role": user.role.code, "is_active": user.is_active_flag}
         user.full_name = form.full_name.data.strip()
         user.language = form.language.data
         user.is_active_flag = form.is_active.data
@@ -193,7 +210,7 @@ def users_edit(user_id: str):
             action=AuditAction.UPDATE,
             diff={
                 "before": prev,
-                "after": {"email": user.email, "role": user.role.code, "is_active": user.is_active_flag},
+                "after": {"role": user.role.code, "is_active": user.is_active_flag},
             },
         )
         db.session.commit()

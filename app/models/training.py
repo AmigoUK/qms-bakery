@@ -57,10 +57,33 @@ class QuestionKind(str, enum.Enum):
     TRUE_FALSE = "true_false"
 
 
+class NotificationChannel(str, enum.Enum):
+    """Where training-link notifications are delivered.
+
+    `BOTH` sends both an SMS and an email so the trainee can pick the
+    one they actually check; cheap audit win at the cost of one extra
+    queued job.
+    """
+
+    SMS = "sms"
+    EMAIL = "email"
+    BOTH = "both"
+
+
 class Trainee(UUIDPKMixin, TimestampMixin, db.Model):
     __tablename__ = "trainees"
 
+    # Stable HR-side identifier. Required on new records (the form
+    # enforces it); existing rows backfill to NULL until the operator
+    # fills them in. Unique so duplicates are caught at the DB layer
+    # even if the form check is bypassed.
+    employee_number: Mapped[str | None] = mapped_column(
+        String(32), unique=True, nullable=True, index=True
+    )
     phone: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    # Optional. Existing rows may have NULL; new admin-form submissions
+    # require it. Format validation lives in the form, not the DB.
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     full_name: Mapped[str] = mapped_column(String(120), nullable=False)
     role_code: Mapped[str] = mapped_column(String(32), nullable=False)
     line_id: Mapped[str | None] = mapped_column(
@@ -68,6 +91,12 @@ class Trainee(UUIDPKMixin, TimestampMixin, db.Model):
     )
     language: Mapped[str] = mapped_column(String(2), nullable=False, default="en")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Per-trainee delivery preference for magic-link notifications.
+    # Default is SMS so the column is safe to backfill on every row
+    # without changing existing behaviour.
+    notification_channel: Mapped[str] = mapped_column(
+        String(10), nullable=False, default=NotificationChannel.SMS.value
+    )
     # Hybrid future-proof: link a trainee to a User if the same person
     # also has system access (line manager, QA). Nullable; the magic-link
     # flow never reads it.
@@ -262,6 +291,22 @@ class TrainingEnrolment(UUIDPKMixin, TimestampMixin, db.Model):
     source_ref: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # 0..len(modules); how far the trainee has progressed through reading.
     module_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # Reminder timestamps. NULL = not yet sent. The training-scheduler
+    # consults them with `IS NULL` so a single enrolment never gets the
+    # same reminder kind twice. The "final" reminder fires on the day
+    # the link expires and carries a stronger "you won't be cleared
+    # for work" copy. With short link TTLs (≤7d) the 7-day reminder
+    # is collapsed into the final one to avoid two SMSes the same day.
+    reminder_3d_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reminder_7d_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reminder_final_sent_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     trainee: Mapped[Trainee] = relationship()
     course_version: Mapped[TrainingCourseVersion] = relationship()

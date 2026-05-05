@@ -3,6 +3,11 @@
 {% block content %}
 <div class="card card-narrow">
   <h1>{{ _('training.expired.title') }}</h1>
-  <p>{{ _('training.expired.body') }}</p>
+  {% if reason == 'invalid' %}
+    <p>{{ _('training.expired.body.invalid') }}</p>
+  {% else %}
+    <p>{{ _('training.expired.body.expired') }}</p>
+  {% endif %}
+  <p class="muted"><small>{{ _('training.expired.help_label') }}</small></p>
 </div>
 {% endblock %}
