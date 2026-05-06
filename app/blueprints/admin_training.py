@@ -38,6 +38,7 @@ from app.audit_actions import AuditAction
 from app.auth import require_permission
 from app.constants import (
     MAX_CODE_LENGTH,
+    MAX_CSV_UPLOAD_BYTES,
     MAX_FULL_NAME_LENGTH,
     MAX_NAME_BILINGUAL_LENGTH,
 )
@@ -64,6 +65,18 @@ from app.services import audit
 from app.services import training as training_service
 
 bp = Blueprint("admin_training", __name__, url_prefix="/admin/training")
+
+
+def _read_bounded_upload(upload, max_bytes: int = MAX_CSV_UPLOAD_BYTES) -> bytes | None:
+    """Read at most max_bytes+1 from upload; return None on overshoot.
+
+    Reads one extra byte to distinguish "exactly at the cap" from "over",
+    which bounds memory regardless of how much the client tried to send.
+    """
+    blob = upload.read(max_bytes + 1)
+    if len(blob) > max_bytes:
+        return None
+    return blob
 
 
 # ─── Forms ──────────────────────────────────────────────────────────
@@ -1009,8 +1022,9 @@ def trainees_import():
         upload = request.files.get("csv")
         if upload is None or not upload.filename:
             flash(_("admin.training.import.no_file"), "danger")
+        elif (blob := _read_bounded_upload(upload)) is None:
+            flash(_("admin.training.import.too_large"), "danger")
         else:
-            blob = upload.read()
             plan = training_csv.plan_trainees_import(blob)
             if request.form.get("apply") == "1":
                 if plan.n_error == 0 and (plan.n_create + plan.n_update) > 0:
@@ -1067,8 +1081,9 @@ def courses_import():
         upload = request.files.get("csv")
         if upload is None or not upload.filename:
             flash(_("admin.training.import.no_file"), "danger")
+        elif (blob := _read_bounded_upload(upload)) is None:
+            flash(_("admin.training.import.too_large"), "danger")
         else:
-            blob = upload.read()
             plan = training_csv.plan_courses_import(blob)
             if request.form.get("apply") == "1":
                 if plan.n_error == 0 and (plan.n_create + plan.n_update) > 0:

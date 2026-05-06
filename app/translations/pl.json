@@ -314,6 +314,7 @@
   "admin.training.import.col.action": "Akcja",
   "admin.training.import.col.notes": "Uwagi",
   "admin.training.import.no_file": "Najpierw wybierz plik CSV.",
+  "admin.training.import.too_large": "Plik CSV jest za duży (limit 5 MB).",
   "admin.training.import.fix_errors_first": "Popraw błędy w wierszach przed zastosowaniem.",
   "admin.training.import.applied": "Gotowe — utworzono {created}, zaktualizowano {updated}, pominięto {skipped}.",
   "admin.training.bulk.title": "Wystawienie linków grupowo",

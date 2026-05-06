@@ -317,3 +317,47 @@ def test_trainees_import_apply_persists(app, client):
         tr = Trainee.query.filter_by(employee_number="EMP-APP").first()
         assert tr is not None
         assert tr.full_name == "Apply Person"
+
+
+def test_trainees_import_rejects_oversize_upload(app, client):
+    """Upload over MAX_CSV_UPLOAD_BYTES is rejected with the too_large flash
+    and never reaches plan_trainees_import — bounds memory regardless of
+    what the client tried to send.
+    """
+    from app.constants import MAX_CSV_UPLOAD_BYTES
+
+    _login(client, app)
+    import io as _io
+
+    # One byte past the cap. Body is junk — the size check fires before
+    # CSV parsing, so contents don't matter.
+    oversize = b"x" * (MAX_CSV_UPLOAD_BYTES + 1)
+    resp = client.post(
+        "/admin/training/trainees/import",
+        data={"csv": (_io.BytesIO(oversize), "huge.csv")},
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    # Flash key surfaces in the rendered page; either the EN or PL
+    # message variant, depending on the test user's locale.
+    assert "too large" in body.lower() or "za duży" in body.lower()
+    # And no preview was rendered (no "+ create" badge).
+    assert "+ create" not in body
+
+
+def test_courses_import_rejects_oversize_upload(app, client):
+    from app.constants import MAX_CSV_UPLOAD_BYTES
+
+    _login(client, app)
+    import io as _io
+
+    oversize = b"x" * (MAX_CSV_UPLOAD_BYTES + 1)
+    resp = client.post(
+        "/admin/training/courses/import",
+        data={"csv": (_io.BytesIO(oversize), "huge.csv")},
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 200
+    body = resp.get_data(as_text=True)
+    assert "too large" in body.lower() or "za duży" in body.lower()

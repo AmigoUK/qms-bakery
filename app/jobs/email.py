@@ -22,6 +22,19 @@ logger = logging.getLogger(__name__)
 DEFAULT_TIMEOUT_SECONDS = 15
 
 
+def _redact_email(addr: str) -> str:
+    """Mask the local part for INFO logs; keep the domain for ops triage.
+
+    Recipient lists are PII under GDPR — even routine "email sent" lines
+    in centralised log aggregation become a leak. Domain alone is enough
+    to debug delivery (SPF/DKIM/MX) without identifying the recipient.
+    """
+    local, _, domain = addr.partition("@")
+    if not domain:
+        return "***"
+    return f"{local[:1]}***@{domain}"
+
+
 def send_email(
     to: list[str] | str,
     subject: str,
@@ -65,6 +78,10 @@ def send_email(
         server.send_message(msg)
 
     logger.info(
-        "email sent: to=%s subject=%r host=%s:%s", to, subject, smtp_host, smtp_port
+        "email sent: to=%s subject=%r host=%s:%s",
+        [_redact_email(a) for a in to],
+        subject,
+        smtp_host,
+        smtp_port,
     )
     return {"recipients": to, "subject": subject}

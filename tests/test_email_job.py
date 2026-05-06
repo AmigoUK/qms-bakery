@@ -11,7 +11,7 @@ import smtplib
 
 import pytest
 
-from app.jobs.email import send_email
+from app.jobs.email import _redact_email, send_email
 from app.services import queue as queue_service
 
 
@@ -132,6 +132,38 @@ def test_enqueue_email_carries_retry_policy(app):
         )
         assert job.retries_left == 3
         assert job.retry_intervals == [180, 540, 1620]
+
+
+def test_redact_email_masks_local_part_keeps_domain():
+    assert _redact_email("john.doe@company.com") == "j***@company.com"
+    assert _redact_email("a@b.c") == "a***@b.c"
+    # Malformed addresses get fully masked rather than half-leaked.
+    assert _redact_email("nope") == "***"
+    assert _redact_email("") == "***"
+
+
+def test_send_email_logs_redact_recipients(monkeypatch, caplog):
+    """The INFO log line must not contain raw recipient addresses."""
+    import logging
+
+    monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
+    with caplog.at_level(logging.INFO, logger="app.jobs.email"):
+        send_email(
+            to=["alice@example.com", "bob@example.com"],
+            subject="hi",
+            body_text="hello",
+            smtp_host="smtp.test.local",
+            smtp_port=25,
+            smtp_username=None,
+            smtp_password=None,
+            smtp_use_tls=False,
+            sender="qms@test.local",
+        )
+    log_text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "alice@example.com" not in log_text
+    assert "bob@example.com" not in log_text
+    # Domain still visible for delivery debugging.
+    assert "example.com" in log_text
 
 
 def test_enqueue_email_freezes_smtp_config_into_kwargs(app):

@@ -314,6 +314,7 @@
   "admin.training.import.col.action": "Action",
   "admin.training.import.col.notes": "Notes",
   "admin.training.import.no_file": "Choose a CSV file first.",
+  "admin.training.import.too_large": "CSV file is too large (5 MB cap).",
   "admin.training.import.fix_errors_first": "Fix the per-row errors before applying.",
   "admin.training.import.applied": "Done — created {created}, updated {updated}, skipped {skipped}.",
   "admin.training.bulk.title": "Bulk-issue training links",

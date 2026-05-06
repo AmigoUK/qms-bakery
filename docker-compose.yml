@@ -42,7 +42,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       FLASK_APP: app:create_app
     ports:
       - "${APP_PORT:-8000}:8000"
@@ -71,7 +71,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       FLASK_APP: app:create_app
       MQTT_BROKER_HOST: mosquitto
       MQTT_BROKER_PORT: "1883"
@@ -90,7 +90,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       FLASK_APP: app:create_app
       WORKER_NAME: trigger-worker-1
     restart: unless-stopped
@@ -108,7 +108,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       FLASK_APP: app:create_app
       SMTP_HOST: ${SMTP_HOST:-localhost}
       SMTP_PORT: ${SMTP_PORT:-25}
@@ -135,7 +135,7 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://qms:qms@postgres:5432/qms
       REDIS_URL: redis://redis:6379/0
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-change-me}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in .env}
       FLASK_APP: app:create_app
       TRAINING_LINK_SIGNING_KEY: ${TRAINING_LINK_SIGNING_KEY:-}
       TRAINING_BASE_URL: ${TRAINING_BASE_URL:-}

@@ -37,3 +37,9 @@ MEASUREMENT_VALUE_MAX = 10000.0
 # before the trigger fires. 1 hour is a generous ceiling for any
 # realistic process.
 TRIGGER_DURATION_MAX_SECONDS = 3600
+
+# Per-endpoint cap on CSV bulk-import uploads. Trainees + courses CSVs
+# never run more than a few thousand rows × ~200 bytes — 5 MB is a
+# 25× headroom while still bounding memory if an operator drags in
+# the wrong file (or an attacker bypasses the form).
+MAX_CSV_UPLOAD_BYTES = 5 * 1024 * 1024
