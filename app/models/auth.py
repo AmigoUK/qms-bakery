@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     pass
 
 
-class UserRoleEnum(str, enum.Enum):
+class UserRoleEnum(enum.StrEnum):
     OPERATOR = "operator"
     QA = "qa"
     LINE_MANAGER = "line_manager"

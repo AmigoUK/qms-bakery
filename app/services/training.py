@@ -50,7 +50,7 @@ class TrainingError(Exception):
     """Domain error from the training service."""
 
 
-class ComplianceState(str, enum.Enum):
+class ComplianceState(enum.StrEnum):
     """Per-cell state in the trainee × course compliance matrix.
 
     Single source of truth for both the admin dashboard colours and

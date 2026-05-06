@@ -10,6 +10,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.extensions import db
 from app.models import (
@@ -95,7 +96,7 @@ def test_trainee_phone_unique(app):
     with app.app_context():
         _make_trainee("+447700000010")
         db.session.commit()
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             _make_trainee("+447700000010")
             db.session.commit()
         db.session.rollback()
@@ -197,7 +198,7 @@ def test_unique_constraints(app):
     with app.app_context():
         v1 = _make_course_with_one_version()
         db.session.commit()
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             db.session.add(
                 TrainingCourseVersion(
                     course_id=v1.course_id,

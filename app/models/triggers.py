@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     pass
 
 
-class ResponderType(str, enum.Enum):
+class ResponderType(enum.StrEnum):
     NOTIFY_IN_APP = "notify_in_app"
     CREATE_TICKET = "create_ticket"
     ESCALATE = "escalate"

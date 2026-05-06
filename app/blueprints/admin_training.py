@@ -283,7 +283,10 @@ def trainees_index():
     # Choices for the filter UI: distinct role codes seen on any
     # trainee, plus the active production lines.
     role_choices = sorted({
-        r[0] for r in db.session.query(Trainee.role_code).distinct().all() if r[0]
+        r for r in db.session.execute(
+            select(Trainee.role_code).distinct()
+        ).scalars()
+        if r
     })
     line_choices = (
         ProductionLine.query.filter_by(is_active=True)
@@ -328,7 +331,7 @@ def trainees_new():
             flash(_("admin.training.trainee.email_required_for_channel"), "danger")
         else:
             try:
-                trainee = training_service.create_trainee(
+                training_service.create_trainee(
                     employee_number=emp_no,
                     phone=form.phone.data.strip(),
                     email=email,
@@ -1398,9 +1401,12 @@ def dashboard():
         .order_by(ProductionLine.code).all()
     )
     role_choices = sorted({
-        row[0] for row in db.session.query(Trainee.role_code)
-        .filter(Trainee.is_active.is_(True)).distinct().all()
-        if row[0]
+        row for row in db.session.execute(
+            select(Trainee.role_code)
+            .where(Trainee.is_active.is_(True))
+            .distinct()
+        ).scalars()
+        if row
     })
     return render_template(
         "admin/training/dashboard.html",

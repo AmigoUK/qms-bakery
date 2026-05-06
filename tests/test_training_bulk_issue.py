@@ -212,7 +212,7 @@ def _login(client):
 
 def test_bulk_issue_route_renders_preview(app, client):
     with app.app_context():
-        course = _seed_course(code="BULK-PREV")
+        _seed_course(code="BULK-PREV")
         a = _make_trainee("+447730000040", "BLK-PRV1")
         b = _make_trainee("+447730000041", "BLK-PRV2")
         db.session.commit()
@@ -237,7 +237,7 @@ def test_bulk_issue_route_renders_preview(app, client):
 
 def test_bulk_issue_route_apply_persists(app, client):
     with app.app_context():
-        course = _seed_course(code="BULK-APPL")
+        _seed_course(code="BULK-APPL")
         a = _make_trainee("+447730000050", "BLK-APP1")
         db.session.commit()
         ids = [a.id]

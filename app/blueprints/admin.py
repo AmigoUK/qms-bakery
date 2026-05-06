@@ -14,7 +14,7 @@ import re
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
 from flask_wtf import FlaskForm
-from sqlalchemy import select
+from sqlalchemy import func, select
 from wtforms import (
     BooleanField,
     DecimalField,
@@ -641,9 +641,10 @@ def pipelines_edit(line_id: str):
         # Create new version. Old stays in DB (FKs from existing tickets) but
         # is_active=False — the engine reads only the active version.
         next_version = (
-            db.session.query(db.func.max(Pipeline.version))
-            .filter(Pipeline.line_id == line.id)
-            .scalar()
+            db.session.execute(
+                select(func.max(Pipeline.version))
+                .where(Pipeline.line_id == line.id)
+            ).scalar()
             or 0
         ) + 1
         if active is not None:

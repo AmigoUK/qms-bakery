@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from app.models.production import Pipeline, PipelineStage, ProductionLine
 
 
-class TicketStatus(str, enum.Enum):
+class TicketStatus(enum.StrEnum):
     NEW = "new"
     ASSIGNED = "assigned"
     IN_PROGRESS = "in_progress"
@@ -33,20 +33,20 @@ class TicketStatus(str, enum.Enum):
     CLOSED = "closed"
 
 
-class TicketSeverity(str, enum.Enum):
+class TicketSeverity(enum.StrEnum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
     CRITICAL = "critical"
 
 
-class TicketSource(str, enum.Enum):
+class TicketSource(enum.StrEnum):
     MANUAL = "manual"
     IOT = "iot"
     API = "api"
 
 
-class TicketEventType(str, enum.Enum):
+class TicketEventType(enum.StrEnum):
     """Types of events recorded against a ticket. Mirror these strings
     exactly when writing to TicketEvent.event_type — referencing the
     enum directly is preferred."""
@@ -57,7 +57,7 @@ class TicketEventType(str, enum.Enum):
     COMMENT = "comment"
 
 
-class TicketCategory(str, enum.Enum):
+class TicketCategory(enum.StrEnum):
     TEMPERATURE_DEVIATION = "temperature_deviation"
     WEIGHT_OUT_OF_SPEC = "weight_out_of_spec"
     FOREIGN_BODY = "foreign_body"

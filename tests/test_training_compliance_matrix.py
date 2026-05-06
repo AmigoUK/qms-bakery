@@ -80,7 +80,7 @@ def _make_cert(trainee: Trainee, course: TrainingCourse, *, valid_until: datetim
     questions = course.active_version.questions
     answers = {q.id: [o.id for o in q.options if o.is_correct] for q in questions}
     t.submit_attempt(enrolment, answers)
-    decl = t.record_declaration(
+    t.record_declaration(
         attempt=attempt,
         typed_name=trainee.full_name,
         declaration_text="ok",

@@ -32,7 +32,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models._base import TimestampMixin, UUIDPKMixin, db
 
 
-class EnrolmentStatus(str, enum.Enum):
+class EnrolmentStatus(enum.StrEnum):
     """State machine for a single magic-link enrolment."""
 
     ISSUED = "issued"
@@ -42,7 +42,7 @@ class EnrolmentStatus(str, enum.Enum):
     WITHDRAWN = "withdrawn"
 
 
-class EnrolmentSource(str, enum.Enum):
+class EnrolmentSource(enum.StrEnum):
     """How an enrolment was created — useful for the dashboard's
     'why did this trainee receive an SMS?' column."""
 
@@ -51,13 +51,13 @@ class EnrolmentSource(str, enum.Enum):
     MANUAL = "manual"
 
 
-class QuestionKind(str, enum.Enum):
+class QuestionKind(enum.StrEnum):
     SINGLE_CHOICE = "single_choice"
     MULTI_CHOICE = "multi_choice"
     TRUE_FALSE = "true_false"
 
 
-class NotificationChannel(str, enum.Enum):
+class NotificationChannel(enum.StrEnum):
     """Where training-link notifications are delivered.
 
     `BOTH` sends both an SMS and an email so the trainee can pick the

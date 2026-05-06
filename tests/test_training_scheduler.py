@@ -66,7 +66,7 @@ def test_scheduler_issues_for_due_trainee(app):
         db.session.add(
             TrainingAssignment(course_id=course.id, role_code="operator")
         )
-        trainee = training_service.create_trainee(
+        training_service.create_trainee(
             phone="+447700100001",
             full_name="Sched User",
             role_code="operator",
@@ -121,18 +121,10 @@ def test_scheduler_re_enrols_after_cert_expires(app):
         # Mark the open enrolment as submitted with an expired cert
         enrolment = TrainingEnrolment.query.filter_by(trainee_id=trainee.id).first()
         enrolment.status = EnrolmentStatus.SUBMITTED.value
-        version = enrolment.course_version
-        cert = TrainingCertification(
-            trainee_id=trainee.id,
-            course_id=course.id,
-            course_version_id=version.id,
-            attempt_id=enrolment.id,  # cheat: just need a valid FK; not used here
-            declaration_id=enrolment.id,
-            valid_from=datetime.now(UTC) - timedelta(days=400),
-            valid_until=datetime.now(UTC) - timedelta(days=1),  # expired
-        )
-        # Skip cert insert because attempt_id/declaration_id FKs would fail.
-        # Instead force expiry on the enrolment so the next tick re-enrols.
+        # We can't insert a real TrainingCertification here — its
+        # attempt_id / declaration_id FKs would need full attempt + decl
+        # rows. Instead force expiry on the enrolment so the next tick
+        # treats it as "expired & re-enrol".
         enrolment.expires_at = datetime.now(UTC) - timedelta(seconds=1)
         db.session.commit()
 
@@ -146,7 +138,7 @@ def test_scheduler_re_enrols_after_cert_expires(app):
 
 def test_send_training_link_responder_enrols_audience(app):
     with app.app_context():
-        course = _seed_full_course()
+        _seed_full_course()
         db.session.commit()
         op_a = training_service.create_trainee(
             phone="+447700100100", full_name="A", role_code="operator", line_id=None
@@ -198,7 +190,7 @@ def test_send_training_link_responder_enrols_audience(app):
 
 def test_send_training_link_responder_line_scoped(app):
     with app.app_context():
-        course = _seed_full_course()
+        _seed_full_course()
         db.session.commit()
         from app.models import ProductionLine
 
@@ -247,7 +239,7 @@ def test_send_training_link_responder_line_scoped(app):
 def test_send_training_link_responder_idempotent(app):
     """Firing twice doesn't double-enrol."""
     with app.app_context():
-        course = _seed_full_course()
+        _seed_full_course()
         db.session.commit()
         training_service.create_trainee(
             phone="+447700100300", full_name="X", role_code="operator"

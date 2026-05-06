@@ -58,7 +58,7 @@ def test_webhook_responder_enqueues_job(app, redis_client):
         seeded.is_active = False
         db.session.flush()
 
-        trigger = _make_webhook_trigger("https://hooks.example.test/incident")
+        _make_webhook_trigger("https://hooks.example.test/incident")
         line = ProductionLine.query.filter_by(code="LINE_A").first()
 
         fired = trigger_service.evaluate(

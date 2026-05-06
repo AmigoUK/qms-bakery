@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from app.models.tickets import Ticket
 
 
-class ChecklistFrequency(str, enum.Enum):
+class ChecklistFrequency(enum.StrEnum):
     DAILY = "daily"
     SHIFT = "shift"
     WEEKLY = "weekly"
