@@ -10,7 +10,6 @@ from __future__ import annotations
 from app.extensions import db
 from app.models import Trigger
 from app.models.audit import AuditLog
-from app.models.production import ProductionLine
 from app.models.triggers import Responder, ResponderType, trigger_responders
 
 

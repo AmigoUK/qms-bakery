@@ -2,12 +2,22 @@ from __future__ import annotations
 
 from urllib.parse import urlparse
 
-from flask import Blueprint, flash, make_response, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint,
+    flash,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    session,
+    url_for,
+)
 from flask_login import current_user, login_required, login_user, logout_user
 from flask_wtf import FlaskForm
 from wtforms import PasswordField, StringField, SubmitField
 from wtforms.validators import DataRequired, Length
 
+from app.audit_actions import AuditAction
 from app.auth import authenticate
 from app.extensions import db
 from app.i18n import gettext as _
@@ -15,7 +25,6 @@ from app.models import User
 from app.services import audit
 from app.services import totp as totp_service
 from app.services.ratelimit import rate_limit
-from app.audit_actions import AuditAction
 
 bp = Blueprint("auth", __name__, template_folder="../templates")
 

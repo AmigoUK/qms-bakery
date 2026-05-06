@@ -7,7 +7,7 @@ carries `duration_seconds` in its condition JSON.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from freezegun import freeze_time
 
@@ -20,14 +20,14 @@ from app.models.triggers import (
     Trigger,
     trigger_responders,
 )
-from app.services import trigger_state, triggers as trigger_service
-
+from app.services import trigger_state
+from app.services import triggers as trigger_service
 
 # -- pure gate logic ----------------------------------------------------
 
 
 def test_first_true_records_state_and_does_not_fire(redis_client):
-    now = datetime(2026, 4, 29, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 29, 12, 0, 0, tzinfo=UTC)
     fired = trigger_state.should_fire_with_duration(
         "trig-1", "line:LINE_A", 30, now=now, redis_client=redis_client
     )
@@ -37,7 +37,7 @@ def test_first_true_records_state_and_does_not_fire(redis_client):
 
 
 def test_second_true_within_duration_does_not_fire(redis_client):
-    base = datetime(2026, 4, 29, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2026, 4, 29, 12, 0, 0, tzinfo=UTC)
     trigger_state.should_fire_with_duration(
         "trig-1", "line:LINE_A", 30, now=base, redis_client=redis_client
     )
@@ -54,7 +54,7 @@ def test_second_true_within_duration_does_not_fire(redis_client):
 
 
 def test_true_after_duration_fires_and_clears_state(redis_client):
-    base = datetime(2026, 4, 29, 12, 0, 0, tzinfo=timezone.utc)
+    base = datetime(2026, 4, 29, 12, 0, 0, tzinfo=UTC)
     trigger_state.should_fire_with_duration(
         "trig-1", "line:LINE_A", 30, now=base, redis_client=redis_client
     )
@@ -70,7 +70,7 @@ def test_true_after_duration_fires_and_clears_state(redis_client):
 
 
 def test_reset_clears_state(redis_client):
-    now = datetime(2026, 4, 29, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 29, 12, 0, 0, tzinfo=UTC)
     trigger_state.should_fire_with_duration(
         "trig-1", "line:LINE_A", 30, now=now, redis_client=redis_client
     )
@@ -82,7 +82,7 @@ def test_reset_clears_state(redis_client):
 
 def test_scope_isolation(redis_client):
     """Same trigger, different scopes → independent first-true timestamps."""
-    now = datetime(2026, 4, 29, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 29, 12, 0, 0, tzinfo=UTC)
     trigger_state.should_fire_with_duration(
         "trig-1", "line:LINE_A", 30, now=now, redis_client=redis_client
     )
@@ -98,7 +98,7 @@ def test_scope_isolation(redis_client):
 
 
 def test_state_key_carries_ttl(redis_client):
-    now = datetime(2026, 4, 29, 12, 0, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 4, 29, 12, 0, 0, tzinfo=UTC)
     trigger_state.should_fire_with_duration(
         "trig-1", "line:LINE_A", 30, now=now, redis_client=redis_client
     )

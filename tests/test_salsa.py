@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.extensions import db
-from app.models import SalsaChecklist, SalsaResponse, Ticket
+from app.models import SalsaChecklist, Ticket
 from app.services import audit
 from app.services import salsa as salsa_service
 

@@ -6,13 +6,13 @@ from typing import Any
 
 from sqlalchemy import select
 
+from app.audit_actions import AuditAction
 from app.extensions import db
 from app.models._base import utcnow
 from app.models.salsa import SalsaChecklist, SalsaResponse
 from app.models.tickets import TicketCategory, TicketSeverity, TicketSource
 from app.services import audit
 from app.services import tickets as ticket_service
-from app.audit_actions import AuditAction
 
 
 class SalsaError(Exception):

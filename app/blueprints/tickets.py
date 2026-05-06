@@ -7,11 +7,11 @@ from wtforms import SelectField, StringField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, Length
 
 from app.auth import require_permission
-from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
 from app.models import Ticket, TicketCategory, TicketSeverity, TicketStatus
 from app.models.production import ProductionLine
+from app.permissions import Perm
 from app.services import tickets as ticket_service
 
 bp = Blueprint("tickets", __name__, template_folder="../templates")

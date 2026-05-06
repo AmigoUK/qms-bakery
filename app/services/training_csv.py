@@ -30,7 +30,6 @@ from app.models import (
 )
 from app.services import training as training_service
 
-
 # ─── shared CSV helpers ────────────────────────────────────────────
 
 

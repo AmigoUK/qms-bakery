@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.extensions import db
 from app.models import (
-    EnrolmentStatus,
     TrainingAnswerOption,
     TrainingCertification,
     TrainingDeclaration,
@@ -222,7 +221,7 @@ def test_expired_enrolment_yields_expired_page(app, client):
         course, _, _ = _seed_full_course()
         enrolment = _enrol(course)
         # Force-expire
-        enrolment.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        enrolment.expires_at = datetime.now(UTC) - timedelta(seconds=1)
         db.session.commit()
         token = enrolment.magic_token
     resp = client.get(f"/training/take/{token}")
@@ -242,7 +241,7 @@ def test_expired_page_branches_invalid_vs_expired(app, client):
     with app.app_context():
         course, _, _ = _seed_full_course()
         enrolment = _enrol(course)
-        enrolment.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        enrolment.expires_at = datetime.now(UTC) - timedelta(seconds=1)
         db.session.commit()
         token = enrolment.magic_token
     resp = client.get(f"/training/take/{token}")

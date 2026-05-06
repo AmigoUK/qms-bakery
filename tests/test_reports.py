@@ -7,7 +7,7 @@ Content-Type / Content-Disposition headers.
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -55,7 +55,7 @@ def test_haccp_monthly_context_includes_recorded_measurements(app):
         )
         db.session.commit()
 
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         ctx = reports_service.haccp_monthly_context(now.year, now.month)
         assert ctx["overall_total"] == 2
         assert ctx["overall_deviations"] == 1

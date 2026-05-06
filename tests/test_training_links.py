@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -11,7 +11,7 @@ from app.services import training_links
 
 
 def _exp(secs_from_now: int) -> datetime:
-    return datetime.now(timezone.utc) + timedelta(seconds=secs_from_now)
+    return datetime.now(UTC) + timedelta(seconds=secs_from_now)
 
 
 def test_round_trip(app):

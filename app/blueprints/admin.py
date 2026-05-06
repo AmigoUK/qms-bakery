@@ -12,7 +12,7 @@ import json
 import re
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
-from flask_login import current_user, login_required
+from flask_login import login_required
 from flask_wtf import FlaskForm
 from sqlalchemy import select
 from wtforms import (
@@ -26,8 +26,8 @@ from wtforms import (
 )
 from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
-from app.auth import hash_password, require_permission
 from app.audit_actions import AuditAction
+from app.auth import hash_password, require_permission
 from app.constants import (
     ADMIN_RECENT_AUDIT_LIMIT,
     MAX_CODE_LENGTH,
@@ -37,14 +37,12 @@ from app.constants import (
     MAX_PASSWORD_LENGTH,
     TRIGGER_DURATION_MAX_SECONDS,
 )
-from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
 from app.i18n import language_choices
 from app.models import (
     AuditLog,
     CCPDefinition,
-    Permission,
     Pipeline,
     PipelineStage,
     ProductionLine,
@@ -54,6 +52,7 @@ from app.models import (
     User,
 )
 from app.models.triggers import Responder, trigger_responders
+from app.permissions import Perm
 from app.services import audit
 
 bp = Blueprint("admin", __name__, template_folder="../templates")
@@ -145,8 +144,9 @@ def users_new():
             flash(_("admin.users.password_min"), "danger")
         elif User.query.filter_by(email=form.email.data.strip().lower()).first():
             flash(_("admin.users.email_taken"), "danger")
+        elif (role := Role.query.filter_by(code=form.role_code.data).first()) is None:
+            flash(_("admin.users.role_invalid"), "danger")
         else:
-            role = Role.query.filter_by(code=form.role_code.data).first()
             user = User(
                 email=form.email.data.strip().lower(),
                 full_name=form.full_name.data.strip(),

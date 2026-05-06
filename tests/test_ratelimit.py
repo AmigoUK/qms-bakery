@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 
 
 def _enable_ratelimit(app, *, api_max: int = 600):

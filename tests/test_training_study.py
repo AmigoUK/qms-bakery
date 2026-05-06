@@ -152,7 +152,6 @@ def test_study_shows_skip_to_exam_link(app, client):
 
 
 def test_submitted_enrolment_skipping_to_study_is_bounced_to_result(app, client):
-    from app.models import TrainingEnrolment
 
     with app.app_context():
         course = _seed_course()

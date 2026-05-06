@@ -114,6 +114,7 @@
   "admin.users.updated": "Użytkownik zaktualizowany.",
   "admin.users.email_taken": "E-mail już użyty.",
   "admin.users.password_min": "Hasło musi mieć min. 8 znaków.",
+  "admin.users.role_invalid": "Wybrana rola jest niepoprawna. Wybierz inną.",
   "admin.users.leave_blank": "zostaw puste, by zachować obecne",
   "admin.lines": "Linie produkcyjne",
   "admin.ccps": "CCP",

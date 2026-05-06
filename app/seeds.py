@@ -19,7 +19,6 @@ from app.models.training import (
 from app.models.triggers import Responder, ResponderType, Trigger, trigger_responders
 from app.permissions import PERMISSIONS, Perm
 
-
 ROLE_PERMISSIONS: dict[str, list[str]] = {
     UserRoleEnum.OPERATOR.value: [
         Perm.TICKETS_CREATE,

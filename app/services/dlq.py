@@ -16,7 +16,6 @@ on the queue so the regular RQ worker handles execution + retry policy.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
 
 from flask import Flask
 from rq import Queue

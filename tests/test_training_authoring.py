@@ -5,14 +5,12 @@ from __future__ import annotations
 from app.extensions import db
 from app.models import (
     QuestionKind,
-    TrainingAnswerOption,
     TrainingCourse,
     TrainingModule,
     TrainingQuestion,
 )
 from app.services import training as t
 from app.services.markdown import render as md_render
-
 
 # ─── Markdown service ──────────────────────────────────────────────
 

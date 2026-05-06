@@ -59,7 +59,7 @@ def test_export_unknown_subject_raises(app):
 
 
 def test_export_trainee_walks_full_chain(app):
-    from app.models import EnrolmentSource, EnrolmentStatus, Trainee, TrainingEnrolment
+    from app.models import EnrolmentSource
     from app.services import training as training_service
 
     with app.app_context():

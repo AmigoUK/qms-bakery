@@ -7,9 +7,8 @@ from __future__ import annotations
 from app.extensions import db
 from app.models import (
     EnrolmentStatus,
-    TrainingCourse,
-    TrainingCourseVersion,
     Trainee,
+    TrainingCourse,
 )
 from app.permissions import Perm
 from app.services import training as t
@@ -17,7 +16,6 @@ from app.services import training as t
 
 def _login(client, app, *, role: str = "compliance"):
     """Mint a User with the given role and log them in."""
-    from app.auth import hash_password
     from app.models import Role, User
 
     with app.app_context():

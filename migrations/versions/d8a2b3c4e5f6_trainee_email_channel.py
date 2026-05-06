@@ -24,7 +24,6 @@ from __future__ import annotations
 import sqlalchemy as sa
 from alembic import op
 
-
 # revision identifiers, used by Alembic.
 revision = "d8a2b3c4e5f6"
 down_revision = "c9e1a2b3d4f5"

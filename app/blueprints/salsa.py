@@ -4,10 +4,10 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, u
 from flask_login import current_user, login_required
 
 from app.auth import require_permission
-from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
 from app.models.salsa import SalsaChecklist
+from app.permissions import Perm
 from app.services import salsa as salsa_service
 
 bp = Blueprint("salsa", __name__, template_folder="../templates")

@@ -11,7 +11,6 @@ import pytest
 from app.blueprints.auth import _safe_next_url
 from app.jobs.webhook import UnsafeWebhookURL, _validate_outbound_url
 
-
 # ─── A10 SSRF: webhook URL guard ─────────────────────────────────────────
 
 

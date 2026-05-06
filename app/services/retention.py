@@ -21,7 +21,7 @@ Returns a structured summary so the CLI can echo it.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import or_, select
 
@@ -45,14 +45,14 @@ DEFAULT_TRAINEE_DORMANT_MONTHS = 24
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _is_past(dt: datetime | None) -> bool:
     if dt is None:
         return False
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt <= _now()
 
 

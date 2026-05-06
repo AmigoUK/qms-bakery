@@ -7,26 +7,22 @@ the N+1 fix that makes the dashboard usable at production scale.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-import pytest
 from sqlalchemy import event
 
 from app.extensions import db
 from app.models import (
-    EnrolmentStatus,
     Trainee,
+    TrainingAnswerOption,
     TrainingAssignment,
     TrainingCertification,
     TrainingCourse,
-    TrainingEnrolment,
     TrainingModule,
     TrainingQuestion,
-    TrainingAnswerOption,
 )
 from app.services import training as t
 from app.services.training import ComplianceState, compliance_state
-
 
 # ─── helpers ────────────────────────────────────────────────────────
 
@@ -119,7 +115,7 @@ def test_state_extra_when_not_required_but_cert_valid(app):
     with app.app_context():
         course = _seed_one_course()
         trainee = _make_trainee("+447700000002")
-        cert = _make_cert(trainee, course, valid_until=datetime.now(timezone.utc) + timedelta(days=200))
+        cert = _make_cert(trainee, course, valid_until=datetime.now(UTC) + timedelta(days=200))
         db.session.commit()
 
         state = compliance_state(
@@ -134,7 +130,7 @@ def test_state_valid_when_required_and_outside_lead_window(app):
         course = _seed_one_course()
         trainee = _make_trainee("+447700000003")
         # 60 days out, lead is 14 days → comfortably VALID.
-        cert = _make_cert(trainee, course, valid_until=datetime.now(timezone.utc) + timedelta(days=60))
+        cert = _make_cert(trainee, course, valid_until=datetime.now(UTC) + timedelta(days=60))
         db.session.commit()
 
         state = compliance_state(
@@ -149,7 +145,7 @@ def test_state_due_soon_when_inside_lead_window(app):
         course = _seed_one_course()
         trainee = _make_trainee("+447700000004")
         # 5 days out — within the 14-day lead window.
-        cert = _make_cert(trainee, course, valid_until=datetime.now(timezone.utc) + timedelta(days=5))
+        cert = _make_cert(trainee, course, valid_until=datetime.now(UTC) + timedelta(days=5))
         db.session.commit()
 
         state = compliance_state(
@@ -176,7 +172,7 @@ def test_state_overdue_when_cert_expired(app):
     with app.app_context():
         course = _seed_one_course()
         trainee = _make_trainee("+447700000006")
-        cert = _make_cert(trainee, course, valid_until=datetime.now(timezone.utc) - timedelta(days=1))
+        cert = _make_cert(trainee, course, valid_until=datetime.now(UTC) - timedelta(days=1))
         db.session.commit()
 
         state = compliance_state(
@@ -191,7 +187,7 @@ def test_state_in_flight_takes_precedence_over_overdue(app):
     with app.app_context():
         course = _seed_one_course()
         trainee = _make_trainee("+447700000007")
-        cert = _make_cert(trainee, course, valid_until=datetime.now(timezone.utc) - timedelta(days=10))
+        cert = _make_cert(trainee, course, valid_until=datetime.now(UTC) - timedelta(days=10))
         db.session.commit()
 
         state = compliance_state(
@@ -268,8 +264,8 @@ def test_bulk_loader_query_count_is_constant(app):
                 )
         trainees = [_make_trainee(f"+44770010000{i}", role="matrix-test") for i in range(5)]
         # Give first trainee a valid cert in course A; second an expired cert in B.
-        _make_cert(trainees[0], courses[0], valid_until=datetime.now(timezone.utc) + timedelta(days=60))
-        _make_cert(trainees[1], courses[1], valid_until=datetime.now(timezone.utc) - timedelta(days=10))
+        _make_cert(trainees[0], courses[0], valid_until=datetime.now(UTC) + timedelta(days=60))
+        _make_cert(trainees[1], courses[1], valid_until=datetime.now(UTC) - timedelta(days=10))
         db.session.commit()
 
         engine = db.session.get_bind()
@@ -346,9 +342,9 @@ def test_bulk_loader_kpis_reflect_grid_state(app):
         t2 = _make_trainee("+447700300002", role="kpi-test")  # One overdue → blocked.
         t3 = _make_trainee("+447700300003", role="kpi-test")  # Both overdue → blocked, two overdue cells.
 
-        _make_cert(t1, course_a, valid_until=datetime.now(timezone.utc) + timedelta(days=60))
-        _make_cert(t1, course_b, valid_until=datetime.now(timezone.utc) + timedelta(days=60))
-        _make_cert(t2, course_a, valid_until=datetime.now(timezone.utc) + timedelta(days=60))
+        _make_cert(t1, course_a, valid_until=datetime.now(UTC) + timedelta(days=60))
+        _make_cert(t1, course_b, valid_until=datetime.now(UTC) + timedelta(days=60))
+        _make_cert(t2, course_a, valid_until=datetime.now(UTC) + timedelta(days=60))
         # t2 has no cert for course_b → OVERDUE.
         # t3 has nothing → OVERDUE in both cells.
         db.session.commit()
@@ -383,11 +379,11 @@ def test_dashboard_renders_color_states(app, client, login_admin):
         t1 = _make_trainee("+447700400001", role="render-test")
         t2 = _make_trainee("+447700400002", role="render-test")
         # t1 → VALID on A (60 days out).
-        _make_cert(t1, course_a, valid_until=datetime.now(timezone.utc) + timedelta(days=60))
+        _make_cert(t1, course_a, valid_until=datetime.now(UTC) + timedelta(days=60))
         # t1 → DUE_SOON on B (5 days out, within 14-day lead).
-        _make_cert(t1, course_b, valid_until=datetime.now(timezone.utc) + timedelta(days=5))
+        _make_cert(t1, course_b, valid_until=datetime.now(UTC) + timedelta(days=5))
         # t1 → EXTRA on C (not required, valid cert).
-        _make_cert(t1, course_c, valid_until=datetime.now(timezone.utc) + timedelta(days=60))
+        _make_cert(t1, course_c, valid_until=datetime.now(UTC) + timedelta(days=60))
         # t2 → OVERDUE on A (no cert).
         # t2 → IN_FLIGHT on B (issue a magic-link, status STARTED).
         enr = t.enrol(trainee=t2, course=course_b, base_url="https://test")
@@ -455,7 +451,7 @@ def test_matrix_filters_by_blocked_only(app):
         )
         # cleared trainee — has a fresh cert.
         cleared_t = _make_trainee("+447710000010", role="block-test")
-        _make_cert(cleared_t, course, valid_until=datetime.now(timezone.utc) + timedelta(days=60))
+        _make_cert(cleared_t, course, valid_until=datetime.now(UTC) + timedelta(days=60))
         # blocked trainee — no cert at all.
         blocked_t = _make_trainee("+447710000011", role="block-test")
         db.session.commit()
@@ -495,7 +491,7 @@ def test_trainee_course_history_route_renders(app, client, login_admin):
     with app.app_context():
         course = _seed_one_course(code="DRILL")
         trainee = _make_trainee("+447710000050", role="drill")
-        cert = _make_cert(trainee, course, valid_until=datetime.now(timezone.utc) + timedelta(days=30))
+        cert = _make_cert(trainee, course, valid_until=datetime.now(UTC) + timedelta(days=30))
         db.session.commit()
         trainee_id = trainee.id
         course_id = course.id
@@ -561,8 +557,9 @@ def test_dashboard_route_accepts_multi_role(app, client, login_admin):
 
 def test_drill_down_issue_link_button_posts_and_enrols(app, client, login_admin):
     """POST to the issue endpoint creates an enrolment for that pair."""
-    from app.models import TrainingEnrolment
     from unittest import mock
+
+    from app.models import TrainingEnrolment
 
     with app.app_context():
         course = _seed_one_course(code="ISSUE-NOW")

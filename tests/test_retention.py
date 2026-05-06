@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.extensions import db
 from app.services import retention
@@ -40,7 +40,7 @@ def test_expired_enrolment_is_dropped_when_applied(app):
         )
         # Backdate + mark expired so it's eligible.
         enrolment.status = EnrolmentStatus.EXPIRED.value
-        enrolment.expires_at = datetime.now(timezone.utc) - timedelta(days=60)
+        enrolment.expires_at = datetime.now(UTC) - timedelta(days=60)
         db.session.commit()
         enrolment_id = enrolment.id
 
@@ -69,7 +69,7 @@ def test_recent_expired_not_dropped(app):
             trainee=trainee, course=course, source=EnrolmentSource.MANUAL.value,
         )
         enrolment.status = EnrolmentStatus.EXPIRED.value
-        enrolment.expires_at = datetime.now(timezone.utc) - timedelta(days=2)
+        enrolment.expires_at = datetime.now(UTC) - timedelta(days=2)
         db.session.commit()
         enrolment_id = enrolment.id
         retention.sweep(dry_run=False, config=app.config)

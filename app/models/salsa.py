@@ -7,11 +7,11 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
     ForeignKey,
     Integer,
-    JSON,
     String,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship

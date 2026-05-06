@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from app.extensions import db
 from app.models import (
     EnrolmentStatus,
     Responder,
     ResponderType,
-    Trainee,
     TrainingAnswerOption,
     TrainingAssignment,
     TrainingCertification,
@@ -129,12 +128,12 @@ def test_scheduler_re_enrols_after_cert_expires(app):
             course_version_id=version.id,
             attempt_id=enrolment.id,  # cheat: just need a valid FK; not used here
             declaration_id=enrolment.id,
-            valid_from=datetime.now(timezone.utc) - timedelta(days=400),
-            valid_until=datetime.now(timezone.utc) - timedelta(days=1),  # expired
+            valid_from=datetime.now(UTC) - timedelta(days=400),
+            valid_until=datetime.now(UTC) - timedelta(days=1),  # expired
         )
         # Skip cert insert because attempt_id/declaration_id FKs would fail.
         # Instead force expiry on the enrolment so the next tick re-enrols.
-        enrolment.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        enrolment.expires_at = datetime.now(UTC) - timedelta(seconds=1)
         db.session.commit()
 
         # Second tick — open enrolment is no longer "open" (expired), so re-issue

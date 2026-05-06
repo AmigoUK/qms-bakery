@@ -20,7 +20,7 @@ from __future__ import annotations
 import calendar
 import enum
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Iterable
 
 from flask import current_app
@@ -34,7 +34,6 @@ from app.models import (
     EnrolmentStatus,
     NotificationChannel,
     Trainee,
-    TrainingAnswerOption,
     TrainingAssignment,
     TrainingAttempt,
     TrainingCertification,
@@ -42,10 +41,8 @@ from app.models import (
     TrainingCourseVersion,
     TrainingDeclaration,
     TrainingEnrolment,
-    TrainingQuestion,
 )
-from app.services import audit
-from app.services import training_links
+from app.services import audit, training_links
 from app.services.queue import enqueue_email, enqueue_sms
 
 
@@ -143,7 +140,7 @@ def compliance_state(
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _is_past(dt: datetime) -> bool:
@@ -151,7 +148,7 @@ def _is_past(dt: datetime) -> bool:
     drops tzinfo) against now. Naive values are treated as UTC.
     PG preserves tzinfo correctly; this is a portability shim."""
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt <= _now()
 
 
@@ -1146,13 +1143,13 @@ def _classify_reminder(
     ):
         return None
     if now.tzinfo is None:
-        now = now.replace(tzinfo=timezone.utc)
+        now = now.replace(tzinfo=UTC)
     expires = enrolment.expires_at
     if expires.tzinfo is None:
-        expires = expires.replace(tzinfo=timezone.utc)
+        expires = expires.replace(tzinfo=UTC)
     issued = enrolment.issued_at
     if issued.tzinfo is None:
-        issued = issued.replace(tzinfo=timezone.utc)
+        issued = issued.replace(tzinfo=UTC)
 
     # The "final" reminder fires by calendar day, not by exact moment.
     # On the day the link expires we send the strong "today's the

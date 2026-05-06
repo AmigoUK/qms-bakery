@@ -18,7 +18,8 @@ from flask import Blueprint, current_app, jsonify, request
 
 from app.extensions import csrf, db
 from app.services import triggers as trigger_service
-from app.services.ratelimit import _ident_for_request, check as rate_check
+from app.services.ratelimit import _ident_for_request
+from app.services.ratelimit import check as rate_check
 
 bp = Blueprint("api", __name__)
 csrf.exempt(bp)  # external clients can't carry CSRF tokens

@@ -5,13 +5,22 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from flask_login import UserMixin
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Table, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models._base import TimestampMixin, UUIDPKMixin, db
 
 if TYPE_CHECKING:
-    from app.models.tickets import Ticket
+    pass
 
 
 class UserRoleEnum(str, enum.Enum):
@@ -100,7 +109,7 @@ class User(UUIDPKMixin, TimestampMixin, UserMixin, db.Model):
         return bool(self.totp_secret and self.totp_enrolled_at)
 
     def is_locked(self) -> bool:
-        from datetime import timezone
+        from datetime import UTC
 
         from app.models._base import utcnow
 
@@ -108,7 +117,7 @@ class User(UUIDPKMixin, TimestampMixin, UserMixin, db.Model):
             return False
         locked = self.locked_until
         if locked.tzinfo is None:
-            locked = locked.replace(tzinfo=timezone.utc)
+            locked = locked.replace(tzinfo=UTC)
         return locked > utcnow()
 
     def __repr__(self) -> str:

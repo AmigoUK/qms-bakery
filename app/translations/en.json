@@ -114,6 +114,7 @@
   "admin.users.updated": "User updated.",
   "admin.users.email_taken": "Email already in use.",
   "admin.users.password_min": "Password must be at least 8 characters.",
+  "admin.users.role_invalid": "Selected role is no longer valid. Please choose another.",
   "admin.users.leave_blank": "leave blank to keep current",
   "admin.lines": "Production lines",
   "admin.ccps": "CCPs",

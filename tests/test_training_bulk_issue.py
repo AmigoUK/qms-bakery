@@ -8,14 +8,12 @@ trainee B's exam.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 from unittest import mock
 
 from werkzeug.datastructures import MultiDict
 
 from app.extensions import db
 from app.models import (
-    EnrolmentStatus,
     TrainingAnswerOption,
     TrainingCourse,
     TrainingEnrolment,

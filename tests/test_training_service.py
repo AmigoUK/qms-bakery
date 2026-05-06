@@ -4,7 +4,7 @@ plus recurrence detection for the scheduler.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -13,7 +13,6 @@ from app.models import (
     EnrolmentStatus,
     TrainingAnswerOption,
     TrainingAssignment,
-    TrainingCertification,
     TrainingModule,
     TrainingQuestion,
 )
@@ -21,7 +20,7 @@ from app.services import training as t
 
 
 def _now():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _is_future(dt: datetime) -> bool:

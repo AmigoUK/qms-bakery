@@ -28,7 +28,7 @@ auditor sees both the marker rows AND when redaction happened.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy import or_, select, text
 
@@ -52,7 +52,7 @@ class GDPRError(Exception):
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _redact_audit_rows(audit_ids: list[int]) -> int:

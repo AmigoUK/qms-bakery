@@ -13,13 +13,12 @@ are excluded — there's nothing to remind.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from unittest import mock
 
 from app.extensions import db
 from app.models import (
     EnrolmentStatus,
-    NotificationChannel,
     TrainingAnswerOption,
     TrainingCourse,
     TrainingEnrolment,

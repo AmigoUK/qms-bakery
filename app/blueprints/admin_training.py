@@ -8,7 +8,7 @@ TRAINING_REVIEW (read-only dashboard + attempt detail).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import (
     Blueprint,
@@ -48,6 +48,7 @@ from app.models import (
     EnrolmentStatus,
     ProductionLine,
     QuestionKind,
+    Trainee,
     TrainingAnswerOption,
     TrainingAssignment,
     TrainingAttempt,
@@ -57,7 +58,6 @@ from app.models import (
     TrainingEnrolment,
     TrainingModule,
     TrainingQuestion,
-    Trainee,
 )
 from app.permissions import Perm
 from app.services import audit
@@ -481,7 +481,8 @@ def trainees_issue(trainee_id: str):
             flash(_("admin.training.course.not_found"), "danger")
         else:
             try:
-                from flask import current_app, request as _req
+                from flask import current_app
+                from flask import request as _req
 
                 base_url = (
                     current_app.config.get("TRAINING_BASE_URL")
@@ -800,7 +801,7 @@ def questions_edit(course_id: str, question_id: str):
         form.prompt_pl.data = (q.prompt or {}).get("pl", "")
         form.prompt_en.data = (q.prompt or {}).get("en", "")
         form.kind.data = q.kind
-        for slot, opt in zip((1, 2, 3, 4), q.options):
+        for slot, opt in zip((1, 2, 3, 4), q.options, strict=False):
             getattr(form, f"opt{slot}_pl").data = (opt.label or {}).get("pl", "")
             getattr(form, f"opt{slot}_en").data = (opt.label or {}).get("en", "")
             getattr(form, f"opt{slot}_correct").data = bool(opt.is_correct)
@@ -971,9 +972,9 @@ def _csv_response(payload: bytes, filename: str):
 @login_required
 @require_permission(Perm.TRAINING_SEND)
 def trainees_export_csv():
-    from app.services import training_csv
-
     from datetime import date as _date
+
+    from app.services import training_csv
 
     return _csv_response(
         training_csv.export_trainees(),
@@ -1036,9 +1037,9 @@ def trainees_import():
 @login_required
 @require_permission(Perm.TRAINING_AUTHOR)
 def courses_export_csv():
-    from app.services import training_csv
-
     from datetime import date as _date
+
+    from app.services import training_csv
 
     return _csv_response(
         training_csv.export_courses(),
@@ -1160,8 +1161,9 @@ def dashboard_csv():
     writer.writerows(rows)
     payload = buf.getvalue().encode("utf-8")
 
-    from flask import Response
     from datetime import date as _date
+
+    from flask import Response
 
     filename = f"compliance-matrix-{_date.today().isoformat()}.csv"
     return Response(
@@ -1182,8 +1184,9 @@ def dashboard_pdf():
     Filename includes today's date so the inspector can collect them
     chronologically.
     """
-    import weasyprint
     from datetime import date as _date
+
+    import weasyprint
 
     line_ids = [x for x in request.args.getlist("line_id") if x]
     role_codes = [x.strip() for x in request.args.getlist("role_code") if x.strip()]
@@ -1206,7 +1209,7 @@ def dashboard_pdf():
         matrix=matrix,
         line_by_id=line_by_id,
         ComplianceState=training_service.ComplianceState,
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
         filter_line_ids=line_ids,
         filter_role_codes=role_codes,
         filter_blocked_only=blocked_only,

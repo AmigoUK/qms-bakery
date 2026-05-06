@@ -19,7 +19,7 @@ disclosing them would weaken security):
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import or_, select
@@ -73,7 +73,7 @@ def export_user(user_id: str) -> dict:
 
     return {
         "subject": {"type": "user", "id": user.id},
-        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_at": datetime.now(UTC).isoformat(),
         "user": _serialise(
             user,
             # password_hash and totp_secret deliberately omitted —
@@ -155,7 +155,7 @@ def export_trainee(trainee_id: str) -> dict:
 
     return {
         "subject": {"type": "trainee", "id": trainee.id},
-        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_at": datetime.now(UTC).isoformat(),
         "trainee": _serialise(trainee),
         "enrolments": [
             # magic_token excluded — it's an authentication credential,

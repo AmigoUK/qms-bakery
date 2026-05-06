@@ -7,7 +7,8 @@ import pytest
 from app.extensions import db
 from app.models import Ticket, TicketCategory, TicketSeverity, TicketSource, TicketStatus
 from app.models.production import ProductionLine
-from app.services import audit, tickets as ticket_service
+from app.services import audit
+from app.services import tickets as ticket_service
 
 
 def _line():

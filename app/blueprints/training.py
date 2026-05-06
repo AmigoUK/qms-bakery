@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import base64
 import binascii
-from io import BytesIO
 
 from flask import (
     Blueprint,
@@ -24,11 +23,9 @@ from flask import (
     url_for,
 )
 
-from app.audit_actions import AuditAction
-from app.extensions import csrf, db
+from app.extensions import db
 from app.i18n import gettext as _
 from app.models import EnrolmentStatus, TrainingEnrolment
-from app.services import audit
 from app.services import training as training_service
 
 bp = Blueprint("training", __name__, url_prefix="/training", template_folder="../templates")

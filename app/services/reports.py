@@ -20,7 +20,7 @@ then verify the PDF byte stream is well-formed.
 from __future__ import annotations
 
 import calendar
-from datetime import date, datetime, time, timezone
+from datetime import UTC, date, datetime, time
 from typing import Any
 
 from flask import current_app, render_template
@@ -49,9 +49,9 @@ def _html_to_pdf(html: str) -> bytes:
 def _month_bounds(year: int, month: int) -> tuple[datetime, datetime]:
     if not (1 <= month <= 12):
         raise ValueError(f"month out of range: {month}")
-    start = datetime(year, month, 1, tzinfo=timezone.utc)
+    start = datetime(year, month, 1, tzinfo=UTC)
     last_day = calendar.monthrange(year, month)[1]
-    end = datetime(year, month, last_day, 23, 59, 59, tzinfo=timezone.utc)
+    end = datetime(year, month, last_day, 23, 59, 59, tzinfo=UTC)
     return start, end
 
 
@@ -124,7 +124,7 @@ def haccp_monthly_context(
             if overall_total
             else None
         ),
-        "generated_at": datetime.now(timezone.utc),
+        "generated_at": datetime.now(UTC),
     }
 
 
@@ -146,8 +146,8 @@ def fsa_traceability_context(
 ) -> dict[str, Any]:
     if date_to < date_from:
         raise ValueError("date_to must be >= date_from")
-    start = datetime.combine(date_from, time.min, tzinfo=timezone.utc)
-    end = datetime.combine(date_to, time.max, tzinfo=timezone.utc)
+    start = datetime.combine(date_from, time.min, tzinfo=UTC)
+    end = datetime.combine(date_to, time.max, tzinfo=UTC)
 
     entries = (
         db.session.execute(
@@ -183,7 +183,7 @@ def fsa_traceability_context(
         "chain_ok": chain_ok,
         "chain_broken_at": chain_broken_at,
         "total_entries": len(entries),
-        "generated_at": datetime.now(timezone.utc),
+        "generated_at": datetime.now(UTC),
     }
 
 

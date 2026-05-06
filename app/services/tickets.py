@@ -6,6 +6,7 @@ from datetime import date
 
 from sqlalchemy import func, select
 
+from app.audit_actions import AuditAction
 from app.extensions import db
 from app.models._base import utcnow
 from app.models.production import Pipeline, PipelineStage, ProductionLine
@@ -21,7 +22,6 @@ from app.models.tickets import (
     TicketStatus,
 )
 from app.services import audit
-from app.audit_actions import AuditAction
 
 
 class TicketError(Exception):

@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from flask import current_app
 
@@ -72,6 +72,6 @@ def verify_token(token: str) -> str:
     expected = hmac.new(_signing_key(), _body(enrolment_id, exp_unix), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(expected, sig):
         raise InvalidToken("bad signature")
-    if datetime.now(timezone.utc).timestamp() >= exp_unix:
+    if datetime.now(UTC).timestamp() >= exp_unix:
         raise InvalidToken("expired")
     return enrolment_id

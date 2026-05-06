@@ -5,14 +5,13 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from app.audit_actions import AuditAction
 from app.extensions import db
-from app.i18n import i18n_field
 from app.models._base import utcnow
 from app.models.haccp import CCPDefinition, CCPMeasurement
 from app.models.tickets import TicketCategory, TicketSeverity, TicketSource
 from app.services import audit
 from app.services import tickets as ticket_service
-from app.audit_actions import AuditAction
 
 
 class HACCPError(Exception):

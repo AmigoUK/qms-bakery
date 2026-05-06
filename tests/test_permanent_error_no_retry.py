@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from unittest import mock
 
-from app.jobs import webhook as webhook_job
 from app.jobs import sms as sms_job
+from app.jobs import webhook as webhook_job
 
 
 class _FakeJob:

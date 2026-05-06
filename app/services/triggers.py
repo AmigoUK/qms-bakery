@@ -22,6 +22,7 @@ from typing import Any
 
 from sqlalchemy import select
 
+from app.audit_actions import AuditAction
 from app.extensions import db
 from app.models._base import utcnow
 from app.models.tickets import TicketSeverity, TicketSource
@@ -34,8 +35,6 @@ from app.models.triggers import (
 )
 from app.services import audit
 from app.services import tickets as ticket_service
-from app.audit_actions import AuditAction
-
 
 _OPERATORS: dict[str, Any] = {
     "==": lambda a, b: a == b,
@@ -214,7 +213,7 @@ def _dispatch_responder(responder: Responder, trigger: Trigger, payload: dict) -
         ticket_id = payload.get("ticket_id") or cfg.get("ticket_id")
         if not ticket_id:
             raise TriggerError("escalate responder requires ticket_id in payload or config")
-        from app.models import Ticket, TICKET_TRANSITIONS, TicketStatus
+        from app.models import TICKET_TRANSITIONS, Ticket, TicketStatus
 
         ticket = db.session.get(Ticket, ticket_id)
         if ticket is None:

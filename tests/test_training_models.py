@@ -7,7 +7,7 @@ identity property (cert points at TrainingCourse, not version).
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -28,7 +28,7 @@ from app.models import (
 
 
 def _now():
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _make_trainee(phone: str = "+447700000001"):

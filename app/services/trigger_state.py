@@ -11,7 +11,7 @@ maintains independent state from the same condition on `line:LINE_B`.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.services.stream import get_redis
 
@@ -36,7 +36,7 @@ def should_fire_with_duration(
     from scratch.
     """
     r = redis_client if redis_client is not None else get_redis()
-    now = now or datetime.now(timezone.utc)
+    now = now or datetime.now(UTC)
     key = _key(trigger_id, scope)
 
     raw = r.get(key)

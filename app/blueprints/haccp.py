@@ -14,10 +14,10 @@ from app.constants import (
     MEASUREMENT_VALUE_MAX,
     MEASUREMENT_VALUE_MIN,
 )
-from app.permissions import Perm
 from app.extensions import db
 from app.i18n import gettext as _
 from app.models.haccp import CCPDefinition
+from app.permissions import Perm
 from app.services import haccp as haccp_service
 
 bp = Blueprint("haccp", __name__, template_folder="../templates")

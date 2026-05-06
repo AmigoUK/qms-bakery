@@ -7,14 +7,14 @@ from functools import wraps
 from typing import Callable
 
 import bcrypt
-from flask import abort, current_app, flash, redirect, request, url_for
+from flask import abort, current_app, redirect, request, url_for
 from flask_login import current_user
 
+from app.audit_actions import AuditAction
 from app.extensions import db
 from app.models._base import utcnow
 from app.models.auth import User
 from app.services import audit
-from app.audit_actions import AuditAction
 
 
 def hash_password(plain: str) -> str:

@@ -6,8 +6,6 @@ Tests assert each header is present + sensible.
 
 from __future__ import annotations
 
-import pytest
-
 
 def test_csp_present_on_html_response(client):
     resp = client.get("/healthz")
@@ -75,8 +73,9 @@ def test_hsts_present_on_https(app):
 def test_security_headers_can_be_disabled_via_config():
     """Lets the audit team A/B compare with vs. without the headers if
     they need to isolate a regression."""
-    from app import create_app
     import fakeredis
+
+    from app import create_app
 
     server = fakeredis.FakeServer()
     app = create_app(

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
-
 from app.auth import authenticate, hash_password, verify_password
 from app.extensions import db
 from app.models.auth import Role, User

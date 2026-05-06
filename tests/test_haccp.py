@@ -5,8 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.extensions import db
-from app.models import CCPDefinition, CCPMeasurement, Ticket, TicketSeverity, TicketStatus
-from app.models.production import ProductionLine
+from app.models import CCPDefinition, Ticket, TicketSeverity, TicketStatus
 from app.services import audit
 from app.services import haccp as haccp_service
 
