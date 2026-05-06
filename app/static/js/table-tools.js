@@ -181,7 +181,19 @@
 
   // Sniff per-cell. Empty cells sort last regardless of direction —
   // a typed-in null shouldn't drag rows to the top of "asc".
+  // `data-sort-value="N"` on the <td> overrides the sniffer when the
+  // displayed text isn't sortable (e.g. "v1 (3)" should sort by 1, not
+  // by string). Numeric override → number sort; non-numeric override →
+  // text sort using the override as the key.
   function cellValue(cell) {
+    const override = cell.dataset.sortValue;
+    if (override !== undefined) {
+      const trimmed = override.trim();
+      if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+        return { kind: 'number', text: trimmed, num: parseFloat(trimmed) };
+      }
+      return { kind: 'text', text: trimmed.toLowerCase(), num: 0 };
+    }
     const raw = (cell.textContent || '').trim();
     if (!raw) return { kind: 'text', text: '￿', num: 0 };
     // ISO date or timestamp: 2026-05-06 or 2026-05-06 12:34:56

@@ -37,7 +37,7 @@
   {% for c in courses %}
     <tr>
       <td data-label="Code">{{ c.code }}</td>
-      <td data-label="Versions">v{{ (c.active_version.version if c.active_version else 0) }} ({{ c.versions|length }})</td>
+      <td data-label="Versions" data-sort-value="{{ c.active_version.version if c.active_version else 0 }}">v{{ (c.active_version.version if c.active_version else 0) }} ({{ c.versions|length }})</td>
       <td data-label="Active">{% if c.is_active %}{{ _('common.yes') }}{% else %}{{ _('common.no') }}{% endif %}</td>
       <td data-label=""><a href="{{ url_for('admin_training.courses_edit', course_id=c.id) }}">{{ _('admin.users.edit') }}</a></td>
     </tr>

@@ -45,7 +45,10 @@
 // v14: client-side table sort + filter (table-tools.js) auto-applied
 // to every <table class="data">; new CSS for .table-toolbar +
 // sortable th + no-matches state.
-const CACHE_VERSION = 'qms-v14';
+// v15: table-tools.js gains `data-sort-value` override; courses_list
+// uses it so Versions sorts by active version number, not by the
+// "v1 (3)" display string.
+const CACHE_VERSION = 'qms-v15';
 const APP_SHELL = [
   '/offline',
   '/static/css/app.css',
