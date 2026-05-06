@@ -192,6 +192,63 @@ form.filters { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0 1
 .data thead th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-2); background: #fafbf9; }
 .data tbody tr:hover { background: #f8faf6; }
 
+/* Filter input + sortable headers — injected by table-tools.js. The
+   styles must exist even when JS hasn't run yet, so a hover on the
+   header doesn't repaint after the script enhances it. */
+.table-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0.25rem 0 0.5rem;
+}
+.table-filter input[type="search"] {
+  width: 14rem;
+  max-width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+}
+.data thead th.th-sortable {
+  cursor: pointer;
+  user-select: none;
+  padding-right: 1.6rem;
+  position: relative;
+}
+.data thead th.th-sortable:hover { background: #f1f4ee; }
+.data thead th.th-sortable:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+/* Neutral sort hint (faded) when column is sortable but not active. */
+.data thead th.th-sortable[aria-sort="none"]::after {
+  content: "↕";
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  opacity: 0.4;
+}
+.data thead th.th-sortable[aria-sort="ascending"]::after,
+.data thead th.th-sortable[aria-sort="descending"]::after {
+  position: absolute;
+  right: 0.6rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  color: var(--brand-2);
+  opacity: 1;
+}
+.data thead th.th-sortable[aria-sort="ascending"]::after { content: "▲"; }
+.data thead th.th-sortable[aria-sort="descending"]::after { content: "▼"; }
+.table-no-matches {
+  padding: 0.75rem 0.85rem;
+  text-align: center;
+  font-style: italic;
+}
+
 /* KPI */
 .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
 .kpi {
@@ -265,11 +322,19 @@ form.filters { display: flex; gap: 1rem; align-items: center; margin: 0.5rem 0 1
 /* Training feature */
 .training-body { background: #f7f7f5; }
 .training-header {
-  display: flex; align-items: center; gap: 0.75rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 0.75rem;
   padding: 1rem 1.25rem; background: var(--brand); color: #fff;
 }
+.training-header > div { display: flex; align-items: center; gap: 0.75rem; }
 .training-header .brand-mark { font-weight: 700; font-size: 1.1rem; }
 .training-header .brand-tag { font-size: 0.85rem; opacity: 0.85; }
+.training-help {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 2rem; height: 2rem; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18); color: #fff;
+  font-weight: 700; text-decoration: none;
+}
+.training-help:hover { background: rgba(255, 255, 255, 0.28); text-decoration: none; }
 .training-container { max-width: 720px; padding-top: 1rem; }
 .module-progress {
   font-size: 0.85rem; color: var(--ink-2); margin-bottom: 0.5rem;
@@ -606,3 +671,215 @@ tr.row-blocked > td { background: rgba(177, 37, 43, 0.04); }
   border-bottom: 1px dotted transparent;
 }
 .help-link:hover { border-bottom-color: var(--ink); text-decoration: none; }
+
+/* ── Navigation: active-state highlighting ──────────────────────── */
+.topnav a[aria-current="page"] {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  font-weight: 600;
+  position: relative;
+}
+.topnav a[aria-current="page"]::after {
+  content: "";
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: -2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+/* ── Breadcrumbs ─────────────────────────────────────────────────── */
+.breadcrumb {
+  margin: 0 0 0.75rem 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+.breadcrumb ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.breadcrumb li {
+  display: inline-flex;
+  align-items: center;
+}
+.breadcrumb li:not(:last-child)::after {
+  content: "›";
+  margin-left: 0.35rem;
+  color: var(--muted);
+}
+.breadcrumb a { color: var(--muted); text-decoration: none; }
+.breadcrumb a:hover { color: var(--ink); text-decoration: underline; }
+.breadcrumb li[aria-current="page"] {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ── Nav drawer (mobile hamburger wrapper around the whole nav) ─── */
+/* Desktop: drawer summary hidden, panel always shown horizontally.
+   Mobile: drawer summary is the ☰ toggle, panel slides down below
+   the topbar when [open]. Pure CSS — <details> handles state. */
+.nav-drawer { position: relative; }
+.nav-drawer summary.nav-drawer-toggle {
+  display: none;
+  list-style: none;        /* Firefox triangle */
+  cursor: pointer;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  font-size: 1.3rem;
+  user-select: none;
+}
+.nav-drawer summary.nav-drawer-toggle::-webkit-details-marker { display: none; }
+.nav-drawer summary.nav-drawer-toggle:hover { background: rgba(255, 255, 255, 0.12); }
+.nav-drawer-panel {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+/* Each section is a click-to-open <details> dropdown. */
+.nav-section { position: relative; }
+.nav-section summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.4rem 0.7rem;
+  border-radius: 6px;
+  user-select: none;
+  white-space: nowrap;
+}
+.nav-section summary::-webkit-details-marker { display: none; }
+.nav-section summary::after {
+  content: "▾";
+  margin-left: 0.3rem;
+  font-size: 0.7em;
+  opacity: 0.7;
+}
+.nav-section summary:hover { background: rgba(255, 255, 255, 0.12); }
+.nav-section[open] > summary { background: rgba(255, 255, 255, 0.16); }
+.nav-section-current > summary {
+  background: rgba(255, 255, 255, 0.18);
+  font-weight: 600;
+  position: relative;
+}
+.nav-section-current > summary::before {
+  content: "";
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: -2px;
+  height: 2px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+/* Desktop dropdown panel: floats below the section summary. */
+.nav-section-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--brand-2, #0f5239);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 0.4rem;
+  min-width: 12rem;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.18);
+}
+.nav-section-panel a {
+  display: block;
+  padding: 0.5rem 0.7rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.nav-section-panel a:hover {
+  background: rgba(255, 255, 255, 0.12);
+  text-decoration: none;
+}
+.nav-section-panel a[aria-current="page"] {
+  background: rgba(255, 255, 255, 0.18);
+  font-weight: 600;
+}
+
+/* Mobile: <720px → drawer becomes a hamburger; panels stack vertically. */
+@media (max-width: 720px) {
+  .nav-drawer summary.nav-drawer-toggle { display: block; }
+  .nav-drawer:not([open]) > .nav-drawer-panel { display: none; }
+  .nav-drawer[open] > .nav-drawer-panel {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--brand-2, #0f5239);
+    padding: 0.5rem 1rem;
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
+    z-index: 10;
+  }
+  .nav-section { width: 100%; }
+  .nav-section summary { padding: 0.6rem 0.5rem; }
+  .nav-section-panel {
+    position: static;
+    box-shadow: none;
+    border: 0;
+    background: rgba(0, 0, 0, 0.15);
+    margin: 0.25rem 0 0.5rem 0.5rem;
+  }
+  .nav-section-current > summary::before { display: none; }
+}
+
+/* ── Admin landing: 3-section grid ──────────────────────────────── */
+.admin-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.section-card { display: flex; flex-direction: column; }
+.section-card h2 { margin-top: 0; }
+.section-card .muted { font-size: 0.9rem; margin-bottom: 0.75rem; }
+.link-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.link-list li { margin: 0; }
+.link-list li + li { margin-top: 0.5rem; }
+.link-list a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: none;
+  transition: background 80ms ease, border-color 80ms ease, transform 80ms ease;
+}
+.link-list a::after {
+  content: "›";
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--ink-2);
+  flex-shrink: 0;
+}
+.link-list a:hover {
+  background: #ecefe8;
+  border-color: var(--brand-2);
+  text-decoration: none;
+}
+.link-list a:active {
+  transform: translateY(1px);
+}

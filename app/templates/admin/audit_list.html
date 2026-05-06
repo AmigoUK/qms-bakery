@@ -1,6 +1,11 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title_suffix %} · {{ _('admin.audit') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  _('nav.compliance.audit'),
+]) }}
 <header class="page-head">
   <h1>{{ _('admin.audit') }}</h1>
   {% if chain_ok %}
@@ -10,6 +15,22 @@
   {% endif %}
 </header>
 
+<form class="filters" method="get" action="">
+  <label>
+    <span>{{ _('admin.audit.from') }}</span>
+    <input type="date" name="date_from" value="{{ date_from }}">
+  </label>
+  <label>
+    <span>{{ _('admin.audit.to') }}</span>
+    <input type="date" name="date_to" value="{{ date_to }}">
+  </label>
+  <button class="btn btn-secondary" type="submit">{{ _('admin.audit.filter') }}</button>
+  {% if date_from or date_to %}
+    <a class="btn btn-ghost" href="{{ url_for('admin.audit_index') }}">{{ _('admin.audit.clear') }}</a>
+  {% endif %}
+</form>
+
+{% if rows %}
 <table class="data">
   <thead>
     <tr>
@@ -37,9 +58,27 @@
   </tbody>
 </table>
 
+{# Pagination links carry the date filters through via url_for kwargs.
+   `dict(request.args)` flattens the MultiDict and we override `page`. #}
 <nav class="filters">
-  {% if page > 1 %}<a class="btn btn-ghost" href="?page={{ page - 1 }}">‹ {{ _('common.prev') if _('common.prev') != 'common.prev' else 'Prev' }}</a>{% endif %}
+  {% if page > 1 %}
+    <a class="btn btn-ghost"
+       href="{{ url_for('admin.audit_index', **dict(request.args, page=page - 1)) }}">‹ {{ _('common.prev') if _('common.prev') != 'common.prev' else 'Prev' }}</a>
+  {% endif %}
   <span>{{ page }}</span>
-  {% if rows | length == page_size %}<a class="btn btn-ghost" href="?page={{ page + 1 }}">{{ _('common.next') if _('common.next') != 'common.next' else 'Next' }} ›</a>{% endif %}
+  {% if rows | length == page_size %}
+    <a class="btn btn-ghost"
+       href="{{ url_for('admin.audit_index', **dict(request.args, page=page + 1)) }}">{{ _('common.next') if _('common.next') != 'common.next' else 'Next' }} ›</a>
+  {% endif %}
 </nav>
+
+{% else %}
+<div class="card empty-state">
+  {% if date_from or date_to %}
+    <p>{{ _('admin.audit.empty_filtered') }}</p>
+  {% else %}
+    <p>{{ _('admin.audit.empty') }}</p>
+  {% endif %}
+</div>
+{% endif %}
 {% endblock %}

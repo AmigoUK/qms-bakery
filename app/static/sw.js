@@ -37,11 +37,20 @@
 // magic-links + sticky bulk-bar + new trainees_bulk.js.
 // v11: /help blueprint + topbar help link + 410-page reason branching
 // + 6 silent-failure copy keys + .help-page CSS.
-const CACHE_VERSION = 'qms-v11';
+// v12: Topbar redesign — three-section drawer (Operations/Compliance/
+// System), nav-section dropdowns, breadcrumbs, audit date filter,
+// admin landing 3-section layout, trainee header ? help link.
+// v13: admin landing tile menu rebuilt as buttons (.link-list a) —
+// visible border + bg, 48px tap target, chevron, active press effect.
+// v14: client-side table sort + filter (table-tools.js) auto-applied
+// to every <table class="data">; new CSS for .table-toolbar +
+// sortable th + no-matches state.
+const CACHE_VERSION = 'qms-v14';
 const APP_SHELL = [
   '/offline',
   '/static/css/app.css',
   '/static/js/sw-register.js',
+  '/static/js/table-tools.js',
   '/manifest.webmanifest',
   '/static/icons/qms-icon.svg',
 ];

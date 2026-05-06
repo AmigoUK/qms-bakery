@@ -12,8 +12,14 @@
 <body class="training-body">
   <a class="skip-link" href="#main">{{ _('a11y.skip_to_content') }}</a>
   <header class="training-header">
-    <span class="brand-mark">QMS</span>
-    <span class="brand-tag">{{ _('training.app.tagline') }}</span>
+    <div>
+      <span class="brand-mark">QMS</span>
+      <span class="brand-tag">{{ _('training.app.tagline') }}</span>
+    </div>
+    <a class="training-help" href="{{ url_for('help.training') }}"
+       target="_blank" rel="noopener"
+       aria-label="{{ _('training.help.aria') }}"
+       title="{{ _('training.help.aria') }}">?</a>
   </header>
 
   <main class="container training-container" id="main">

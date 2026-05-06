@@ -1,6 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title_suffix %} · {{ _('admin.pipelines') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  (_('nav.system.pipelines'), url_for('admin.pipelines_index')),
+  line.code,
+]) }}
 <header class="page-head">
   <h1>{{ _('admin.pipelines.edit') }} · <code>{{ line.code }}</code></h1>
   <a class="btn btn-ghost" href="{{ url_for('admin.pipelines_index') }}">{{ _('common.cancel') }}</a>

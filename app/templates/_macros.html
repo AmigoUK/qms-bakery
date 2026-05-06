@@ -21,3 +21,55 @@
     </p>
   {% endif %}
 {%- endmacro %}
+
+
+{# ── Navigation macros ───────────────────────────────────────────────
+
+   `nav_link` — a topbar/sub-nav link that marks itself aria-current
+   when its endpoint matches the current request. Active match is
+   delegated to `current_section()` (registered in app/__init__.py),
+   which classifies endpoints into one of: operations | compliance |
+   system, so a link to admin_training.dashboard correctly highlights
+   the "Compliance" section even though the request endpoint lives in
+   a different blueprint.
+
+   `nav_section` — a single dropdown/group entry (label + list of
+   child links). Marks itself aria-current="true" when any of its
+   children match the active section.
+
+   `breadcrumb` — semantic <ol> trail. The last segment is the
+   current page (no link, aria-current). Earlier segments are
+   tuples (label, url).
+#}
+
+{% macro nav_link(label, endpoint) -%}
+  {% set is_current = request.endpoint == endpoint %}
+  <a href="{{ url_for(endpoint) }}"
+     {% if is_current %}aria-current="page"{% endif %}>{{ label }}</a>
+{%- endmacro %}
+
+
+{% macro nav_section(label, section_key, items) -%}
+  {% set is_current = current_section() == section_key %}
+  <details class="nav-section{% if is_current %} nav-section-current{% endif %}">
+    <summary{% if is_current %} aria-current="true"{% endif %}>{{ label }}</summary>
+    <div class="nav-section-panel">
+      {% for child_label, child_endpoint in items %}
+        <a href="{{ url_for(child_endpoint) }}"
+           {% if request.endpoint == child_endpoint %}aria-current="page"{% endif %}>{{ child_label }}</a>
+      {% endfor %}
+    </div>
+  </details>
+{%- endmacro %}
+
+
+{% macro breadcrumb(crumbs) -%}
+  <nav aria-label="Breadcrumb" class="breadcrumb">
+    <ol>
+      {% for crumb in crumbs[:-1] %}
+        <li><a href="{{ crumb[1] }}">{{ crumb[0] }}</a></li>
+      {% endfor %}
+      <li aria-current="page">{{ crumbs[-1] if crumbs[-1] is string else crumbs[-1][0] }}</li>
+    </ol>
+  </nav>
+{%- endmacro %}

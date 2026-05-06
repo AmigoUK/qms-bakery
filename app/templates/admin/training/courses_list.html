@@ -1,6 +1,11 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title_suffix %} · {{ _('admin.training.courses') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  _('nav.compliance.courses'),
+]) }}
 <div class="page-head">
   <h1>{{ _('admin.training.courses') }}</h1>
   <div class="page-head-actions">

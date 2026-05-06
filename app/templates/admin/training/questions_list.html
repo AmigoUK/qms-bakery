@@ -1,6 +1,13 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title_suffix %} · {{ course.code }} {{ _('admin.training.questions') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  (_('nav.compliance.courses'), url_for('admin_training.courses_index')),
+  (course.code, url_for('admin_training.courses_edit', course_id=course.id)),
+  _('admin.training.questions'),
+]) }}
 <div class="page-head">
   <h1>{{ course.code }} v{{ version.version }} — {{ _('admin.training.questions') }}</h1>
   <a class="btn btn-primary" href="{{ url_for('admin_training.questions_new', course_id=course.id) }}">

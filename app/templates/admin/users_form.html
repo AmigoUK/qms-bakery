@@ -1,7 +1,12 @@
 {% extends "base.html" %}
-{% from "_macros.html" import field_errors %}
+{% from "_macros.html" import field_errors, breadcrumb %}
 {% block title_suffix %} · {{ _('admin.users') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  (_('nav.system.users'), url_for('admin.users_index')),
+  (_('admin.users.edit') if edit else _('admin.users.new')),
+]) }}
 <div class="card card-narrow">
   <h1>{% if edit %}{{ _('admin.users.edit') }}{% else %}{{ _('admin.users.new') }}{% endif %}</h1>
   <form method="post" novalidate>

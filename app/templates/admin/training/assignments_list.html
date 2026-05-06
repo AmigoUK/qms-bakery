@@ -1,6 +1,13 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title_suffix %} · {{ _('admin.training.assignments') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  (_('nav.compliance.courses'), url_for('admin_training.courses_index')),
+  (course.code, url_for('admin_training.courses_edit', course_id=course.id)),
+  _('admin.training.assignments'),
+]) }}
 <div class="card">
   <h1>{{ course.code }} — {{ _('admin.training.assignments') }}</h1>
   <p>{{ _('admin.training.assignment.intro') }}</p>

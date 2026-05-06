@@ -1,6 +1,11 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title_suffix %} · {{ _('admin.training.dashboard') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  _('nav.compliance.matrix'),
+]) }}
 <div class="page-head">
   <h1>{{ _('admin.training.matrix.title') }}</h1>
 </div>

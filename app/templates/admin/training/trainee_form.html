@@ -1,6 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title_suffix %} · {{ _('admin.training.trainees') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  (_('nav.compliance.trainees'), url_for('admin_training.trainees_index')),
+  (_('admin.training.trainee.edit') if edit else _('admin.training.trainees.new')),
+]) }}
 <div class="card card-narrow">
   <h1>
     {% if edit %}{{ _('admin.training.trainee.edit') }}{% else %}{{ _('admin.training.trainees.new') }}{% endif %}

@@ -1,6 +1,12 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 {% block title_suffix %} · {{ _('admin.triggers') }}{% endblock %}
 {% block content %}
+{{ breadcrumb([
+  (_('admin.title'), url_for('admin.index')),
+  (_('nav.system.triggers'), url_for('admin.triggers_index')),
+  (trigger.code if edit else _('admin.triggers.new')),
+]) }}
 <div class="card card-narrow">
   <h1>
     {% if edit %}{{ _('admin.triggers.edit') }} · <code>{{ trigger.code }}</code>

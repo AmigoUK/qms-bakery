@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<html lang="{{ current_lang }}">
+{% from "_macros.html" import nav_link %}
+<html lang="{{ current_lang }}"
+      data-table-filter-placeholder="{{ _('table.filter.placeholder') }}"
+      data-table-no-matches="{{ _('table.no_matches') }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -9,6 +12,7 @@
   <link rel="manifest" href="{{ url_for('pwa.manifest') }}">
   <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='icons/qms-icon.svg') }}">
   <script src="{{ url_for('static', filename='js/sw-register.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/table-tools.js') }}" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">{{ _('a11y.skip_to_content') }}</a>
@@ -17,21 +21,74 @@
       <span class="brand-mark">QMS</span>
       <span class="brand-tag">{{ _('app.tagline') }}</span>
     </a>
-    <nav class="topnav">
-      {% if current_user.is_authenticated %}
-        <a href="{{ url_for('dashboard.index') }}">{{ _('nav.dashboard') }}</a>
-        <a href="{{ url_for('tickets.index') }}">{{ _('nav.tickets') }}</a>
-        {% if current_user.has_permission(Perm.CCP_MEASURE) %}
-          <a href="{{ url_for('haccp.index') }}">{{ _('nav.haccp') }}</a>
+    {% if current_user.is_authenticated %}
+    <details class="nav-drawer">
+      <summary class="nav-drawer-toggle" aria-label="{{ _('nav.menu') }}">☰</summary>
+      <nav class="nav-drawer-panel">
+
+        {# Operations — daily/operational work #}
+        <details class="nav-section{% if current_section() == 'operations' %} nav-section-current{% endif %}">
+          <summary>{{ _('nav.section.operations') }}</summary>
+          <div class="nav-section-panel">
+            {{ nav_link(_('nav.tickets'), 'tickets.index') }}
+            {% if current_user.has_permission(Perm.CCP_MEASURE) %}
+              {{ nav_link(_('nav.haccp'), 'haccp.index') }}
+            {% endif %}
+            {% if current_user.has_permission(Perm.SALSA_RESPOND) %}
+              {{ nav_link(_('nav.salsa'), 'salsa.index') }}
+            {% endif %}
+          </div>
+        </details>
+
+        {# Compliance — proving the system is working #}
+        {% if current_user.has_permission(Perm.TRAINING_REVIEW)
+              or current_user.has_permission(Perm.AUDIT_VIEW)
+              or current_user.has_permission(Perm.REPORTS_GENERATE)
+              or current_user.has_permission(Perm.TRAINING_SEND)
+              or current_user.has_permission(Perm.TRAINING_AUTHOR) %}
+        <details class="nav-section{% if current_section() == 'compliance' %} nav-section-current{% endif %}">
+          <summary>{{ _('nav.section.compliance') }}</summary>
+          <div class="nav-section-panel">
+            {% if current_user.has_permission(Perm.TRAINING_REVIEW) %}
+              {{ nav_link(_('nav.compliance.matrix'), 'admin_training.dashboard') }}
+            {% endif %}
+            {% if current_user.has_permission(Perm.TRAINING_SEND) %}
+              {{ nav_link(_('nav.compliance.trainees'), 'admin_training.trainees_index') }}
+            {% endif %}
+            {% if current_user.has_permission(Perm.TRAINING_AUTHOR) %}
+              {{ nav_link(_('nav.compliance.courses'), 'admin_training.courses_index') }}
+            {% endif %}
+            {% if current_user.has_permission(Perm.AUDIT_VIEW) %}
+              {{ nav_link(_('nav.compliance.audit'), 'admin.audit_index') }}
+            {% endif %}
+          </div>
+        </details>
         {% endif %}
-        {% if current_user.has_permission(Perm.SALSA_RESPOND) %}
-          <a href="{{ url_for('salsa.index') }}">{{ _('nav.salsa') }}</a>
-        {% endif %}
+
+        {# System — configuration and operations of the system itself #}
         {% if current_user.has_permission(Perm.SYSTEM_CONFIGURE) %}
-          <a href="{{ url_for('admin.index') }}">{{ _('nav.admin') }}</a>
+        <details class="nav-section{% if current_section() == 'system' %} nav-section-current{% endif %}">
+          <summary>{{ _('nav.section.system') }}</summary>
+          <div class="nav-section-panel">
+            {% if current_user.has_permission(Perm.USERS_MANAGE) %}
+              {{ nav_link(_('nav.system.users'), 'admin.users_index') }}
+            {% endif %}
+            {% if current_user.has_permission(Perm.TRIGGERS_DEFINE) %}
+              {{ nav_link(_('nav.system.triggers'), 'admin.triggers_index') }}
+            {% endif %}
+            {% if current_user.has_permission(Perm.PIPELINE_CONFIGURE) %}
+              {{ nav_link(_('nav.system.pipelines'), 'admin.pipelines_index') }}
+            {% endif %}
+            {% if current_user.has_permission(Perm.DLQ_MANAGE) %}
+              {{ nav_link(_('nav.system.dlq'), 'admin.dlq_index') }}
+            {% endif %}
+          </div>
+        </details>
         {% endif %}
-      {% endif %}
-    </nav>
+
+      </nav>
+    </details>
+    {% endif %}
     <div class="topright">
       <a class="help-link" href="{{ url_for('help.index') }}" title="{{ _('nav.help') }}">{{ _('nav.help') }}</a>
       <form class="lang-switcher" method="get" action="">

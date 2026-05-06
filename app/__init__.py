@@ -13,6 +13,29 @@ from app.i18n import gettext as _l
 from app.i18n import init_i18n
 from app.security_headers import init_security_headers
 
+# Section-classifier for the topbar's three-way grouping. The
+# active-state matcher uses longest-prefix lookup; order matters
+# (admin.audit_* must beat admin.* so the Audit Log highlights
+# Compliance, not System). Module-level so tests can import it.
+_SECTION_FOR_PREFIX: list[tuple[str, str]] = [
+    ("admin.audit_", "compliance"),
+    ("admin_training.", "compliance"),
+    ("reports.", "compliance"),
+    ("tickets.", "operations"),
+    ("haccp.", "operations"),
+    ("salsa.", "operations"),
+    ("admin.", "system"),
+]
+
+
+def _classify_endpoint(endpoint: str | None) -> str | None:
+    if not endpoint:
+        return None
+    for prefix, section in _SECTION_FOR_PREFIX:
+        if endpoint.startswith(prefix):
+            return section
+    return None
+
 
 def create_app(config: dict[str, Any] | None = None) -> Flask:
     app = Flask(__name__, instance_relative_config=False)
@@ -307,14 +330,15 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
 
             if dry_run:
                 # Build the link without enqueuing the SMS.
-                from datetime import datetime, timedelta, timezone
+                from datetime import UTC, datetime, timedelta
+
                 from app.models import TrainingEnrolment
                 from app.services import training_links
 
                 version = course.active_version
                 if version is None:
                     raise click.ClickException(f"Course {course_code} has no active version.")
-                issued_at = datetime.now(timezone.utc)
+                issued_at = datetime.now(UTC)
                 expires_at = issued_at + timedelta(days=version.link_ttl_days)
                 enrolment = TrainingEnrolment(
                     trainee_id=trainee.id,
@@ -405,6 +429,7 @@ def create_app(config: dict[str, Any] | None = None) -> Flask:
         return {
             "current_lang": g.get("lang", app.config["DEFAULT_LANGUAGE"]),
             "Perm": Perm,
+            "current_section": lambda: _classify_endpoint(request.endpoint),
         }
 
     if app.config.get("AUTO_CREATE_TABLES"):

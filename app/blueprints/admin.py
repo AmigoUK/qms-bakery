@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import UTC, datetime, time, timedelta
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import login_required
@@ -489,9 +490,36 @@ def triggers_edit(trigger_id: str):
 def audit_index():
     page_size = 100
     page = max(int(request.args.get("page", 1)), 1)
+    date_from = (request.args.get("date_from") or "").strip()
+    date_to = (request.args.get("date_to") or "").strip()
+
+    q = select(AuditLog)
+    # Filter by occurred_at when valid YYYY-MM-DD dates are supplied.
+    # Invalid input is silently ignored — auditor pastes a typo, sees
+    # the unfiltered list, can correct on the form. No error flash so
+    # the page stays browsable.
+    if date_from:
+        try:
+            d = datetime.strptime(date_from, "%Y-%m-%d").date()
+            q = q.where(
+                AuditLog.occurred_at
+                >= datetime.combine(d, time.min, tzinfo=UTC)
+            )
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            d = datetime.strptime(date_to, "%Y-%m-%d").date()
+            # `date_to` is inclusive — capture all events on that day.
+            q = q.where(
+                AuditLog.occurred_at
+                < datetime.combine(d + timedelta(days=1), time.min, tzinfo=UTC)
+            )
+        except ValueError:
+            pass
+
     q = (
-        select(AuditLog)
-        .order_by(AuditLog.id.desc())
+        q.order_by(AuditLog.id.desc())
         .limit(page_size)
         .offset((page - 1) * page_size)
     )
@@ -504,6 +532,8 @@ def audit_index():
         page_size=page_size,
         chain_ok=chain_ok,
         broken_id=broken_id,
+        date_from=date_from,
+        date_to=date_to,
     )
 
 

@@ -13,91 +13,109 @@
   <div class="kpi"><div class="kpi-value">{{ counts.audit_entries }}</div><div class="kpi-label">{{ _('admin.audit') }}</div></div>
 </section>
 
-<div class="grid-2">
-  <section class="card">
-    <h2>{{ _('admin.quick_links') }}</h2>
-    <ul>
-      {% if current_user.has_permission(Perm.USERS_MANAGE) %}
-        <li><a href="{{ url_for('admin.users_index') }}">{{ _('admin.users') }}</a></li>
-      {% endif %}
-      {% if current_user.has_permission(Perm.TRIGGERS_DEFINE) %}
-        <li><a href="{{ url_for('admin.triggers_index') }}">{{ _('admin.triggers') }}</a></li>
-      {% endif %}
-      {% if current_user.has_permission(Perm.PIPELINE_CONFIGURE) %}
-        <li><a href="{{ url_for('admin.pipelines_index') }}">{{ _('admin.pipelines') }}</a></li>
-      {% endif %}
-      {% if current_user.has_permission(Perm.AUDIT_VIEW) %}
-        <li><a href="{{ url_for('admin.audit_index') }}">{{ _('admin.audit') }}</a></li>
-      {% endif %}
-      {% if current_user.has_permission(Perm.DLQ_MANAGE) %}
-        <li><a href="{{ url_for('admin.dlq_index') }}">{{ _('admin.dlq.title') }}</a></li>
-      {% endif %}
+<div class="admin-sections">
+  <section class="card section-card">
+    <h2>{{ _('nav.section.operations') }}</h2>
+    <p class="muted">{{ _('admin.section.operations.desc') }}</p>
+    <ul class="link-list">
+      <li><a href="{{ url_for('tickets.index') }}">{{ _('nav.tickets') }}</a></li>
       {% if current_user.has_permission(Perm.CCP_MEASURE) %}
-        <li><a href="{{ url_for('haccp.index') }}">HACCP / CCP</a></li>
+        <li><a href="{{ url_for('haccp.index') }}">{{ _('nav.haccp') }}</a></li>
       {% endif %}
       {% if current_user.has_permission(Perm.SALSA_RESPOND) %}
-        <li><a href="{{ url_for('salsa.index') }}">SALSA</a></li>
-      {% endif %}
-      {% if current_user.has_permission(Perm.TRAINING_AUTHOR) %}
-        <li><a href="{{ url_for('admin_training.courses_index') }}">{{ _('admin.training.courses') }}</a></li>
-      {% endif %}
-      {% if current_user.has_permission(Perm.TRAINING_SEND) %}
-        <li><a href="{{ url_for('admin_training.trainees_index') }}">{{ _('admin.training.trainees') }}</a></li>
-      {% endif %}
-      {% if current_user.has_permission(Perm.TRAINING_REVIEW) %}
-        <li><a href="{{ url_for('admin_training.dashboard') }}">{{ _('admin.training.dashboard') }}</a></li>
+        <li><a href="{{ url_for('salsa.index') }}">{{ _('nav.salsa') }}</a></li>
       {% endif %}
     </ul>
   </section>
 
-  {% if current_user.has_permission(Perm.REPORTS_GENERATE) %}
-  <section class="card">
-    <h2>{{ _('admin.reports') }}</h2>
-    <p class="muted">{{ _('admin.reports.intro') }}</p>
-    <form action="{{ url_for('reports.haccp_monthly') }}" method="get" class="filters">
-      <label>
-        <span>{{ _('admin.reports.haccp_monthly') }}</span>
-      </label>
-      <label>
-        <span>{{ _('admin.reports.year') }}</span>
-        <input type="number" name="year" value="{{ today_year }}" min="2020" max="2099" required>
-      </label>
-      <label>
-        <span>{{ _('admin.reports.month') }}</span>
-        <input type="number" name="month" value="{{ today_month }}" min="1" max="12" required>
-      </label>
-      <button class="btn btn-secondary" type="submit">{{ _('admin.reports.download') }}</button>
-    </form>
-    <form action="{{ url_for('reports.fsa_traceability') }}" method="get" class="filters">
-      <label><span>{{ _('admin.reports.fsa_traceability') }}</span></label>
-      <label>
-        <span>{{ _('admin.reports.from') }}</span>
-        <input type="date" name="from" value="{{ today_month_first }}" required>
-      </label>
-      <label>
-        <span>{{ _('admin.reports.to') }}</span>
-        <input type="date" name="to" value="{{ today_iso }}" required>
-      </label>
-      <button class="btn btn-secondary" type="submit">{{ _('admin.reports.download') }}</button>
-    </form>
+  <section class="card section-card">
+    <h2>{{ _('nav.section.compliance') }}</h2>
+    <p class="muted">{{ _('admin.section.compliance.desc') }}</p>
+    <ul class="link-list">
+      {% if current_user.has_permission(Perm.TRAINING_REVIEW) %}
+        <li><a href="{{ url_for('admin_training.dashboard') }}">{{ _('nav.compliance.matrix') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission(Perm.TRAINING_SEND) %}
+        <li><a href="{{ url_for('admin_training.trainees_index') }}">{{ _('nav.compliance.trainees') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission(Perm.TRAINING_AUTHOR) %}
+        <li><a href="{{ url_for('admin_training.courses_index') }}">{{ _('nav.compliance.courses') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission(Perm.AUDIT_VIEW) %}
+        <li><a href="{{ url_for('admin.audit_index') }}">{{ _('nav.compliance.audit') }}</a></li>
+      {% endif %}
+    </ul>
+  </section>
+
+  {% if current_user.has_permission(Perm.SYSTEM_CONFIGURE) %}
+  <section class="card section-card">
+    <h2>{{ _('nav.section.system') }}</h2>
+    <p class="muted">{{ _('admin.section.system.desc') }}</p>
+    <ul class="link-list">
+      {% if current_user.has_permission(Perm.USERS_MANAGE) %}
+        <li><a href="{{ url_for('admin.users_index') }}">{{ _('nav.system.users') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission(Perm.TRIGGERS_DEFINE) %}
+        <li><a href="{{ url_for('admin.triggers_index') }}">{{ _('nav.system.triggers') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission(Perm.PIPELINE_CONFIGURE) %}
+        <li><a href="{{ url_for('admin.pipelines_index') }}">{{ _('nav.system.pipelines') }}</a></li>
+      {% endif %}
+      {% if current_user.has_permission(Perm.DLQ_MANAGE) %}
+        <li><a href="{{ url_for('admin.dlq_index') }}">{{ _('nav.system.dlq') }}</a></li>
+      {% endif %}
+    </ul>
   </section>
   {% endif %}
-
-  <section class="card">
-    <h2>{{ _('admin.recent_audit') }}</h2>
-    <table class="data">
-      <thead><tr><th>#</th><th>{{ _('admin.entity') }}</th><th>{{ _('admin.action') }}</th><th>{{ _('admin.when') }}</th></tr></thead>
-      <tbody>
-        {% for r in recent_audit %}
-        <tr>
-          <td>{{ r.id }}</td>
-          <td>{{ r.entity_type }}</td>
-          <td>{{ r.action }}</td>
-          <td>{{ r.occurred_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </section>
 </div>
+
+{% if current_user.has_permission(Perm.REPORTS_GENERATE) %}
+<section class="card">
+  <h2>{{ _('admin.reports') }}</h2>
+  <p class="muted">{{ _('admin.reports.intro') }}</p>
+  <form action="{{ url_for('reports.haccp_monthly') }}" method="get" class="filters">
+    <label>
+      <span>{{ _('admin.reports.haccp_monthly') }}</span>
+    </label>
+    <label>
+      <span>{{ _('admin.reports.year') }}</span>
+      <input type="number" name="year" value="{{ today_year }}" min="2020" max="2099" required>
+    </label>
+    <label>
+      <span>{{ _('admin.reports.month') }}</span>
+      <input type="number" name="month" value="{{ today_month }}" min="1" max="12" required>
+    </label>
+    <button class="btn btn-secondary" type="submit">{{ _('admin.reports.download') }}</button>
+  </form>
+  <form action="{{ url_for('reports.fsa_traceability') }}" method="get" class="filters">
+    <label><span>{{ _('admin.reports.fsa_traceability') }}</span></label>
+    <label>
+      <span>{{ _('admin.reports.from') }}</span>
+      <input type="date" name="from" value="{{ today_month_first }}" required>
+    </label>
+    <label>
+      <span>{{ _('admin.reports.to') }}</span>
+      <input type="date" name="to" value="{{ today_iso }}" required>
+    </label>
+    <button class="btn btn-secondary" type="submit">{{ _('admin.reports.download') }}</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="card">
+  <h2>{{ _('admin.recent_audit') }}</h2>
+  <table class="data">
+    <thead><tr><th>#</th><th>{{ _('admin.entity') }}</th><th>{{ _('admin.action') }}</th><th>{{ _('admin.when') }}</th></tr></thead>
+    <tbody>
+      {% for r in recent_audit %}
+      <tr>
+        <td>{{ r.id }}</td>
+        <td>{{ r.entity_type }}</td>
+        <td>{{ r.action }}</td>
+        <td>{{ r.occurred_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
 {% endblock %}
